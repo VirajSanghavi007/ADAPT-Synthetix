@@ -1,0 +1,19 @@
+ALGORITHM: Adaptive_Synthetic_Augmentation_Loop
+
+1.  START
+2.  LOAD Pre-trained ASR_Model
+3.  TEST ASR_Model on Real_World_Dataset (e.g., Common Voice)
+4.  IDENTIFY Error_Profiles (Group errors by Accent, Noise, or Speed)
+5.  FOR each Error_Profile DO:
+        a. IF Error_Rate > Threshold THEN:
+            i.   EXTRACT failed Keywords and Acoustic_Environment
+            ii.  GENERATE Targeted_Text_Scripts based on failures
+            iii. TRIGGER TTS_Engine to create Synthetic_Speech
+            iv.  APPLY Noising_Module (Add specific environment sounds)
+            v.   MIX Synthetic_Data with Baseline_Training_Set
+            vi.  FINE-TUNE ASR_Model on new mixed dataset
+        b. ELSE:
+            SKIP (Model is already robust for this profile)
+6.  VALIDATE New_ASR_Model on unseen test data
+7.  IF Overall_WER_Improvement < Goal GOTO Step 4
+8.  END
