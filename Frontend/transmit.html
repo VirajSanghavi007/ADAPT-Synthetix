@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADAPT-Synthetix | TRANSMIT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --card: #111111;
+            --accent: #00e5ff;
+            --accent-dim: #004d57;
+            --error: #ff4500;
+            --font: 'Space Mono', 'Courier New', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--accent);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .back-btn {
+            text-decoration: none;
+            color: #555;
+            font-size: 0.8rem;
+            border: 1px solid #222;
+            padding: 5px 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .page-title {
+            font-size: 0.9rem;
+            letter-spacing: 4px;
+            color: var(--accent);
+        }
+
+        /* --- Cards --- */
+        .portal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 2rem;
+        }
+
+        .portal-card {
+            background: var(--card);
+            border: 1px solid #1a1a1a;
+            border-radius: 15px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .portal-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-dim);
+            background: #151515;
+        }
+
+        .icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-subtitle {
+            font-size: 0.75rem;
+            color: #555;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-field {
+            width: 100%;
+            background: #0d0d0d;
+            border: 1px solid #222;
+            color: var(--accent);
+            padding: 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            outline: none;
+            margin-bottom: 1rem;
+        }
+
+        .transmit-btn {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .transmit-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        /* --- Output Terminal --- */
+        .output-container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid #1a1a1a;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-body {
+            height: 200px;
+            padding: 1.5rem;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            background: #0d0d0d;
+        }
+
+        .output-footer {
+            padding: 10px 15px;
+            background: #161616;
+            display: flex;
+            gap: 1rem;
+            border-top: 1px solid #222;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #555;
+            padding: 5px 12px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        #fileInput { display: none; }
+
+        @media (max-width: 768px) {
+            .portal-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="back-btn">&larr; TERMINAL</a>
+        <div class="page-title">ADAPT-Synthetix / TRANSMIT_FILE</div>
+    </header>
+
+    <div class="portal-grid">
+        <!-- Card 1: Local -->
+        <div class="portal-card" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">📁</div>
+            <div class="card-title">LOCAL_FILE</div>
+            <div class="card-subtitle">Upload supported audio from device</div>
+            <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.flac">
+            <button class="transmit-btn">SELECT_FILE</button>
+        </div>
+
+        <!-- Card 2: Drive -->
+        <div class="portal-card" onclick="event.stopPropagation()">
+            <div class="icon">☁️</div>
+            <div class="card-title">DRIVE_LINK</div>
+            <div class="card-subtitle">Paste a public Google Drive direct link</div>
+            <input type="text" id="driveUrl" class="input-field" placeholder="https://drive.google.com/..." spellcheck="false">
+            <button class="transmit-btn" id="driveTransmit">TRANSMIT</button>
+        </div>
+    </div>
+
+    <!-- Output -->
+    <div class="output-container">
+        <div class="output-body" id="output">
+            <div style="color: #333;">Waiting for input portal activation...</div>
+        </div>
+        <div class="output-footer">
+            <button class="action-btn" id="copyBtn" disabled>COPY_RESULT</button>
+            <button class="action-btn" id="sendBtn" disabled>SEND_TO_TERMINAL</button>
+        </div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        const fileInput = document.getElementById('fileInput');
+        const driveUrl = document.getElementById('driveUrl');
+        const driveBtn = document.getElementById('driveTransmit');
+        const copyBtn = document.getElementById('copyBtn');
+        const sendBtn = document.getElementById('sendBtn');
+
+        let currentTranscription = "";
+
+        function print(text, color = null) {
+            const line = document.createElement('div');
+            line.style.marginBottom = '6px';
+            if (color) line.style.color = color;
+            line.textContent = `> ${text}`;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function setTranscription(text) {
+            currentTranscription = text;
+            copyBtn.disabled = !text;
+            sendBtn.disabled = !text;
+        }
+
+        // --- File Upload ---
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            output.innerHTML = "";
+            print(`INIT_LOCAL_TRANSFER: ${file.name.toUpperCase()}`);
+            print(`PROCESSING...`);
+
+            const formData = new FormData();
+            formData.append('audio', file);
+
+            try {
+                const res = await fetch('/transcribe', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    print(`SUCCESS: Transcription retrieved.`);
+                    print(`${data.transcription}`, '#00e5ff');
+                    setTranscription(data.transcription);
+                } else {
+                    print(`ERROR: ${data.error}`, '#ff4500');
+                }
+            } catch (e) {
+                print(`ERROR: Server connection failed`, '#ff4500');
+            }
+        });
+
+        // --- Drive Link Proccessing ---
+        function getDirectLink(url) {
+            const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (match && match[1]) {
+                return `https://docs.google.com/uc?export=download&id=${match[1]}`;
+            }
+            return url;
+        }
+
+        driveBtn.addEventListener('click', async () => {
+            const url = driveUrl.value.trim();
+            if (!url) return;
+
+            output.innerHTML = "";
+            print(`INIT_CLOUD_FETCH...`);
+            
+            const directLink = getDirectLink(url);
+            print(`FETCHING_STREAM: ${directLink.substring(0, 40)}...`);
+
+            try {
+                // Fetch blob from drive
+                const driveRes = await fetch(directLink);
+                if (!driveRes.ok) throw new Error("Could not fetch file from URL");
+                
+                const blob = await driveRes.blob();
+                print(`FILE_DOWNLOADED: ${Math.round(blob.size/1024)}KB`);
+                
+                const formData = new FormData();
+                formData.append('audio', blob, 'cloud_chunk.mp3');
+
+                const res = await fetch('/transcribe', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    print(`SUCCESS: Processing complete.`);
+                    print(`${data.transcription}`, '#00e5ff');
+                    setTranscription(data.transcription);
+                } else {
+                    print(`ERROR: ${data.error}`, '#ff4500');
+                }
+            } catch (e) {
+                print(`ERROR: ${e.message}`, '#ff4500');
+            }
+        });
+
+        // --- Actions ---
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(currentTranscription);
+            const original = copyBtn.textContent;
+            copyBtn.textContent = "COPIED!";
+            setTimeout(() => copyBtn.textContent = original, 2000);
+        });
+
+        sendBtn.addEventListener('click', () => {
+            localStorage.setItem('pending_transcription', currentTranscription);
+            window.location.href = 'index.html';
+        });
+
+    </script>
+</body>
+</html>

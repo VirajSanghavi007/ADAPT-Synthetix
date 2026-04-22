@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADAPT-Synthetix | TERMINAL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --card: #111111;
+            --accent-idle: #00e5ff;
+            --accent-record: #ff4500;
+            --text-dim: #444;
+            --font: 'Space Mono', 'Courier New', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--accent-idle);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow: hidden;
+        }
+
+        /* --- Section 1: Waveform --- */
+        .visualizer-container {
+            width: 100%;
+            max-width: 700px;
+            height: 150px;
+            background: var(--card);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            position: relative;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+            border: 1px solid #1a1a1a;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* --- Section 2: Controller --- */
+        .control-section {
+            margin-bottom: 2rem;
+        }
+
+        .record-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid var(--accent-idle);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            outline: none;
+        }
+
+        .record-btn::after {
+            content: '';
+            width: 30px;
+            height: 30px;
+            background: var(--accent-idle);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .record-btn.recording {
+            border-color: var(--accent-record);
+            box-shadow: 0 0 30px rgba(255, 69, 0, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+
+        .record-btn.recording::after {
+            background: var(--accent-record);
+            border-radius: 4px;
+            width: 25px;
+            height: 25px;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 69, 0, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 69, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 69, 0, 0); }
+        }
+
+        /* --- Section 3: Interactive Terminal --- */
+        .terminal-container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+            border: 1px solid #1a1a1a;
+            cursor: text;
+        }
+
+        .terminal-header {
+            padding: 12px 20px;
+            background: #161616;
+            display: flex;
+            align-items: center;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            letter-spacing: 2px;
+            border-bottom: 1px solid #222;
+        }
+
+        .terminal-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-idle);
+            border-radius: 50%;
+            margin-right: 12px;
+            box-shadow: 0 0 8px var(--accent-idle);
+        }
+
+        .terminal-body {
+            height: 300px;
+            padding: 1.5rem;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            background: #0d0d0d;
+        }
+
+        .terminal-line {
+            margin-bottom: 6px;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+            color: var(--accent-idle);
+        }
+
+        .prompt {
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        #terminalInput {
+            background: transparent;
+            border: none;
+            color: var(--accent-idle);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            flex: 1;
+            outline: none;
+            padding: 0;
+        }
+
+        .cursor {
+            display: none; /* We use the system cursor for the input field */
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1a1a1a;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Section 1: Symmetrical Waveform -->
+    <div class="visualizer-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- Section 2: Controller -->
+    <div class="control-section">
+        <button id="recordBtn" class="record-btn"></button>
+    </div>
+
+    <!-- Section 3: Interactive Terminal -->
+    <div class="terminal-container" id="terminalContainer">
+        <div class="terminal-header">
+            <div class="terminal-dot" id="statusDot"></div>
+            SYSTEM_TERMINAL [ACTIVE]
+        </div>
+        <div class="terminal-body" id="terminal">
+            <div class="terminal-line" style="color: #222;">ADAPT-Synthetix Initialization... [OK]</div>
+            <div id="outputArea"></div>
+            <div class="input-line">
+                <span class="prompt">&gt;</span>
+                <input type="text" id="terminalInput" spellcheck="false" autocomplete="off" autofocus>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const terminalOutput = document.getElementById('outputArea');
+        const terminalInput = document.getElementById('terminalInput');
+        const terminalBody = document.getElementById('terminal');
+        const terminalContainer = document.getElementById('terminalContainer');
+        const recordBtn = document.getElementById('recordBtn');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusDot = document.getElementById('statusDot');
+
+        let mediaRecorder;
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let isRecording = false;
+        let chunkInterval;
+
+        // --- Waveform Centering Fix & Latency Fix ---
+        function initVisualizer() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            function renderFrame() {
+                requestAnimationFrame(renderFrame);
+                
+                const width = canvas.width;
+                const height = canvas.height;
+                ctx.clearRect(0, 0, width, height);
+
+                const barWidth = 3;
+                const gap = 3;
+                const totalBarWidth = barWidth + gap;
+                const maxBars = Math.floor(width / totalBarWidth);
+                const midX = width / 2;
+                const midY = height / 2;
+                
+                if (isRecording && analyser) {
+                    analyser.getByteFrequencyData(dataArray);
+                }
+
+                // Symmetrical Drawing from center
+                for (let i = 0; i < maxBars / 2; i++) {
+                    let barHeight;
+                    if (isRecording && analyser) {
+                        const freqIdx = Math.floor((i / (maxBars / 2)) * (dataArray.length / 2));
+                        barHeight = (dataArray[freqIdx] / 255) * (height / 1.5) + 5;
+                    } else {
+                        // Symmetric ambient pulse
+                        barHeight = 4 + Math.sin(Date.now() * 0.005 + i * 0.3) * 6;
+                    }
+
+                    ctx.fillStyle = isRecording ? '#ff4500' : '#00363d';
+                    
+                    // Draw right
+                    const xRight = midX + (i * totalBarWidth);
+                    ctx.fillRect(xRight, midY - barHeight/2, barWidth, barHeight);
+                    
+                    // Draw left
+                    const xLeft = midX - (i * totalBarWidth) - barWidth;
+                    ctx.fillRect(xLeft, midY - barHeight/2, barWidth, barHeight);
+                }
+            }
+            renderFrame();
+        }
+
+        initVisualizer();
+
+        // --- Simulated Terminal Logic ---
+        function print(text, color = null) {
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            if (color) line.style.color = color;
+            line.textContent = text;
+            terminalOutput.appendChild(line);
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+
+        async function handleCommand(rawCmd) {
+            const cmd = rawCmd.trim();
+            if (!cmd) return;
+
+            print(`> ${cmd}`);
+            const [base, ...args] = cmd.split(' ');
+
+            switch (base.toLowerCase()) {
+                case 'echo':
+                    print(args.join(' '));
+                    break;
+                case 'clear':
+                    terminalOutput.innerHTML = '';
+                    break;
+                case 'help':
+                    print(`ADAPT-Synthetix Terminal v1.0`);
+                    print(`Available commands:`);
+                    print(`  echo [text]        — Print text to terminal`);
+                    print(`  clear              — Clear terminal output`);
+                    print(`  status             — Show ASR model status`);
+                    print(`  transmit_file      — Open file transcription portal`);
+                    print(`  help               — Show this help message`);
+                    break;
+                case 'status':
+                    try {
+                        const res = await fetch('/health');
+                        if (res.ok) {
+                            print(`ASR Engine: wav2vec2-base-960h`);
+                            print(`Status: ONLINE`);
+                            print(`Mode: CPU Inference`);
+                            print(`Framework: HuggingFace Transformers`);
+                        } else {
+                            throw new Error();
+                        }
+                    } catch (e) {
+                        print(`ERROR: Backend offline`, '#ff4500');
+                    }
+                    break;
+                case 'transmit_file':
+                    window.location.href = 'transmit.html';
+                    break;
+                default:
+                    print(`Command not found. Type 'help' for available commands.`, '#555');
+            }
+        }
+
+        // Keep terminal focused
+        terminalContainer.addEventListener('click', () => terminalInput.focus());
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleCommand(terminalInput.value);
+                terminalInput.value = '';
+            }
+        });
+
+        // --- Audio Logic ---
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                source.connect(analyser);
+
+                mediaRecorder = new MediaRecorder(stream);
+                let chunks = [];
+
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    sendChunk(new Blob(chunks, { type: 'audio/webm' }));
+                    chunks = [];
+                };
+
+                isRecording = true;
+                recordBtn.classList.add('recording');
+                statusDot.style.background = '#ff4500';
+                statusDot.style.boxShadow = '0 0 8px #ff4500';
+                
+                mediaRecorder.start();
+                chunkInterval = setInterval(() => {
+                    if (mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        mediaRecorder.start();
+                    }
+                }, 5000);
+
+            } catch (err) {
+                print(`MIC_ERROR: ${err.message}`, '#ff4500');
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+            statusDot.style.background = '#00e5ff';
+            statusDot.style.boxShadow = '0 0 8px #00e5ff';
+            
+            clearInterval(chunkInterval);
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        async function sendChunk(blob) {
+            if (blob.size < 500) return;
+            const formData = new FormData();
+            formData.append('audio', blob, 'chunk.webm');
+            try {
+                const res = await fetch('/transcribe', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.transcription) print(data.transcription);
+            } catch (e) {}
+        }
+
+        recordBtn.addEventListener('click', () => {
+            if (!isRecording) startRecording(); else stopRecording();
+        });
+
+        // --- LocalStorage Loader ---
+        window.onload = () => {
+            const pending = localStorage.getItem('pending_transcription');
+            if (pending) {
+                print(`[IMPORTED_RESULT]:`);
+                print(pending);
+                localStorage.removeItem('pending_transcription');
+            }
+        };
+
+    </script>
+</body>
+</html>
