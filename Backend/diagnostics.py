@@ -3,8 +3,10 @@ import torch
 import librosa
 from jiwer import cer
 from g2p_en import G2p
+from noise_fingerprint import NoiseFingerprinter
 
 _G2P = G2p()
+fingerprinter = NoiseFingerprinter()
 
 
 def calculate_cer(reference, hypothesis):
@@ -19,28 +21,7 @@ def extract_phonemes(text):
 
 
 def classify_noise_profile(audio_array, sr=16000):
-    spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=audio_array, sr=sr)))
-    zero_crossing_rate = float(np.mean(librosa.feature.zero_crossing_rate(y=audio_array)))
-    rms_energy = float(np.mean(librosa.feature.rms(y=audio_array)))
-    mfcc = librosa.feature.mfcc(y=audio_array, sr=sr)
-    mfcc_variance = float(np.mean(np.var(mfcc, axis=1)))
-
-    if rms_energy < 0.01:
-        noise_type = "clean"
-    elif spectral_centroid > 3000 and zero_crossing_rate > 0.1:
-        noise_type = "traffic"
-    elif rms_energy > 0.05 and mfcc_variance > 50:
-        noise_type = "crowd"
-    else:
-        noise_type = "indoor"
-
-    return {
-        "noise_type": noise_type,
-        "spectral_centroid": spectral_centroid,
-        "zero_crossing_rate": zero_crossing_rate,
-        "rms_energy": rms_energy,
-        "mfcc_variance": mfcc_variance,
-    }
+    return fingerprinter.fingerprint(audio_array, sr=sr)
 
 
 def extract_confidence(logits_tensor):

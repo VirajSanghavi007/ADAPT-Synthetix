@@ -30,20 +30,24 @@ function renderTerminal(sessions) {
     if (!outputArea) return;
 
     outputArea.innerHTML = '';
+    const validSessions = (sessions || []).filter((s) => {
+        const text = (s?.transcription ?? "").toString().trim();
+        return text.length > 0;
+    });
 
-    if (!sessions || sessions.length === 0) {
-        outputArea.innerHTML = '<div class="terminal-line" style="color:var(--text-dim)">No transcriptions yet.</div>';
+    if (validSessions.length === 0) {
         return;
     }
 
-    sessions.forEach(s => {
+    validSessions.forEach(s => {
         const isClean   = (s.error_type || 'clean').toLowerCase() === 'clean';
         const mainColor = isClean ? 'var(--accent-idle)' : 'var(--accent-record)';
         const label     = (s.error_type || 'clean').toUpperCase();
-        const conf      = fmt((s.confidence_score || 0) * 100, 0) + '%';
+        const confidence = typeof s.confidence_score === "number" ? s.confidence_score : parseFloat(s.confidence_score);
+        const conf      = Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : 'N/A';
         const cer       = fmt(s.cer_score, 2);
-        const text      = s.transcript || '(empty)';
-        const ts        = fmtTime(s.created_at);
+        const text      = (s.transcription || '').trim();
+        const ts        = fmtTime(s.timestamp);
 
         const entry = document.createElement('div');
         entry.className = 'terminal-line';

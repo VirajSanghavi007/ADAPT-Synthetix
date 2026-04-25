@@ -63,6 +63,12 @@ async function handleCommand(rawCmd) {
             print(`  echo [text]        — Print text to terminal`);
             print(`  synthesize [text]  — Generate speech using Bark-small`);
             print(`  history            — Show recent logs from SQLite`);
+            print(`  remediation_status — Show remediation counters`);
+            print(`  drift_report       — Show phoneme drift report`);
+            print(`  noise_report       — Show aggregated noise profile report`);
+            print(`  queue_status       — Show remediation priority queue`);
+            print(`  dataset_stats      — Show dataset composition stats`);
+            print(`  lora_status        — Show LoRA adapter status`);
             print(`  clear              — Clear terminal output`);
             print(`  status             — Show system status`);
             print(`  help               — Show this help message`);
@@ -76,15 +82,123 @@ async function handleCommand(rawCmd) {
                 const data = await healthRes.json();
                 const ttsData = ttsRes.ok ? await ttsRes.json() : null;
                 if (healthRes.ok) {
-                    print(`ASR Engine: ${data.asr}`);
-                    print(`TTS Engine: ${ttsData?.model || data.tts || 'unknown'}`);
-                    print(`TTS Status: ${ttsData?.available ? 'ONLINE' : 'OFFLINE'}`);
-                    print(`Status: ONLINE`);
+                    const sessionShort = ((data.session_id || '').toString()).slice(0, 8) || 'N/A';
+                    print(`ASR Engine : wav2vec2-base-960h`);
+                    print(`ASR Status : ONLINE`);
+                    print(`TTS Engine : ${ttsData?.model || 'suno/bark-small'}`);
+                    print(`TTS Status : ${ttsData?.available ? 'ONLINE' : 'OFFLINE'}`);
+                    print(`DB Status  : ONLINE`);
+                    print(`Session ID : ${sessionShort}`);
                 } else {
                     throw new Error();
                 }
             } catch (e) {
                 print(`ERROR: Backend offline`, '#ff4500');
+            }
+            break;
+        case 'remediation_status':
+            try {
+                const res = await fetch('/remediation_status');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch remediation status');
+                print(`Total Transcriptions : ${data.total_transcriptions ?? 0}`);
+                print(`Clean               : ${data.clean ?? 0}`);
+                print(`Remediated          : ${data.remediated ?? 0}`);
+                print(`Pending             : ${data.pending_remediation ?? 0}`);
+                print(`Remediation Rate    : ${Number(data.remediation_rate ?? 0).toFixed(1)}%`);
+            } catch (e) {
+                print(`ERROR: Remediation status unavailable`, '#ff4500');
+            }
+            break;
+        case 'drift_report':
+            try {
+                const res = await fetch('/drift_report');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch drift report');
+
+                const degrading = Array.isArray(data.degrading)
+                    ? data.degrading.map((d) => d.phoneme).filter(Boolean)
+                    : [];
+                const highRisk = Array.isArray(data.high_risk_phonemes) ? data.high_risk_phonemes : [];
+                const retrainingNeeded = highRisk.length >= 3 ? 'YES' : 'NO';
+
+                print(`Phonemes Tracked   : ${data.total_phonemes_tracked ?? 0}`);
+                print(`Degrading          : ${degrading.length ? degrading.join(', ') : 'none'}`);
+                print(`High Risk          : ${highRisk.length ? highRisk.join(', ') : 'none'}`);
+                print(`Retraining Needed  : ${retrainingNeeded}`);
+            } catch (e) {
+                print(`ERROR: Drift report unavailable`, '#ff4500');
+            }
+            break;
+        case 'noise_report':
+            try {
+                const res = await fetch('/noise_report');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch noise report');
+                const breakdown = data.breakdown || {};
+                print(`Noise Report`);
+                print(`Total Analyzed     : ${data.total_analyzed ?? 0}`);
+                print(`Most Common        : ${data.most_common ?? 'indoor'}`);
+                print(`Clean              : ${breakdown.clean ?? 0}`);
+                print(`Traffic            : ${breakdown.traffic ?? 0}`);
+                print(`Crowd              : ${breakdown.crowd ?? 0}`);
+                print(`Machinery          : ${breakdown.machinery ?? 0}`);
+                print(`Indoor             : ${breakdown.indoor ?? 0}`);
+            } catch (e) {
+                print(`ERROR: Noise report unavailable`, '#ff4500');
+            }
+            break;
+        case 'queue_status':
+            try {
+                const res = await fetch('/priority_queue');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch priority queue');
+
+                const stats = data.stats || {};
+                const queue = Array.isArray(data.queue) ? data.queue : [];
+                const topItemRaw = queue.length > 0 ? String(queue[0].transcription || '') : 'none';
+                const topItem = topItemRaw.length > 40 ? `${topItemRaw.slice(0, 40)}...` : topItemRaw;
+                const avgPriority = Number(stats.avg_priority ?? 0).toFixed(2);
+
+                print(`Remediation Queue`);
+                print(`Pending      : ${stats.pending ?? 0}`);
+                print(`Completed    : ${stats.completed ?? 0}`);
+                print(`Avg Priority : ${avgPriority}`);
+                print(`Top Item     : ${topItem}`);
+            } catch (e) {
+                print(`ERROR: Queue status unavailable`, '#ff4500');
+            }
+            break;
+        case 'dataset_stats':
+            try {
+                const res = await fetch('/dataset_stats');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch dataset stats');
+                const byCategory = data.by_category || {};
+                const byNoiseType = data.by_noise_type || {};
+
+                print(`Dataset Stats`);
+                print(`Total Samples : ${data.total ?? 0}`);
+                print(`Noisy         : ${byCategory.noisy ?? 0}`);
+                print(`Accented      : ${byCategory.accented ?? 0}`);
+                print(`Medical       : ${byCategory.medical ?? 0}`);
+                print(`Clean         : ${byNoiseType.clean ?? 0}`);
+            } catch (e) {
+                print(`ERROR: Dataset stats unavailable`, '#ff4500');
+            }
+            break;
+        case 'lora_status':
+            try {
+                const res = await fetch('/lora_status');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch LoRA status');
+
+                print(`LoRA Adapter   : ${data.adapter_exists ? 'EXISTS' : 'NOT TRAINED'}`);
+                print(`Last Trained   : ${data.last_trained || 'never'}`);
+                const logCount = Array.isArray(data.training_logs) ? data.training_logs.length : 0;
+                print(`Training Logs  : ${logCount} available`);
+            } catch (e) {
+                print(`ERROR: LoRA status unavailable`, '#ff4500');
             }
             break;
         default:
@@ -207,7 +321,10 @@ async function sendChunk(blob) {
         if (data.transcription) {
             print(`[TRANSCRIPTION]: ${data.transcription}`);
             if (data.confidence !== undefined) {
-                print(`[CONFIDENCE]: ${Number(data.confidence).toFixed(4)}`);
+                const confidencePercent = Number(data.confidence) * 100;
+                if (Number.isFinite(confidencePercent)) {
+                    print(`[CONFIDENCE]: ${confidencePercent.toFixed(1)}%`);
+                }
             }
             if (data.noise_type !== undefined) {
                 print(`[NOISE]: ${data.noise_type}`);

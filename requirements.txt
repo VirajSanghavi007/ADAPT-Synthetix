@@ -57,10 +57,13 @@ transformers==5.5.4
 typer==0.24.1
 typing_extensions==4.15.0
 urllib3==2.6.3
-flask
-flask-cors
+fastapi
+uvicorn
+python-multipart
 scipy
 uuid
 datetime
 pytest
 pytest-mock
+peft
+accelerate

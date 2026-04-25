@@ -6,8 +6,13 @@ let dataArray;
 let isRecording = false;
 
 function initVisualizer() {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    function resizeCanvas() {
+        const parent = canvas.parentElement;
+        canvas.width = parent ? parent.clientWidth : canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
     
     function renderFrame() {
         requestAnimationFrame(renderFrame);
@@ -19,7 +24,7 @@ function initVisualizer() {
         const barWidth = 3;
         const gap = 3;
         const totalBarWidth = barWidth + gap;
-        const maxBars = Math.floor(width / totalBarWidth);
+        const halfBars = Math.floor((width / 2) / totalBarWidth);
         const midX = width / 2;
         const midY = height / 2;
         
@@ -27,21 +32,22 @@ function initVisualizer() {
             window.analyser.getByteFrequencyData(window.dataArray);
         }
 
-        for (let i = 0; i < maxBars / 2; i++) {
+        for (let i = 0; i < halfBars; i++) {
             let barHeight;
             if (window.isRecording && window.analyser) {
-                const freqIdx = Math.floor((i / (maxBars / 2)) * (window.dataArray.length / 2));
+                const freqIdx = Math.floor((i / Math.max(halfBars, 1)) * (window.dataArray.length / 2));
                 barHeight = (window.dataArray[freqIdx] / 255) * (height / 1.5) + 5;
             } else {
                 barHeight = 4 + Math.sin(Date.now() * 0.005 + i * 0.3) * 6;
             }
 
             ctx.fillStyle = window.isRecording ? '#ff4500' : '#00363d';
-            
-            const xRight = midX + (i * totalBarWidth);
+
+            const offset = i * totalBarWidth;
+            const xRight = midX + offset;
             ctx.fillRect(xRight, midY - barHeight/2, barWidth, barHeight);
-            
-            const xLeft = midX - (i * totalBarWidth) - barWidth;
+
+            const xLeft = midX - offset - barWidth;
             ctx.fillRect(xLeft, midY - barHeight/2, barWidth, barHeight);
         }
     }

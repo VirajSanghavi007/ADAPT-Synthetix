@@ -5,6 +5,7 @@ import types
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "Backend"
@@ -37,14 +38,13 @@ def app_client(monkeypatch):
     import app as backend_app
 
     module = importlib.reload(backend_app)
-    module.app.config["TESTING"] = True
-    return module.app.test_client()
+    return TestClient(module.app)
 
 
 def test_health_endpoint_returns_200(app_client):
     response = app_client.get("/health")
     assert response.status_code == 200
-    data = response.get_json()
+    data = response.json()
     assert data["status"] == "healthy"
 
 
@@ -54,23 +54,21 @@ def test_transcribe_no_file_returns_400(app_client):
 
 
 def test_transcribe_invalid_format_returns_400(app_client):
-    data = {
-        "audio": (io.BytesIO(b"plain text data"), "sample.txt"),
-    }
-    response = app_client.post("/transcribe", data=data, content_type="multipart/form-data")
+    files = {"audio": ("sample.txt", io.BytesIO(b"plain text data"), "text/plain")}
+    response = app_client.post("/transcribe", files=files)
     assert response.status_code == 400
 
 
 def test_sessions_endpoint_returns_list(app_client):
     response = app_client.get("/sessions")
     assert response.status_code == 200
-    payload = response.get_json()
+    payload = response.json()
     assert isinstance(payload, list)
 
 
 def test_tts_status_endpoint(app_client):
     response = app_client.get("/tts_status")
     assert response.status_code == 200
-    payload = response.get_json()
+    payload = response.json()
     assert "available" in payload
     assert "model" in payload

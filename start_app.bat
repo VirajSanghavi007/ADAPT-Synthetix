@@ -23,7 +23,7 @@ echo.
 :: Automatically open the browser
 start http://localhost:5000
 
-:: Run the Flask server
-python Backend/app.py
+:: Run the FastAPI server
+uvicorn Backend.app:app --host 0.0.0.0 --port 5000 --reload
 
 pause

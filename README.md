@@ -16,11 +16,17 @@ pip install -r requirements.txt
 
 ## Quick Run
 ```bash
-python Backend/app.py
+uvicorn Backend.app:app --host 0.0.0.0 --port 5000 --reload
 python pipeline_test.py path/to/audio.mp3
 ```
 
 Open `Frontend/index.html` in a browser for the UI.
+
+## Docker Quick Start
+```bash
+docker-compose up
+# Then open Frontend/index.html in browser
+```
 
 ## Full Documentation
 - Technical reference: [`DOCUMENTATION.md`](DOCUMENTATION.md)

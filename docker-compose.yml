@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  adapt-synthetix:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./Backend/data:/app/Backend/data
+      - ./Backend/logs:/app/Backend/logs
+      - ./Backend/models:/app/Backend/models
+      - ./Dataset:/app/Dataset
+      - ./.cache:/app/.cache
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

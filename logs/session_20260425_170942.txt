@@ -1,0 +1,5 @@
+[2026-04-25 17:09:42] SESSION_START: New session logger initialized
+[2026-04-25 17:12:15] API_REQUEST: /transcribe
+[2026-04-25 17:12:18] API_REQUEST: /transcribe
+[2026-04-25 17:12:24] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-04-25 17:12:24] TRANSCRIPTION_ERROR: no such column: cer_score

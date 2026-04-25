@@ -33,6 +33,12 @@ def test_extract_phonemes_returns_list():
     assert len(phonemes) > 0
 
 
+def test_extract_phonemes_filters_spaces():
+    phonemes = diagnostics.extract_phonemes("hello world")
+    assert all(token.strip() for token in phonemes)
+    assert " " not in phonemes
+
+
 def test_classify_noise_profile_clean_audio():
     silence = np.zeros(16000, dtype=np.float32)
     result = diagnostics.classify_noise_profile(silence)
@@ -45,10 +51,20 @@ def test_classify_noise_profile_returns_all_features():
     assert set(result.keys()) == {
         "noise_type",
         "spectral_centroid",
+        "spectral_bandwidth",
+        "spectral_rolloff",
         "zero_crossing_rate",
         "rms_energy",
         "mfcc_variance",
+        "tempo",
+        "harmonic_ratio",
     }
+
+
+def test_classify_noise_profile_returns_noise_type_key():
+    audio = np.random.randn(16000).astype(np.float32)
+    result = diagnostics.classify_noise_profile(audio)
+    assert "noise_type" in result
 
 
 def test_extract_confidence_returns_float_between_zero_and_one():
@@ -66,3 +82,8 @@ def test_classify_error_type_clean_audio_low_cer():
 def test_classify_error_type_noisy_audio():
     result = diagnostics.classify_error_type(0.25, {"noise_type": "traffic"}, 0.9)
     assert result == "noise"
+
+
+def test_classify_error_type_accent_condition():
+    result = diagnostics.classify_error_type(0.2, {"noise_type": "clean"}, 0.3)
+    assert result == "accent"
