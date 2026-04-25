@@ -60,3 +60,7 @@ urllib3==2.6.3
 flask
 flask-cors
 scipy
+uuid
+datetime
+pytest
+pytest-mock

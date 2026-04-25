@@ -2,6 +2,8 @@
 echo Starting ADAPT-Synthetix...
 echo.
 
+$env:PATH += ";C:\Users\viraj.DEEPA-S-LAPTOP\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-essentials_build\bin"
+
 :: Check if virtual environment exists
 if not exist "vir_env\Scripts\activate.bat" (
     echo [ERROR] Virtual environment 'vir_env' not found.
