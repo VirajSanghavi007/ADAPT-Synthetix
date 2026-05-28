@@ -22,6 +22,7 @@ def _init_db(conn: sqlite3.Connection) -> None:
             audio_filename      TEXT,
             audio_path          TEXT,
             transcription       TEXT,
+            reference_transcript TEXT DEFAULT NULL,
             duration_seconds    REAL,
             model_used          TEXT,
             cer_score           REAL    DEFAULT NULL,
@@ -31,6 +32,7 @@ def _init_db(conn: sqlite3.Connection) -> None:
             remedial_audio_path TEXT    DEFAULT NULL
         )
     """)
+    _ensure_column(conn, "transcriptions", "reference_transcript", "TEXT DEFAULT NULL")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS phoneme_tracking (
@@ -43,6 +45,13 @@ def _init_db(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    """Add a nullable column when an older SQLite DB is opened."""
+    columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def _get_connection() -> sqlite3.Connection:
@@ -65,6 +74,7 @@ def log_transcription(
     transcription: str,
     duration: float,
     model: str,
+    reference_transcript: str | None = None,
 ) -> int:
     """
     Insert a new transcription row and return the new row id.
@@ -89,11 +99,11 @@ def log_transcription(
         """
         INSERT INTO transcriptions
             (session_id, timestamp, audio_filename, audio_path,
-             transcription, duration_seconds, model_used)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+             transcription, reference_transcript, duration_seconds, model_used)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (session_id, timestamp, audio_filename, audio_path,
-         transcription, duration, model),
+         transcription, reference_transcript, duration, model),
     )
     conn.commit()
     row_id = cursor.lastrowid

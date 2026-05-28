@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent.absolute()
 
 # Database
-DB_DIR = ROOT_DIR / "database"
+DB_DIR = ROOT_DIR / "Backend" / "data"
 DB_PATH = DB_DIR / "adaptsynthetix.db"
 
 # Data/Datasets
@@ -18,9 +18,9 @@ LOGS_DIR = ROOT_DIR / "logs"
 # Models
 MODELS_DIR = ROOT_DIR / "models"
 
-# Temporary Uploads (from previous app.py logic)
-TEMP_DIR = ROOT_DIR / "backend" / "temp"
+# Temporary Uploads
+TEMP_DIR = ROOT_DIR / "Backend" / "temp"
 
 # Ensure critical directories exist
-for d in [RAW_AUDIO_DIR, REMEDIAL_AUDIO_DIR, LOGS_DIR, TEMP_DIR]:
+for d in [DB_DIR, RAW_AUDIO_DIR, REMEDIAL_AUDIO_DIR, LOGS_DIR, TEMP_DIR]:
     d.mkdir(parents=True, exist_ok=True)
