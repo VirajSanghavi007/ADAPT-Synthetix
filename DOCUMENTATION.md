@@ -276,15 +276,16 @@ CREATE TABLE IF NOT EXISTS priority_queue (
 5. Confidence score extracted from logits via softmax mean
 6. NoiseFingerprinter extracts 8 acoustic features from raw audio
 7. Noise type classified from features (`clean`/`traffic`/`crowd`/`machinery`/`indoor`)
-8. Error type classified using confidence + noise profile
-9. Domain vocabulary checked — medical/emergency word matches found
-10. Row inserted in DB with all metadata (transcription, confidence, error_type, noise_profile)
-11. Session log TXT appended
-12. Phoneme sequence extracted, recorded in `phoneme_tracking` table via DriftDetector
-13. Drift detector checks retraining threshold — prints alert if triggered
-14. If `error_type != clean`: `RemediationPriorityQueue.enqueue()` called with priority score
-15. Background task spawned for TTS remediation if TTS available
-16. Response returned to frontend with transcription + diagnostics JSON
+8. If `reference_transcript` is present, CER and reference-aligned phoneme errors are computed
+9. Error type classified using measured CER when available, otherwise confidence + noise profile
+10. Domain vocabulary checked — medical/emergency word matches found
+11. Row inserted in DB with all metadata (transcription, optional reference, confidence, error_type, noise_profile)
+12. Session log TXT appended
+13. Phoneme sequence extracted, recorded in `phoneme_tracking`; reference-aligned errors recorded when a reference exists
+14. Drift detector checks retraining threshold — prints alert if triggered
+15. If `error_type != clean`: `RemediationPriorityQueue.enqueue()` called with priority score
+16. Background task spawned for TTS remediation; reference transcript is used as corrective text when available
+17. Response returned to frontend with transcription + diagnostics JSON
 
 ## 8. Setup Guide
 1. Clone repo and move into project:
@@ -396,17 +397,17 @@ tests/test_app.py .....                        [ 5 passed]
 
 ## 11. Research Contribution
 **Research Contribution Statement:**  
-> "ADAPT-Synthetix introduces a phoneme-level diagnostic layer for closed-loop ASR self-refinement — the first system to classify failure type (noise, accent, pronunciation) before generating targeted synthetic remedial data, enabling precision-guided LoRA adaptation without human intervention."
+> "ADAPT-Synthetix explores a closed-loop ASR refinement pipeline that combines confidence scoring, acoustic noise metadata, reference-aligned phoneme error analysis, domain-aware prioritization, and synthetic remedial data for future LoRA adaptation."
 
 **Five Novel Technical Contributions:**
 
-1. **Phoneme-Level Error Diagnosis** — Maps transcription errors to specific phoneme pairs rather than word-level CER. Identifies which sounds the model consistently confuses and generates remedial TTS audio targeting those exact phoneme pairs. No existing 2023-2025 paper implements phoneme-pair targeted remediation.
+1. **Reference-Aligned Phoneme Error Diagnosis** — When ground truth is available, maps transcription errors to phoneme edit operations rather than only word-level summaries. This identifies which sounds the model confuses and provides a better basis for remedial sample selection.
 
-2. **8-Feature Noise Fingerprinting** — Classifies background acoustic conditions using spectral centroid, bandwidth, rolloff, ZCR, RMS energy, MFCC variance, tempo, and harmonic ratio. Conditions synthetic remedial audio on the specific noise type that caused the failure. Existing closed-loop systems do not condition synthetic data on noise type.
+2. **8-Feature Noise Fingerprinting** — Classifies background acoustic conditions using spectral centroid, bandwidth, rolloff, ZCR, RMS energy, MFCC variance, tempo, and harmonic ratio. This is currently a heuristic classifier that should be validated against labelled noisy datasets.
 
-3. **Confidence-Weighted Priority Queue** — Weights remediation priority by model confidence rather than treating all errors equally. Low confidence + domain-critical vocabulary (medical/emergency terms) receives 3x priority multiplier. No existing literature implements domain-critical priority weighting in ASR remediation.
+3. **Confidence-Weighted Priority Queue** — Weights remediation priority by model confidence rather than treating all errors equally. Low confidence plus domain-critical vocabulary receives higher priority, with the caveat that vocabulary matches depend on recognized text unless a reference transcript is provided.
 
-4. **Proactive Drift Detection** — Tracks per-phoneme accuracy degradation across sessions using rolling window averages. Triggers retraining proactively when 3+ phonemes show degrading trend, before failure rate becomes critical. Existing systems react to failures — this system predicts them.
+4. **Drift Monitoring** — Tracks per-phoneme confidence trends across sessions and separately stores reference-aligned phoneme error counts. Confidence-only drift is an early warning signal, while reference-aligned errors are the stronger measurement.
 
 5. **Domain Vocabulary Injection** — Maintains medical and emergency priority vocabulary. Errors on domain-critical words are flagged at higher remediation priority than filler word errors. Designed for safety-critical applications where specific vocabulary failures have real-world consequences.
 
