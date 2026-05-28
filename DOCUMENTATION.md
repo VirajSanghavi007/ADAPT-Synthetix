@@ -16,7 +16,7 @@
 ## 1. Project Overview
 ADAPT-Synthetix is a closed-loop speech framework that combines ASR, diagnostics, drift monitoring, and TTS remediation into a single operational pipeline. The backend accepts microphone/file audio, transcribes speech with Wav2Vec2, and returns transcription plus diagnostic metadata.
 
-The system extends baseline ASR demos by exposing confidence, acoustic fingerprints, and error categories in real time, then prioritizing remediation based on risk. This creates a practical research platform for adaptive ASR experiments under noisy, accented, and domain-specific speech.
+The system extends baseline ASR demos by exposing confidence, acoustic fingerprints, and error categories in real time, then prioritizing remediation based on risk. When a reference transcript is provided, it also computes measured CER and reference-aligned phoneme errors. Without a reference transcript, diagnostic labels are heuristic estimates based on confidence and acoustic context.
 
 ## 2. System Architecture
 ```text
@@ -189,7 +189,7 @@ ADAPT-Synthetix/
 | Method | Path | Request Body / Query | Response Body | Description |
 | --- | --- | --- | --- | --- |
 | GET | `/` | None | HTML | Serves frontend entry page |
-| POST | `/transcribe` | `multipart/form-data` with `audio` file | `{"transcription","duration","status","confidence","error_type","noise_type"}` or error JSON | ASR + diagnostics pipeline |
+| POST | `/transcribe` | `multipart/form-data` with `audio` file, optional `reference_transcript`, optional `session_id` | `{"transcription","duration","status","confidence","error_type","noise_type","cer_score","diagnostic_basis","phoneme_errors"}` or error JSON | ASR + diagnostics pipeline |
 | POST | `/synthesize` | `{"text":"..."}` | WAV stream or error JSON | TTS synthesis endpoint |
 | GET | `/tts_status` | None | `{"available": bool, "model": "suno/bark-small"}` | TTS readiness |
 | GET | `/sessions` | None | JSON array | Recent transcription rows |
@@ -197,6 +197,7 @@ ADAPT-Synthetix/
 | GET | `/priority_queue` | None | `{queue: [...], stats: {pending, completed, total, avg_priority}}` | Remediation queue state |
 | GET | `/vocabulary_check` | `?text=query` | `{medical_matches, emergency_matches, is_domain_critical}` | Domain vocabulary check |
 | GET | `/drift_report` | None | `{total_phonemes_tracked, degrading, stable, improving, high_risk_phonemes}` | Phoneme drift analysis |
+| GET | `/phoneme_error_report` | None | `{basis, top_errors}` | Reference-aligned phoneme error summary |
 | GET | `/lora_status` | None | `{adapter_exists, last_trained, training_logs}` | LoRA adapter state |
 | GET | `/dataset_stats` | None | `{total, by_category, by_noise_type}` | Dataset manifest stats |
 | GET | `/remediation_status` | None | `{total_transcriptions, clean, remediated, pending_remediation, remediation_rate}` | Closed-loop remediation stats |
