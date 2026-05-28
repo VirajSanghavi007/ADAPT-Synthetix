@@ -13,6 +13,7 @@ let chunkInterval;
 window.isRecording = false;
 window.analyser = null;
 window.dataArray = null;
+window.referenceTranscript = "";
 
 // --- Simulated Terminal Logic ---
 function print(text, color = null) {
@@ -45,6 +46,14 @@ async function handleCommand(rawCmd) {
                 synthesizeText(args.join(' '));
             }
             break;
+        case 'set_reference':
+            window.referenceTranscript = args.join(' ').trim();
+            print(window.referenceTranscript ? `REFERENCE_SET` : `REFERENCE_EMPTY`, window.referenceTranscript ? '#00e5ff' : '#ff4500');
+            break;
+        case 'clear_reference':
+            window.referenceTranscript = "";
+            print(`REFERENCE_CLEARED`);
+            break;
         case 'history':
             try {
                 const res = await fetch('/history');
@@ -61,6 +70,8 @@ async function handleCommand(rawCmd) {
             print(`ADAPT-Synthetix Terminal v1.0`);
             print(`Available commands:`);
             print(`  echo [text]        — Print text to terminal`);
+            print(`  set_reference [t]  — Attach ground truth to recorded chunks`);
+            print(`  clear_reference    — Stop attaching ground truth`);
             print(`  synthesize [text]  — Generate speech using Bark-small`);
             print(`  history            — Show recent logs from SQLite`);
             print(`  remediation_status — Show remediation counters`);
@@ -314,6 +325,9 @@ async function sendChunk(blob) {
     
     if (!window.sessionId) window.sessionId = crypto.randomUUID();
     formData.append('session_id', window.sessionId);
+    if (window.referenceTranscript) {
+        formData.append('reference_transcript', window.referenceTranscript);
+    }
 
     try {
         const res = await fetch('/transcribe', { method: 'POST', body: formData });
@@ -331,6 +345,15 @@ async function sendChunk(blob) {
             }
             if (data.error_type !== undefined) {
                 print(`[ERROR TYPE]: ${data.error_type}`);
+            }
+            if (data.diagnostic_basis !== undefined) {
+                print(`[BASIS]: ${data.diagnostic_basis}`);
+            }
+            if (data.cer_score !== null && data.cer_score !== undefined) {
+                print(`[CER]: ${Number(data.cer_score).toFixed(4)}`);
+            }
+            if (Array.isArray(data.phoneme_errors) && data.phoneme_errors.length > 0) {
+                print(`[PHONEME ERRORS]: ${data.phoneme_errors.length}`);
             }
             synthesizeText(data.transcription);
         }

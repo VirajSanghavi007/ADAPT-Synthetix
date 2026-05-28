@@ -209,6 +209,7 @@
             <div class="icon">📁</div>
             <div class="card-title">LOCAL_FILE</div>
             <div class="card-subtitle">Upload supported audio from device</div>
+            <input type="text" id="referenceText" class="input-field" placeholder="optional reference transcript" spellcheck="false">
             <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.flac">
             <button class="transmit-btn">SELECT_FILE</button>
         </div>
@@ -237,6 +238,7 @@
     <script>
         const output = document.getElementById('output');
         const fileInput = document.getElementById('fileInput');
+        const referenceText = document.getElementById('referenceText');
         const driveUrl = document.getElementById('driveUrl');
         const driveBtn = document.getElementById('driveTransmit');
         const copyBtn = document.getElementById('copyBtn');
@@ -270,6 +272,9 @@
 
             const formData = new FormData();
             formData.append('audio', file);
+            if (referenceText.value.trim()) {
+                formData.append('reference_transcript', referenceText.value.trim());
+            }
 
             try {
                 const res = await fetch('/transcribe', { method: 'POST', body: formData });
@@ -277,6 +282,12 @@
                 if (data.status === 'success') {
                     print(`SUCCESS: Transcription retrieved.`);
                     print(`${data.transcription}`, '#00e5ff');
+                    if (data.cer_score !== null && data.cer_score !== undefined) {
+                        print(`CER: ${Number(data.cer_score).toFixed(4)}`);
+                    }
+                    if (data.diagnostic_basis) {
+                        print(`BASIS: ${data.diagnostic_basis}`);
+                    }
                     setTranscription(data.transcription);
                 } else {
                     print(`ERROR: ${data.error}`, '#ff4500');

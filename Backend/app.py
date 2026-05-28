@@ -185,7 +185,7 @@ async def transcribe(
         if error_type != "clean":
             queue_id = priority_queue.enqueue(row_id, transcription, error_type, confidence_score)
 
-        if error_type != "clean" and tts_engine.TTS_AVAILABLE:
+        if error_type != "clean":
             remediation_text = normalized_reference or transcription
             background_tasks.add_task(remediate_async, row_id, remediation_text, error_type, queue_id)
 
@@ -219,6 +219,7 @@ async def transcribe(
 @app.post("/synthesize")
 async def synthesize_route(payload: SynthesisRequest):
     session_logger.log("API_REQUEST", "/synthesize")
+    tts_engine.load_tts()
     if not tts_engine.TTS_AVAILABLE:
         return JSONResponse({"error": "TTS model not loaded"}, status_code=400)
 

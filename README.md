@@ -1,9 +1,9 @@
 # ADAPT-Synthetix
 ### Adaptive Closed-Loop ASR Framework with Phoneme-Level Error Diagnosis
 
-ADAPT-Synthetix is a research-first speech pipeline that links automatic speech recognition with a diagnostic layer and text-to-speech remediation. Instead of only returning transcripts, it also estimates confidence and acoustic context to classify likely recognition error sources.
+ADAPT-Synthetix is a research-first speech pipeline that links automatic speech recognition with a diagnostic layer and text-to-speech remediation. Instead of only returning transcripts, it estimates confidence and acoustic context, and it can compute measured CER/phoneme errors when a reference transcript is provided.
 
-The system is designed for iterative academic experimentation: collect speech, transcribe, diagnose, store metadata, and optionally synthesize corrective audio in one loop. This makes it suitable for studying robust ASR under real-world noise and speaker variability.
+The system is designed for iterative academic experimentation: collect speech, transcribe, diagnose, store metadata, and optionally synthesize corrective audio in one loop. Diagnostics without a reference transcript are heuristic estimates; diagnostics with a reference transcript are reference-aligned measurements suitable for benchmarking and adaptation experiments.
 
 ## Quick Setup
 ```bash
@@ -19,6 +19,8 @@ pip install -r requirements.txt
 uvicorn Backend.app:app --host 0.0.0.0 --port 5000 --reload
 python pipeline_test.py path/to/audio.mp3
 ```
+
+For measured diagnostics through the API, pass an optional `reference_transcript` form field with the audio upload.
 
 Open `Frontend/index.html` in a browser for the UI.
 

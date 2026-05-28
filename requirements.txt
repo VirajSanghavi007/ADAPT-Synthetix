@@ -61,9 +61,9 @@ fastapi
 uvicorn
 python-multipart
 scipy
-uuid
-datetime
 pytest
 pytest-mock
 peft
 accelerate
+jiwer
+g2p_en
