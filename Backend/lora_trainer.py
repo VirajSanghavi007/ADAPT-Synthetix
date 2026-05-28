@@ -9,8 +9,7 @@ import time
 import librosa
 import numpy as np
 import torch
-import torchaudio
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, get_peft_model
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 
@@ -26,7 +25,6 @@ class LoRATrainer:
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         self.lora_config = LoraConfig(
-            task_type=TaskType.TOKEN_CLS,
             r=8,
             lora_alpha=32,
             target_modules=["q_proj", "v_proj"],
@@ -46,7 +44,11 @@ class LoRATrainer:
 
     def load_remedial_samples(self, error_type=None, limit=50):
         query = """
-            SELECT remedial_audio_path AS audio_path, transcription, error_type, confidence_score
+            SELECT
+                remedial_audio_path AS audio_path,
+                COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
+                error_type,
+                confidence_score
             FROM transcriptions
             WHERE remedial_audio_path IS NOT NULL
               AND TRIM(remedial_audio_path) != ''
