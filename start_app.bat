@@ -4,6 +4,8 @@ setlocal
 cd /d "%~dp0"
 
 echo Starting ADAPT-Synthetix...
+echo Script: %~f0
+echo Version: 2026-05-28-venv-autocreate
 echo.
 
 set "FFMPEG_BIN=%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-essentials_build\bin"
