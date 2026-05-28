@@ -29,6 +29,20 @@ class DriftDetector:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS phoneme_errors (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT,
+                    transcription_id INTEGER,
+                    operation TEXT,
+                    reference_phoneme TEXT,
+                    hypothesis_phoneme TEXT,
+                    confidence_score REAL,
+                    timestamp TEXT
+                )
+                """
+            )
             conn.commit()
 
     def _load_historical_data(self):
@@ -57,6 +71,36 @@ class DriftDetector:
             )
             conn.commit()
         self.historical_points += len(rows)
+
+    def record_phoneme_errors(self, session_id, transcription_id, alignment, confidence_score):
+        errors = alignment.get("errors", []) if isinstance(alignment, dict) else []
+        if not errors:
+            return
+        timestamp = datetime.now(timezone.utc).isoformat()
+        rows = [
+            (
+                session_id,
+                int(transcription_id),
+                str(error.get("operation", "")),
+                str(error.get("reference", "")),
+                str(error.get("hypothesis", "")),
+                float(confidence_score),
+                timestamp,
+            )
+            for error in errors
+        ]
+        with self._get_connection() as conn:
+            conn.executemany(
+                """
+                INSERT INTO phoneme_errors (
+                    session_id, transcription_id, operation, reference_phoneme,
+                    hypothesis_phoneme, confidence_score, timestamp
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            conn.commit()
 
     def get_phoneme_trend(self, phoneme, window=5):
         with self._get_connection() as conn:
@@ -125,6 +169,23 @@ class DriftDetector:
             "stable": stable,
             "improving": improving,
             "high_risk_phonemes": high_risk,
+            "basis": "utterance_confidence_by_phoneme",
+        }
+
+    def get_error_report(self):
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT operation, reference_phoneme, hypothesis_phoneme, COUNT(*) AS count
+                FROM phoneme_errors
+                GROUP BY operation, reference_phoneme, hypothesis_phoneme
+                ORDER BY count DESC, operation ASC
+                LIMIT 25
+                """
+            ).fetchall()
+        return {
+            "basis": "reference_aligned_phoneme_errors",
+            "top_errors": [dict(row) for row in rows],
         }
 
     def should_trigger_retraining(self):
