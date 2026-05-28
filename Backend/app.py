@@ -21,7 +21,7 @@ from database import (
 )
 from drift_detector import DriftDetector
 from dataset_manager import DatasetManager
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -67,11 +67,11 @@ def _write_session_footer() -> None:
         session_log_file.write("=====================================\n")
 
 
-def remediate_async(row_id: int, transcription: str, error_type: str, queue_id: Optional[int] = None) -> None:
+def remediate_async(row_id: int, remediation_text: str, error_type: str, queue_id: Optional[int] = None) -> None:
     try:
         remedial_timestamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
         output_path = DATA_AUDIO_DIR / f"remedial_{remedial_timestamp}_{row_id}.wav"
-        tts_engine.synthesize(transcription, str(output_path))
+        tts_engine.synthesize(remediation_text, str(output_path))
         update_remedial_path(row_id, str(output_path))
         if queue_id is not None:
             priority_queue.mark_completed(queue_id)
@@ -115,7 +115,12 @@ async def index():
 
 
 @app.post("/transcribe")
-async def transcribe(background_tasks: BackgroundTasks, audio: Optional[UploadFile] = File(default=None)):
+async def transcribe(
+    background_tasks: BackgroundTasks,
+    audio: Optional[UploadFile] = File(default=None),
+    reference_transcript: Optional[str] = Form(default=None),
+    session_id: Optional[str] = Form(default=None),
+):
     global TRANSCRIPTION_COUNT
     session_logger.log("API_REQUEST", "/transcribe")
 
@@ -133,6 +138,8 @@ async def transcribe(background_tasks: BackgroundTasks, audio: Optional[UploadFi
 
     try:
         transcription, duration, logits, audio_input = transcribe_audio_with_logits(str(filepath))
+        normalized_reference = (reference_transcript or "").strip() or None
+        active_session_id = (session_id or "").strip() or SESSION_ID
         audio_duration = librosa.get_duration(y=audio_input, sr=16000)
         confidence_score = diagnostics.extract_confidence(logits)
         noise_profile = diagnostics.classify_noise_profile(audio_input)
@@ -142,20 +149,16 @@ async def transcribe(background_tasks: BackgroundTasks, audio: Optional[UploadFi
         permanent_audio_path = DATA_AUDIO_DIR / permanent_filename
         shutil.copy2(filepath, permanent_audio_path)
         row_id = log_transcription(
-            session_id=SESSION_ID,
+            session_id=active_session_id,
             audio_filename=filename,
             audio_path=str(permanent_audio_path),
             transcription=transcription,
             duration=audio_duration,
             model="wav2vec2-base-960h",
+            reference_transcript=normalized_reference,
         )
-        cer_score = None
-        if noise_profile.get("noise_type") != "clean":
-            error_type = "noise"
-        elif confidence_score < 0.4:
-            error_type = "accent"
-        else:
-            error_type = "clean"
+        cer_score = diagnostics.calculate_cer(normalized_reference, transcription) if normalized_reference else None
+        error_type = diagnostics.classify_error_type(cer_score, noise_profile, confidence_score)
 
         update_diagnostics(
             row_id=row_id,
@@ -165,7 +168,16 @@ async def transcribe(background_tasks: BackgroundTasks, audio: Optional[UploadFi
             noise_profile=noise_profile_json,
         )
         phonemes = diagnostics.extract_phonemes(transcription)
-        drift_detector.record_phoneme_confidence(SESSION_ID, phonemes, confidence_score)
+        drift_detector.record_phoneme_confidence(active_session_id, phonemes, confidence_score)
+        phoneme_alignment = None
+        if normalized_reference:
+            phoneme_alignment = diagnostics.align_phoneme_errors(normalized_reference, transcription)
+            drift_detector.record_phoneme_errors(
+                active_session_id,
+                row_id,
+                phoneme_alignment,
+                confidence_score,
+            )
         if drift_detector.should_trigger_retraining():
             print("[DRIFT ALERT] Retraining threshold reached")
 
@@ -174,7 +186,8 @@ async def transcribe(background_tasks: BackgroundTasks, audio: Optional[UploadFi
             queue_id = priority_queue.enqueue(row_id, transcription, error_type, confidence_score)
 
         if error_type != "clean" and tts_engine.TTS_AVAILABLE:
-            background_tasks.add_task(remediate_async, row_id, transcription, error_type, queue_id)
+            remediation_text = normalized_reference or transcription
+            background_tasks.add_task(remediate_async, row_id, remediation_text, error_type, queue_id)
 
         with open(SESSION_LOG_PATH, "a", encoding="utf-8") as session_log_file:
             session_log_file.write("=====================================\n")
@@ -194,6 +207,9 @@ async def transcribe(background_tasks: BackgroundTasks, audio: Optional[UploadFi
             "confidence": confidence_score,
             "error_type": error_type,
             "noise_type": noise_profile.get("noise_type", "clean"),
+            "cer_score": cer_score,
+            "diagnostic_basis": "reference_aligned" if normalized_reference else "confidence_noise_estimate",
+            "phoneme_errors": phoneme_alignment.get("errors", []) if phoneme_alignment else [],
         }
     except Exception as exc:
         session_logger.log("TRANSCRIPTION_ERROR", str(exc))
@@ -240,6 +256,11 @@ async def get_sessions():
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+@app.get("/history")
+async def get_history():
+    return await get_sessions()
+
+
 @app.get("/remediation_status")
 async def remediation_status():
     try:
@@ -252,6 +273,14 @@ async def remediation_status():
 async def drift_report():
     try:
         return drift_detector.get_drift_report()
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/phoneme_error_report")
+async def phoneme_error_report():
+    try:
+        return drift_detector.get_error_report()
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
 
