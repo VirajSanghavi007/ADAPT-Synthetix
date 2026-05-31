@@ -67,3 +67,4 @@ peft
 accelerate
 jiwer
 g2p_en
+psycopg2-binary

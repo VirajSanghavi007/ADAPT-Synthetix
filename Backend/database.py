@@ -10,7 +10,42 @@ DB_PATH = _BACKEND_DIR / "data" / "adaptsynthetix.db"
 
 
 # ---------------------------------------------------------------------------
-# Schema init
+# Connection factory — SQLite (default) or PostgreSQL
+# ---------------------------------------------------------------------------
+def _get_connection():
+    """
+    Return a DB-API 2.0 connection.
+    • Default: SQLite (development / local)
+    • USE_POSTGRES=true + DATABASE_URL env vars: PostgreSQL (production)
+    The returned connection always has row_factory set so rows are accessible
+    by column name.
+    """
+    from config import USE_POSTGRES, POSTGRES_URL  # local import avoids circular at module load
+
+    if USE_POSTGRES:
+        try:
+            import psycopg2
+            import psycopg2.extras
+        except ImportError as exc:
+            raise ImportError("psycopg2-binary is required for PostgreSQL. Run: pip install psycopg2-binary") from exc
+
+        conn = psycopg2.connect(POSTGRES_URL)
+        conn.autocommit = False
+        # Wrap cursor so column-name access works the same way as SQLite row_factory
+        conn.cursor_factory = psycopg2.extras.RealDictCursor
+        _init_db_postgres(conn)
+        return conn
+
+    # --- SQLite (default) ---
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    _init_db(conn)
+    return conn
+
+
+# ---------------------------------------------------------------------------
+# Schema init — SQLite
 # ---------------------------------------------------------------------------
 def _init_db(conn: sqlite3.Connection) -> None:
     """Create required tables if they do not already exist."""
@@ -53,19 +88,67 @@ def _init_db(conn: sqlite3.Connection) -> None:
 
 
 def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
-    """Add a nullable column when an older SQLite DB is opened."""
+    """Add a nullable column when an older SQLite DB is opened (SQLite only)."""
     columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
     if column not in columns:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
-def _get_connection() -> sqlite3.Connection:
-    """Return a connection with row_factory set and the schema ensured."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    _init_db(conn)
-    return conn
+# ---------------------------------------------------------------------------
+# Schema init — PostgreSQL
+# ---------------------------------------------------------------------------
+def _init_db_postgres(conn) -> None:
+    """Create tables in PostgreSQL if they don't exist."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS transcriptions (
+                id                   SERIAL PRIMARY KEY,
+                session_id           TEXT,
+                timestamp            TEXT,
+                audio_filename       TEXT,
+                audio_path           TEXT,
+                transcription        TEXT,
+                reference_transcript TEXT DEFAULT NULL,
+                duration_seconds     REAL,
+                model_used           TEXT,
+                cer_score            REAL    DEFAULT NULL,
+                error_type           TEXT    DEFAULT NULL,
+                confidence_score     REAL    DEFAULT NULL,
+                noise_profile        TEXT    DEFAULT NULL,
+                remedial_audio_path  TEXT    DEFAULT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS phoneme_tracking (
+                id               SERIAL PRIMARY KEY,
+                session_id       TEXT,
+                phoneme          TEXT,
+                confidence_score REAL,
+                timestamp        TEXT
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS phoneme_errors (
+                id                  SERIAL PRIMARY KEY,
+                session_id          TEXT,
+                transcription_id    INTEGER,
+                operation           TEXT,
+                reference_phoneme   TEXT,
+                hypothesis_phoneme  TEXT,
+                confidence_score    REAL,
+                timestamp           TEXT
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS replay_buffer (
+                id            SERIAL PRIMARY KEY,
+                audio_path    TEXT NOT NULL,
+                transcription TEXT NOT NULL,
+                error_type    TEXT NOT NULL,
+                added_at      TEXT NOT NULL
+            )
+        """)
+    conn.commit()
 
 
 # ---------------------------------------------------------------------------

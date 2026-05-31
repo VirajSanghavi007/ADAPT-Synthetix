@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 # Project Root
@@ -20,6 +21,10 @@ MODELS_DIR = ROOT_DIR / "models"
 
 # Temporary Uploads
 TEMP_DIR = ROOT_DIR / "Backend" / "temp"
+
+# PostgreSQL toggle (set USE_POSTGRES=true + DATABASE_URL env vars to switch)
+USE_POSTGRES = os.environ.get("USE_POSTGRES", "false").lower() == "true"
+POSTGRES_URL = os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/adaptsynthetix")
 
 # Ensure critical directories exist
 for d in [DB_DIR, RAW_AUDIO_DIR, REMEDIAL_AUDIO_DIR, LOGS_DIR, TEMP_DIR]:

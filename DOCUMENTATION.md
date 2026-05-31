@@ -320,6 +320,18 @@ CREATE TABLE IF NOT EXISTS priority_queue (
    Backend available at `http://localhost:5000`  
    Open `Frontend/index.html` in browser.
 
+**PostgreSQL (production):**  
+To use PostgreSQL instead of the default SQLite, set the following environment variables before starting the backend:
+```bash
+USE_POSTGRES=true
+DATABASE_URL=postgresql://user:pass@localhost:5432/adaptsynthetix
+uvicorn Backend.app:app --port 5000
+```
+To migrate existing SQLite data to PostgreSQL:
+```bash
+python Backend/migrate_to_postgres.py
+```
+
 ## 9. Testing
 **Automated Test Suite**  
 18 tests across 4 modules. Run from project root with `vir_env` activated.
