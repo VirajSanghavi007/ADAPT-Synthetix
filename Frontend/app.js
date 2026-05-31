@@ -333,29 +333,8 @@ async function sendChunk(blob) {
         const res = await fetch('/transcribe', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.transcription) {
-            print(`[TRANSCRIPTION]: ${data.transcription}`);
-            if (data.confidence !== undefined) {
-                const confidencePercent = Number(data.confidence) * 100;
-                if (Number.isFinite(confidencePercent)) {
-                    print(`[CONFIDENCE]: ${confidencePercent.toFixed(1)}%`);
-                }
-            }
-            if (data.noise_type !== undefined) {
-                print(`[NOISE]: ${data.noise_type}`);
-            }
-            if (data.error_type !== undefined) {
-                print(`[ERROR TYPE]: ${data.error_type}`);
-            }
-            if (data.diagnostic_basis !== undefined) {
-                print(`[BASIS]: ${data.diagnostic_basis}`);
-            }
-            if (data.cer_score !== null && data.cer_score !== undefined) {
-                print(`[CER]: ${Number(data.cer_score).toFixed(4)}`);
-            }
-            if (Array.isArray(data.phoneme_errors) && data.phoneme_errors.length > 0) {
-                print(`[PHONEME ERRORS]: ${data.phoneme_errors.length}`);
-            }
-            synthesizeText(data.transcription);
+            terminalInput.value = data.transcription;
+            terminalInput.focus();
         }
     } catch (e) {}
 }

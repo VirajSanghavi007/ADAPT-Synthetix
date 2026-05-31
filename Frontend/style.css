@@ -168,6 +168,15 @@ canvas {
     padding: 0;
 }
 
+#sessionFeed {
+    font-family: var(--font);
+    font-size: 0.85rem;
+    color: #555;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 6px;
+}
+
 ::-webkit-scrollbar {
     width: 5px;
 }

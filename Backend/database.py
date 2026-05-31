@@ -113,18 +113,20 @@ def log_transcription(
 
 def get_recent_sessions(limit: int = 20) -> list[dict]:
     """
-    Return up to *limit* most-recent transcription rows as plain dicts,
+    Return up to *limit* most-recent transcription rows from today,
     ordered newest-first.
     """
     conn = _get_connection()
     cursor = conn.cursor()
+    today = datetime.now(timezone.utc).date().isoformat()
     cursor.execute(
         """
         SELECT * FROM transcriptions
+        WHERE timestamp LIKE ?
         ORDER BY id DESC
         LIMIT ?
         """,
-        (limit,),
+        (f"{today}%", limit),
     )
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()

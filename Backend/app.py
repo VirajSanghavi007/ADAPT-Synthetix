@@ -24,6 +24,7 @@ from dataset_manager import DatasetManager
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from priority_queue import (
     EMERGENCY_VOCABULARY,
@@ -104,14 +105,6 @@ app.add_middleware(
 async def startup_event() -> None:
     session_logger.log("STARTUP", "FastAPI application initialized")
     _ = tts_engine.TTS_AVAILABLE
-
-
-@app.get("/")
-async def index():
-    frontend_index = PROJECT_DIR / "Frontend" / "index.html"
-    if not frontend_index.exists():
-        raise HTTPException(status_code=404, detail="Frontend index not found")
-    return FileResponse(str(frontend_index))
 
 
 @app.post("/transcribe")
@@ -425,3 +418,7 @@ async def health():
         "tts": "suno/bark-small",
         "session_id": SESSION_ID,
     }
+
+
+FRONTEND_DIR = str(PROJECT_DIR / "Frontend")
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

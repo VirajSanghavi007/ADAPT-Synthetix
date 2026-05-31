@@ -26,7 +26,7 @@ function fmtTime(ts) {
 }
 
 function renderTerminal(sessions) {
-    const outputArea = document.getElementById('outputArea');
+    const outputArea = document.getElementById('sessionFeed');
     if (!outputArea) return;
 
     outputArea.innerHTML = '';
@@ -70,9 +70,8 @@ function renderTerminal(sessions) {
         outputArea.appendChild(entry);
     });
 
-    // Auto-scroll to the newest entry
-    const body = document.getElementById('terminal');
-    if (body) body.scrollTop = body.scrollHeight;
+    // Auto-scroll sessionFeed to the newest entry
+    outputArea.scrollTop = outputArea.scrollHeight;
 }
 
 async function fetchSessions() {
@@ -86,6 +85,4 @@ async function fetchSessions() {
     }
 }
 
-// Kick-off
-fetchSessions();
-setInterval(fetchSessions, POLL_INTERVAL_MS);
+// Disabled: session feed polling moved to input field

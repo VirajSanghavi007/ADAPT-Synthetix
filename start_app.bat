@@ -40,7 +40,7 @@ echo Application will be available at: http://localhost:5000
 echo.
 
 start "" http://localhost:5000
-uvicorn Backend.app:app --host 0.0.0.0 --port 5000 --reload
+uvicorn app:app --app-dir Backend --host 0.0.0.0 --port 5000 --reload
 
 pause
 exit /b 0
