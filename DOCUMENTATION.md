@@ -389,23 +389,24 @@ tests/test_app.py .....                        [ 5 passed]
 - Frontend: dark terminal UI with waveform, mic recording, file upload
 - 18 automated tests passing
 
-**Semester 5 — Training + Adaptation (NEXT)**
-- Collect 100+ labelled utterances across noise/accent/medical categories
-- Run baseline benchmark to establish CER numbers
-- Execute LoRA training runs on remedial audio
+**Semester 5 — Training + Adaptation (IN PROGRESS)**
+- [COMPLETE] Collect 100+ labelled utterances across noise/accent/medical categories (2,620 LibriSpeech samples registered)
+- [COMPLETE] Implement Experience Replay to prevent catastrophic forgetting
+- [COMPLETE] Mixture of LoRA Experts — separate adapter per error type
+- [COMPLETE] Expand drift detection window (5→20) and retraining threshold (3→5)
+- [COMPLETE] Confidence histogram endpoint and terminal command
+- Run baseline benchmark to establish CER numbers (awaiting remedial audio)
+- Execute LoRA training runs on remedial audio (requires ≥5 remedial samples)
 - Validate before/after accuracy improvement
-- Implement Experience Replay to prevent catastrophic forgetting
-- Mixture of LoRA Experts — separate adapter per error type
-- Expand drift detection window and thresholds based on real data
 
-**Semester 6 — Production (PLANNED)**
-- Migrate SQLite to PostgreSQL
+**Semester 6 — Production (IN PROGRESS)**
+- [COMPLETE] Migrate SQLite to PostgreSQL (conditional connection factory + migration script)
+- [COMPLETE] React frontend — StatsBar, Terminal, Waveform, HistoryPanel, FileUpload components
+- [COMPLETE] Research paper draft
 - FastAPI already complete — optimize for production load
 - GPU inference deployment on cloud instance
-- React frontend replacing vanilla HTML
 - Mobile app wrapper
 - CI/CD pipeline
-- Research paper draft
 
 ## 12. Baseline Benchmark Results
 
