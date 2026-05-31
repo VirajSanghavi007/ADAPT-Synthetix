@@ -395,6 +395,60 @@ tests/test_app.py .....                        [ 5 passed]
 - CI/CD pipeline
 - Research paper draft
 
+## 12. Baseline Benchmark Results
+
+> **Pre-LoRA Baseline** — These results represent the unmodified `facebook/wav2vec2-base-960h` model. They are the reference point against which post-LoRA adaptation improvement will be measured.
+
+### Status: Awaiting Labelled Data
+
+LoRA training requires remedial audio samples collected by the live transcription pipeline (rows in `transcriptions` where `remedial_audio_path IS NOT NULL`). Benchmark CER evaluation requires labelled audio registered via `collect_dataset.py` or `batch_register.py`.
+
+At the time of this writing, the dataset manifest is empty and no remedial audio has been collected yet (the 31 transcriptions in the database predate the remediation pipeline wiring). Both will populate automatically during normal system use.
+
+### Pre-LoRA Baseline CER (to be filled after data collection)
+
+| Category  | Sample Count | Avg CER | Min CER | Max CER |
+|-----------|-------------|---------|---------|---------|
+| clean     | —           | —       | —       | —       |
+| noisy     | —           | —       | —       | —       |
+| accented  | —           | —       | —       | —       |
+| medical   | —           | —       | —       | —       |
+
+### Post-LoRA (Epoch 3) CER (to be filled after training)
+
+| Category  | Avg CER Before | Avg CER After | Δ CER |
+|-----------|---------------|--------------|-------|
+| all       | —             | —            | —     |
+
+**How to populate these tables:**
+
+1. Register labelled audio samples:
+   ```
+   python Backend/collect_dataset.py --audio <file> --transcript "text" --category clean --noise_type clean
+   # or batch:
+   python Backend/batch_register.py --csv samples.csv
+   ```
+
+2. Run the baseline benchmark per category:
+   ```
+   python benchmark.py --dataset Dataset/ --category clean
+   python benchmark.py --dataset Dataset/ --category noisy
+   python benchmark.py --dataset Dataset/ --category accented
+   python benchmark.py --dataset Dataset/ --category medical
+   ```
+
+3. Run LoRA training (requires ≥5 remedial samples in the DB):
+   ```
+   python Backend/lora_trainer.py --epochs 3
+   ```
+
+4. Run the before/after evaluation:
+   ```
+   python Backend/run_evaluation.py
+   # or with a holdout CSV:
+   python Backend/run_evaluation.py --holdout holdout.csv
+   ```
+
 ## 11. Research Contribution
 **Research Contribution Statement:**  
 > "ADAPT-Synthetix explores a closed-loop ASR refinement pipeline that combines confidence scoring, acoustic noise metadata, reference-aligned phoneme error analysis, domain-aware prioritization, and synthetic remedial data for future LoRA adaptation."

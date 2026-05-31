@@ -32,7 +32,12 @@ def _init_db(conn: sqlite3.Connection) -> None:
             remedial_audio_path TEXT    DEFAULT NULL
         )
     """)
-    _ensure_column(conn, "transcriptions", "reference_transcript", "TEXT DEFAULT NULL")
+    _ensure_column(conn, "transcriptions", "reference_transcript",  "TEXT DEFAULT NULL")
+    _ensure_column(conn, "transcriptions", "cer_score",             "REAL DEFAULT NULL")
+    _ensure_column(conn, "transcriptions", "error_type",            "TEXT DEFAULT NULL")
+    _ensure_column(conn, "transcriptions", "confidence_score",      "REAL DEFAULT NULL")
+    _ensure_column(conn, "transcriptions", "noise_profile",         "TEXT DEFAULT NULL")
+    _ensure_column(conn, "transcriptions", "remedial_audio_path",   "TEXT DEFAULT NULL")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS phoneme_tracking (
