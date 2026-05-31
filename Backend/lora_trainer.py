@@ -92,11 +92,23 @@ class LoRATrainer:
         print(f"DRY RUN COMPLETE — Ready to train on {len(samples)} samples")
 
     def train(self, epochs=3, learning_rate=1e-4, error_type=None):
+        from experience_replay import ReplayBuffer
+
         start = time.time()
         samples = self.load_remedial_samples(error_type=error_type)
         if len(samples) < 5:
             print("[LoRA] Not enough remedial samples (<5). Skipping training.")
             return
+
+        buffer = ReplayBuffer(db_path=self.db_path)
+        replay_samples = buffer.sample(min(len(samples), 20))
+
+        # Build interleaved training list: new and replay samples alternate 1:1
+        interleaved = []
+        for i, new_s in enumerate(samples):
+            interleaved.append(new_s)
+            if i < len(replay_samples):
+                interleaved.append(replay_samples[i])
 
         model, processor = self.prepare_model()
         model.train()
@@ -104,8 +116,10 @@ class LoRATrainer:
         final_loss = None
 
         for epoch in range(1, int(epochs) + 1):
+            if epoch == 1:
+                print(f"[LoRA] Replay: using {len(replay_samples)} replay samples alongside {len(samples)} new samples")
             epoch_losses = []
-            for sample in samples:
+            for sample in interleaved:
                 audio_path = sample.get("audio_path")
                 transcript = (sample.get("transcription") or "").strip()
                 if not audio_path or not transcript or not os.path.exists(audio_path):
