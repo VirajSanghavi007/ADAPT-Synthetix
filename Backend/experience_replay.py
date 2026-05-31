@@ -84,20 +84,23 @@ class ReplayBuffer:
 
         with self._connect() as conn:
             # Primary source: transcriptions with collected remedial audio
-            rows = conn.execute(
-                """
-                SELECT
-                    remedial_audio_path AS audio_path,
-                    COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
-                    COALESCE(error_type, 'unknown') AS error_type
-                FROM transcriptions
-                WHERE remedial_audio_path IS NOT NULL
-                  AND TRIM(remedial_audio_path) != ''
-                ORDER BY RANDOM()
-                LIMIT ?
-                """,
-                (n,),
-            ).fetchall()
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT
+                        remedial_audio_path AS audio_path,
+                        COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
+                        COALESCE(error_type, 'unknown') AS error_type
+                    FROM transcriptions
+                    WHERE remedial_audio_path IS NOT NULL
+                      AND TRIM(remedial_audio_path) != ''
+                    ORDER BY RANDOM()
+                    LIMIT ?
+                    """,
+                    (n,),
+                ).fetchall()
+            except Exception:
+                rows = []
 
             if not rows:
                 # Fallback: stored replay buffer
