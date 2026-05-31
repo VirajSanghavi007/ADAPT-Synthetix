@@ -12,6 +12,7 @@ class DatasetManager:
         self.noisy_dir = self.dataset_dir / "noisy"
         self.accented_dir = self.dataset_dir / "accented"
         self.medical_dir = self.dataset_dir / "medical"
+        self.clean_dir = self.dataset_dir / "clean"
         self.manifest_path = self.dataset_dir / "manifest.json"
 
         self.dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -19,6 +20,7 @@ class DatasetManager:
         self.noisy_dir.mkdir(parents=True, exist_ok=True)
         self.accented_dir.mkdir(parents=True, exist_ok=True)
         self.medical_dir.mkdir(parents=True, exist_ok=True)
+        self.clean_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.manifest_path.exists():
             self._save_manifest([])
@@ -43,6 +45,7 @@ class DatasetManager:
             "noisy": self.noisy_dir,
             "accented": self.accented_dir,
             "medical": self.medical_dir,
+            "clean": self.clean_dir,
         }
         return category_map.get(category_normalized, self.dataset_dir), category_normalized or "uncategorized"
 
