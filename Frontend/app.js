@@ -362,6 +362,7 @@ async function sendChunk(blob) {
             terminalInput.value = data.transcription;
             terminalInput.focus();
         }
+
     } catch (e) {}
 }
 

@@ -62,8 +62,8 @@ class NoiseFingerprinter:
         if (
             spectral_centroid > self.TRAFFIC_CENTROID_THRESHOLD
             and zero_crossing_rate > self.TRAFFIC_ZCR_THRESHOLD
-            and spectral_rolloff >= 0.0
-            and tempo == tempo
+            and spectral_rolloff > 4000
+            and rms_energy > 0.02
         ):
             return "traffic"
         if rms_energy > self.CROWD_RMS_THRESHOLD and mfcc_variance > self.CROWD_MFCC_VAR_THRESHOLD:

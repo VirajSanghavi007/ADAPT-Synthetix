@@ -13,7 +13,7 @@ RAW_AUDIO_DIR = DATASET_DIR / "raw_audio"
 REMEDIAL_AUDIO_DIR = DATASET_DIR / "remedial_audio"
 
 # Logs
-LOGS_DIR = ROOT_DIR / "logs"
+LOGS_DIR = ROOT_DIR / "Backend" / "logs"
 
 # Models
 MODELS_DIR = ROOT_DIR / "models"

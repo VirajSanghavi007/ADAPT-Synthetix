@@ -312,24 +312,30 @@
 
             output.innerHTML = "";
             print(`INIT_CLOUD_FETCH...`);
-            
+
             const directLink = getDirectLink(url);
             print(`FETCHING_STREAM: ${directLink.substring(0, 40)}...`);
 
             try {
-                // Fetch blob from drive
-                const driveRes = await fetch(directLink);
-                if (!driveRes.ok) throw new Error("Could not fetch file from URL");
-                
-                const blob = await driveRes.blob();
-                print(`FILE_DOWNLOADED: ${Math.round(blob.size/1024)}KB`);
-                
+                const proxyRes = await fetch('/fetch_drive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: directLink }),
+                });
+                if (!proxyRes.ok) {
+                    const err = await proxyRes.json().catch(() => ({}));
+                    throw new Error(err.detail || `Server error ${proxyRes.status}`);
+                }
+
+                const blob = await proxyRes.blob();
+                print(`FILE_DOWNLOADED: ${Math.round(blob.size / 1024)}KB`);
+
                 const formData = new FormData();
                 formData.append('audio', blob, 'cloud_chunk.mp3');
 
                 const res = await fetch('/transcribe', { method: 'POST', body: formData });
                 const data = await res.json();
-                
+
                 if (data.status === 'success') {
                     print(`SUCCESS: Processing complete.`);
                     print(`${data.transcription}`, '#00e5ff');

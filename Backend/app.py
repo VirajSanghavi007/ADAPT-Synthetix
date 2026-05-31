@@ -21,6 +21,7 @@ from database import (
 )
 from drift_detector import DriftDetector
 from dataset_manager import DatasetManager
+import httpx
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -407,6 +408,37 @@ async def serve_temp(filename: str):
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(file_path))
+
+
+_DRIVE_HOSTS = ("drive.google.com", "docs.google.com")
+_DRIVE_MAX_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
+class FetchDriveRequest(BaseModel):
+    url: str
+
+
+@app.post("/fetch_drive")
+async def fetch_drive(payload: FetchDriveRequest):
+    url = (payload.url or "").strip()
+    if not any(host in url for host in _DRIVE_HOSTS):
+        raise HTTPException(status_code=400, detail="URL must be a Google Drive or Docs link")
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+        head = await client.head(url)
+        content_length = head.headers.get("content-length")
+        if content_length and int(content_length) > _DRIVE_MAX_BYTES:
+            raise HTTPException(status_code=400, detail="File exceeds 50 MB limit")
+
+        res = await client.get(url)
+        if res.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Upstream returned {res.status_code}")
+
+        if len(res.content) > _DRIVE_MAX_BYTES:
+            raise HTTPException(status_code=400, detail="File exceeds 50 MB limit")
+
+    from fastapi.responses import Response
+    return Response(content=res.content, media_type="audio/mpeg")
 
 
 @app.get("/health")
