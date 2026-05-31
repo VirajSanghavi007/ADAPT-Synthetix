@@ -1,4 +1,6 @@
 vir_env/
+Backend/models/wav2vec2/
+Backend/models/bark-small/
 *.pt
 Backend/data/audio/*
 !Backend/data/audio/.gitkeep

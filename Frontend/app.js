@@ -59,9 +59,12 @@ async function handleCommand(rawCmd) {
                 const res = await fetch('/history');
                 const history = await res.json();
                 print(`--- RECENT TRANSCRIPTIONS ---`);
-                history.forEach(row => {
-                    print(`[${row.timestamp.split('T')[1].split('.')[0]}] ${row.transcription}`);
-                });
+                [...history]
+                    .filter(row => (row.transcription || '').trim().length > 0)
+                    .reverse()
+                    .forEach(row => {
+                        print(`[${row.timestamp.split('T')[1].split('.')[0]}] ${row.transcription}`);
+                    });
             } catch (e) {
                 print(`ERROR_FETCHING_HISTORY`, '#ff4500');
             }
@@ -260,10 +263,33 @@ async function synthesizeText(text) {
 
 // Keep terminal focused
 terminalContainer.addEventListener('click', () => terminalInput.focus());
+
+const cmdHistory = [];
+let historyIndex = -1;
+let drafInput = '';
+
 terminalInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-        handleCommand(terminalInput.value);
+        const cmd = terminalInput.value;
+        if (cmd.trim()) {
+            cmdHistory.unshift(cmd);
+            if (cmdHistory.length > 100) cmdHistory.pop();
+        }
+        historyIndex = -1;
+        drafInput = '';
+        handleCommand(cmd);
         terminalInput.value = '';
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (cmdHistory.length === 0) return;
+        if (historyIndex === -1) drafInput = terminalInput.value;
+        historyIndex = Math.min(historyIndex + 1, cmdHistory.length - 1);
+        terminalInput.value = cmdHistory[historyIndex];
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex === -1) return;
+        historyIndex--;
+        terminalInput.value = historyIndex === -1 ? drafInput : cmdHistory[historyIndex];
     }
 });
 

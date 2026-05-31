@@ -1,5 +1,9 @@
+from pathlib import Path
 from scipy.io.wavfile import write as write_wav
 from transformers import pipeline
+
+_LOCAL_MODEL = Path(__file__).parent / "models" / "bark-small"
+TTS_MODEL_PATH = str(_LOCAL_MODEL) if (_LOCAL_MODEL / "config.json").exists() else "suno/bark-small"
 
 TTS_AVAILABLE = False
 _tts_pipeline = None
@@ -13,9 +17,9 @@ def load_tts():
     if _load_attempted:
         return None
     _load_attempted = True
-    print("Loading TTS model...")
+    print(f"Loading TTS model ({TTS_MODEL_PATH})...")
     try:
-        _tts_pipeline = pipeline("text-to-speech", model="suno/bark-small")
+        _tts_pipeline = pipeline("text-to-speech", model=TTS_MODEL_PATH)
         TTS_AVAILABLE = True
         print("TTS model ready.")
     except Exception as e:

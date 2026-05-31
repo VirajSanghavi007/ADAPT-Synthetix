@@ -113,8 +113,7 @@ class LoRATrainer:
 
                 audio, _sr = librosa.load(audio_path, sr=16000)
                 inputs = processor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
-                with processor.as_target_processor():
-                    labels = processor(transcript, return_tensors="pt").input_ids
+                labels = processor.tokenizer(transcript, return_tensors="pt").input_ids
 
                 outputs = model(**inputs, labels=labels)
                 loss = outputs.loss

@@ -1,9 +1,13 @@
 import os
 import torch
 import librosa
+from pathlib import Path
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
-print("ASR model configured (facebook/wav2vec2-base-960h).")
+_LOCAL_MODEL = Path(__file__).parent / "models" / "wav2vec2"
+ASR_MODEL_PATH = str(_LOCAL_MODEL) if (_LOCAL_MODEL / "config.json").exists() else "facebook/wav2vec2-base-960h"
+print(f"ASR model configured ({ASR_MODEL_PATH}).")
+
 PROCESSOR = None
 MODEL = None
 
@@ -11,9 +15,9 @@ MODEL = None
 def load_model():
     global PROCESSOR, MODEL
     if PROCESSOR is None or MODEL is None:
-        print("Loading ASR model (facebook/wav2vec2-base-960h)...")
-        PROCESSOR = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
-        MODEL = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
+        print(f"Loading ASR model ({ASR_MODEL_PATH})...")
+        PROCESSOR = Wav2Vec2Processor.from_pretrained(ASR_MODEL_PATH)
+        MODEL = Wav2Vec2ForCTC.from_pretrained(ASR_MODEL_PATH)
         MODEL.eval()
         print("ASR Model loaded successfully.")
     return PROCESSOR, MODEL

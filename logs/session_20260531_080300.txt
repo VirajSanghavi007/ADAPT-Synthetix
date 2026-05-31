@@ -1,0 +1,21 @@
+[2026-05-31 08:03:00] SESSION_START: New session logger initialized
+[2026-05-31 08:03:00] STARTUP: FastAPI application initialized
+[2026-05-31 08:03:03] API_REQUEST: /transcribe
+[2026-05-31 08:03:16] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:03:16] API_REQUEST: /transcribe
+[2026-05-31 08:03:19] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:03:19] API_REQUEST: /transcribe
+[2026-05-31 08:03:20] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:03:22] API_REQUEST: /transcribe
+[2026-05-31 08:03:24] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:04:33] API_REQUEST: /transcribe
+[2026-05-31 08:04:36] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:04:38] API_REQUEST: /transcribe
+[2026-05-31 08:04:41] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:04:44] API_REQUEST: /transcribe
+[2026-05-31 08:04:46] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:04:48] API_REQUEST: /transcribe
+[2026-05-31 08:04:51] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:04:51] API_REQUEST: /transcribe
+[2026-05-31 08:04:51] TRANSCRIPTION_ERROR: no such column: cer_score
+[2026-05-31 08:08:11] API_REQUEST: /health
