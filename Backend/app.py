@@ -10,6 +10,7 @@ from typing import Optional
 import librosa
 import diagnostics
 import tts_engine
+from lora_experts import LoRAExpertRouter
 from asr_module import transcribe_audio_with_logits
 from config import DB_PATH, TEMP_DIR, RAW_AUDIO_DIR
 from database import (
@@ -369,6 +370,15 @@ async def vocabulary_check(text: str = ""):
 async def dataset_stats():
     try:
         return dataset_manager.get_stats()
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/lora_experts_status")
+async def lora_experts_status():
+    try:
+        router = LoRAExpertRouter(db_path=DB_PATH)
+        return router.get_adapter_status()
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
 
