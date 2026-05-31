@@ -83,6 +83,7 @@ async function handleCommand(rawCmd) {
             print(`  queue_status       — Show remediation priority queue`);
             print(`  dataset_stats      — Show dataset composition stats`);
             print(`  lora_status        — Show LoRA adapter status`);
+            print(`  confidence_histogram — Show phoneme confidence score distribution`);
             print(`  clear              — Clear terminal output`);
             print(`  status             — Show system status`);
             print(`  help               — Show this help message`);
@@ -199,6 +200,21 @@ async function handleCommand(rawCmd) {
                 print(`Clean         : ${byNoiseType.clean ?? 0}`);
             } catch (e) {
                 print(`ERROR: Dataset stats unavailable`, '#ff4500');
+            }
+            break;
+        case 'confidence_histogram':
+            try {
+                const res = await fetch('/confidence_histogram');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch histogram');
+                print(`Confidence Histogram (${data.bins.length} bins)`);
+                print(`Total Samples : ${data.total_samples}`);
+                data.bins.forEach((edge, i) => {
+                    const label = `${edge.toFixed(1)}–${(edge + 1.0 / data.bins.length).toFixed(1)}`;
+                    print(`  [${label}] ${'█'.repeat(Math.min(data.counts[i], 40))} ${data.counts[i]}`);
+                });
+            } catch (e) {
+                print(`ERROR: Confidence histogram unavailable`, '#ff4500');
             }
             break;
         case 'lora_status':

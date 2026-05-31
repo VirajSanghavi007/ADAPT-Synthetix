@@ -273,6 +273,14 @@ async def drift_report():
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+@app.get("/confidence_histogram")
+async def confidence_histogram(bins: int = 10):
+    try:
+        return drift_detector.get_confidence_histogram(bins=bins)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 @app.get("/phoneme_error_report")
 async def phoneme_error_report():
     try:

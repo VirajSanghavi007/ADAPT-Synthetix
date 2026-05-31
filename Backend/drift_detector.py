@@ -2,9 +2,11 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+
 
 class DriftDetector:
-    def __init__(self, db_path, window_size=5):
+    def __init__(self, db_path, window_size=20):
         self.db_path = str(db_path)
         self.window_size = window_size
         self._ensure_table()
@@ -190,4 +192,36 @@ class DriftDetector:
 
     def should_trigger_retraining(self):
         report = self.get_drift_report()
-        return len(report["high_risk_phonemes"]) >= 3
+        return len(report["high_risk_phonemes"]) >= 5
+
+    def get_confidence_histogram(self, bins: int = 10) -> dict:
+        """
+        Compute a histogram of confidence scores from phoneme_tracking.
+
+        Returns:
+            {
+                "bins":          [float, ...]  — left edge of each bin (length == bins),
+                "counts":        [int, ...]    — sample count per bin  (length == bins),
+                "total_samples": int
+            }
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT confidence_score FROM phoneme_tracking WHERE confidence_score IS NOT NULL"
+            ).fetchall()
+
+        scores = [float(r["confidence_score"]) for r in rows]
+        if scores:
+            counts, edges = np.histogram(scores, bins=bins, range=(0.0, 1.0))
+            bin_edges = [round(float(e), 6) for e in edges[:-1]]   # drop the rightmost edge
+            bin_counts = [int(c) for c in counts]
+        else:
+            step = 1.0 / bins
+            bin_edges = [round(i * step, 6) for i in range(bins)]
+            bin_counts = [0] * bins
+
+        return {
+            "bins": bin_edges,
+            "counts": bin_counts,
+            "total_samples": len(scores),
+        }
