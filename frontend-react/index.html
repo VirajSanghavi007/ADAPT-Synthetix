@@ -13,73 +13,10 @@
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { height: 100%; background: #080808; overflow: hidden; }
       #root { height: 100vh; font-family: 'JetBrains Mono', monospace; }
-
-      /* Boot splash shown before React hydrates */
-      #splash {
-        position: fixed; inset: 0; background: #080808;
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        gap: 32px; z-index: 9999;
-        transition: opacity 0.6s ease;
-      }
-      #splash.hidden { opacity: 0; pointer-events: none; }
-
-      .splash-logo {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 11px; font-weight: 600;
-        letter-spacing: 0.3em; text-transform: uppercase;
-        color: #00e5ff;
-        text-shadow: 0 0 20px rgba(0,229,255,0.5);
-        animation: splash-pulse 1.5s ease-in-out infinite;
-      }
-      .splash-sub {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 9px; letter-spacing: 0.2em;
-        color: #333; text-transform: uppercase;
-        margin-top: -20px;
-      }
-      .splash-bar-wrap {
-        width: 200px; height: 2px;
-        background: #1a1a1a; border-radius: 1px; overflow: hidden;
-      }
-      .splash-bar {
-        height: 100%; width: 0; background: #00e5ff;
-        border-radius: 1px;
-        box-shadow: 0 0 8px rgba(0,229,255,0.6);
-        animation: splash-load 1.8s cubic-bezier(0.4,0,0.2,1) forwards;
-      }
-      @keyframes splash-load {
-        0%   { width: 0; }
-        40%  { width: 60%; }
-        70%  { width: 80%; }
-        100% { width: 100%; }
-      }
-      @keyframes splash-pulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.6; }
-      }
     </style>
   </head>
   <body>
-    <!-- Boot splash (visible before JS loads) -->
-    <div id="splash">
-      <div>
-        <div class="splash-logo">ADAPT-Synthetix</div>
-        <div class="splash-sub">Adaptive ASR · Phoneme Diagnostics · LoRA</div>
-      </div>
-      <div class="splash-bar-wrap">
-        <div class="splash-bar"></div>
-      </div>
-    </div>
-
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      // Hide splash once React has painted
-      window.__hideSplash = function() {
-        var s = document.getElementById('splash');
-        if (s) { s.classList.add('hidden'); setTimeout(function(){ s.remove(); }, 700); }
-      };
-    </script>
   </body>
 </html>

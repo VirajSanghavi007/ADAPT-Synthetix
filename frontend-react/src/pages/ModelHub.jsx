@@ -148,32 +148,6 @@ export default function ModelHub() {
         </Card>
       )}
 
-      {/* Research credits */}
-      <Card>
-        <CardHeader title="Research Basis" subtitle="papers implemented in this pipeline" />
-        <CardBody>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[
-              ['CTC Token Uncertainty', 'Rumberg et al., Interspeech 2023', C.cyan],
-              ['Conformal Priority Queue', 'Ernez et al., PMLR 2023', C.purple],
-              ['Phoneme Confusion Matrix', 'DyPCL / POWER — 30% threshold rule', C.green],
-              ['CUSUM Drift Detection', 'arXiv:2407.05375, 2024', C.amber],
-              ['AdaLoRA Adaptive Rank', 'Zhang et al., ICLR 2023', C.cyan],
-              ['HDMoLE LoRA-MoE Routing', 'Mu et al., ICASSP 2025', C.red],
-              ['Layer Freezing Strategy', 'Pekarek Rosin & Wermter, ICANN 2023', C.green],
-              ['SVD Singular Value Tuning', 'Vander Eeckt et al., arXiv:2601.18266', C.purple],
-            ].map(([title, ref, c]) => (
-              <div key={title} style={{ display: 'flex', gap: 8, padding: '7px 10px', background: C.surfaceAlt, borderRadius: 5, border: `1px solid ${C.border}` }}>
-                <div style={{ width: 3, borderRadius: 2, background: c, flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: C.textPrimary, marginBottom: 1 }}>{title}</div>
-                  <div style={{ fontSize: 8, color: C.textMuted }}>{ref}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
     </div>
   )
 }

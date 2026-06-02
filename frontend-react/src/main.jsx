@@ -25,10 +25,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
-
-// Remove boot splash after first paint
-requestAnimationFrame(() => {
-  requestAnimationFrame(() => {
-    window.__hideSplash?.()
-  })
-})
