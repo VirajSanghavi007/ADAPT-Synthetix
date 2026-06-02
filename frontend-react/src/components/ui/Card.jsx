@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import { C, radius, shadow } from '@/lib/theme'
 
-export function Card({ children, style, glow, onClick }) {
+export const Card = memo(function Card({ children, style, glow, onClick }) {
   return (
     <div
       onClick={onClick}
@@ -17,9 +18,9 @@ export function Card({ children, style, glow, onClick }) {
       {children}
     </div>
   )
-}
+})
 
-export function CardHeader({ title, subtitle, right, accent }) {
+export const CardHeader = memo(function CardHeader({ title, subtitle, right, accent }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start',
@@ -38,8 +39,8 @@ export function CardHeader({ title, subtitle, right, accent }) {
       {right}
     </div>
   )
-}
+})
 
-export function CardBody({ children, style }) {
+export const CardBody = memo(function CardBody({ children, style }) {
   return <div style={{ padding: '16px 20px', ...style }}>{children}</div>
-}
+})

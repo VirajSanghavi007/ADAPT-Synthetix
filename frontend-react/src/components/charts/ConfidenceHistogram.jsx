@@ -1,41 +1,36 @@
-import { useQuery } from '@tanstack/react-query'
+import { memo, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
-import { getConfidenceHistogram } from '@/lib/api'
 import { C } from '@/lib/theme'
-import { LoadingOverlay, EmptyState } from '@/components/ui/Spinner'
+import { EmptyState } from '@/components/ui/Spinner'
 import { Activity } from 'lucide-react'
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: '#1a1a1a', border: `1px solid ${C.borderBright}`,
-      borderRadius: 6, padding: '7px 12px', fontSize: 10,
-    }}>
+    <div style={{ background: '#1a2232', border: `1px solid ${C.borderBright}`, borderRadius: 6, padding: '7px 12px', fontSize: 10 }}>
       <div style={{ color: C.textSecondary }}>conf ≥ {label}</div>
-      <div style={{ color: C.cyan, fontWeight: 600 }}>{payload[0].value} samples</div>
+      <div style={{ color: C.teal, fontWeight: 600 }}>{payload[0].value} samples</div>
     </div>
   )
 }
 
-export function ConfidenceHistogram({ bins = 20 }) {
-  const { data, isLoading } = useQuery({
-    queryKey:        ['confidence_histogram', bins],
-    queryFn:         () => getConfidenceHistogram(bins),
-    refetchInterval: 25_000,
-  })
+// Accepts data as prop — parent owns the query, no duplicate subscription
+export const ConfidenceHistogram = memo(function ConfidenceHistogram({ data }) {
+  const chartData = useMemo(() => {
+    if (!data?.bins?.length) return []
+    return data.bins.map((bin, i) => ({
+      name:  bin.toFixed(2),
+      count: data.counts?.[i] ?? 0,
+    }))
+  }, [data?.bins, data?.counts])
 
-  if (isLoading) return <LoadingOverlay />
+  const maxCount = useMemo(
+    () => Math.max(...chartData.map((d) => d.count), 1),
+    [chartData],
+  )
+
   if (!data?.total_samples)
     return <EmptyState icon={<Activity size={28} />} title="No confidence data yet" sub="Start transcribing" />
-
-  // bins from server are already left-edges only — no slice needed
-  const chartData = (data.bins ?? []).map((bin, i) => ({
-    name:  bin.toFixed(2),
-    count: (data.counts ?? [])[i] ?? 0,
-  }))
-
-  const maxCount = Math.max(...chartData.map((d) => d.count), 1)
 
   return (
     <>
@@ -49,10 +44,10 @@ export function ConfidenceHistogram({ bins = 20 }) {
           <Tooltip content={<CustomTooltip />} cursor={{ fill: C.border + '55' }} />
           <ReferenceLine x="0.50" stroke={C.amber + '55'} strokeDasharray="4 2" />
           <Bar dataKey="count" radius={[2, 2, 0, 0]} maxBarSize={24}>
-            {chartData.map((entry, i) => (
+            {chartData.map((entry) => (
               <Cell
                 key={`cell-${entry.name}`}
-                fill={parseFloat(entry.name) >= 0.5 ? C.cyan : C.red}
+                fill={parseFloat(entry.name) >= 0.5 ? C.teal : C.clay}
                 opacity={0.55 + 0.45 * (entry.count / maxCount)}
               />
             ))}
@@ -61,4 +56,4 @@ export function ConfidenceHistogram({ bins = 20 }) {
       </ResponsiveContainer>
     </>
   )
-}
+})

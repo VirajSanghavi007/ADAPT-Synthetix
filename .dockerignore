@@ -1,16 +1,40 @@
-vir_env/
-__pycache__/
-*.pyc
-*.pyo
-.git/
+# Large data — downloaded at runtime
+test-clean/
+Dataset/
+Backend/models/wav2vec2/
+Backend/models/bark-small/
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.coverage
 .pytest_cache/
-*.pt
-tests/
+venv/
+.venv/
 vir_env/
-__pycache__/
-*.pyc
-*.pyo
+
+# Node — not needed in Docker (build/ is committed)
+frontend-react/node_modules/
+
+# Dev / CI tooling
+.github/
+.claude/
+docs/
+
+# Git
 .git/
-.pytest_cache/
-*.pt
-tests/
+.gitignore
+
+# Secrets
+.env
+*.env.*
+!.env.example
+
+# Test-only deps in image? — keep tests/ for now but skip big test data
+# tests/  ← keep for health checks
+
+# OS
+.DS_Store
+Thumbs.db

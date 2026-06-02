@@ -15,31 +15,43 @@ const NAV = [
   { to: '/models',     label: 'Models',     icon: Cpu,             key: 'm' },
 ]
 
+// Module-level constants — built once, never recreated on render
+const BASE_LINK = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '7px 10px', borderRadius: 6, textDecoration: 'none',
+  fontSize: 11, transition: 'all 0.12s ease', letterSpacing: '0.03em',
+}
+const ACTIVE_LINK = {
+  ...BASE_LINK,
+  color: C.teal, background: C.tealGlow,
+  border: `1px solid ${C.teal}1a`, fontWeight: 600,
+}
+const INACTIVE_LINK = {
+  ...BASE_LINK,
+  color: C.textSecondary, background: 'transparent',
+  border: '1px solid transparent', fontWeight: 400,
+}
+
+const linkStyle = ({ isActive }) => isActive ? ACTIVE_LINK : INACTIVE_LINK
+
 export function Sidebar() {
   return (
     <nav style={{
-      width: 196, flexShrink: 0,
-      background: C.surface,
+      width: 196, flexShrink: 0, background: C.surface,
       borderRight: `1px solid ${C.border}`,
-      display: 'flex', flexDirection: 'column',
-      userSelect: 'none',
+      display: 'flex', flexDirection: 'column', userSelect: 'none',
     }}>
       {/* Logo */}
-      <div style={{
-        padding: '18px 18px 14px',
-        borderBottom: `1px solid ${C.border}`,
-      }}>
+      <div style={{ padding: '18px 18px 14px', borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
-            width: 24, height: 24, borderRadius: 4,
-            background: C.cyanGlow,
-            border: `1px solid ${C.cyan}44`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: 4, background: C.tealGlow,
+            border: `1px solid ${C.teal}44`, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Mic size={12} color={C.cyan} />
+            <Mic size={12} color={C.teal} />
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.cyan, letterSpacing: '0.05em' }}>ADAPT</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.teal, letterSpacing: '0.05em' }}>ADAPT</div>
             <div style={{ fontSize: 8, color: C.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: -1 }}>Synthetix v2</div>
           </div>
         </div>
@@ -48,26 +60,7 @@ export function Sidebar() {
       {/* Nav */}
       <div style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
         {NAV.map(({ to, label, icon: Icon, key }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            style={({ isActive }) => ({
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'space-between',
-              padding:        '7px 10px',
-              borderRadius:   6,
-              color:          isActive ? C.cyan : C.textSecondary,
-              background:     isActive ? C.cyanGlow : 'transparent',
-              border:         isActive ? `1px solid ${C.cyan}1a` : '1px solid transparent',
-              textDecoration: 'none',
-              fontSize:       11,
-              fontWeight:     isActive ? 600 : 400,
-              transition:     'all 0.12s ease',
-              letterSpacing:  '0.03em',
-            })}
-          >
+          <NavLink key={to} to={to} end={to === '/'} style={linkStyle}>
             {({ isActive }) => (
               <>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -75,10 +68,8 @@ export function Sidebar() {
                   {label}
                 </span>
                 <span style={{
-                  fontSize: 8, color: C.textDim,
-                  border: `1px solid ${C.border}`,
-                  padding: '1px 4px', borderRadius: 3,
-                  fontWeight: 500,
+                  fontSize: 8, color: C.textDim, border: `1px solid ${C.border}`,
+                  padding: '1px 4px', borderRadius: 3, fontWeight: 500,
                 }}>{key}</span>
               </>
             )}
@@ -86,13 +77,10 @@ export function Sidebar() {
         ))}
       </div>
 
-      {/* Footer */}
       <div style={{
-        padding: '10px 18px',
-        borderTop: `1px solid ${C.border}`,
-        fontSize: 8, color: C.textMuted,
-        letterSpacing: '0.12em', textTransform: 'uppercase',
-        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '10px 18px', borderTop: `1px solid ${C.border}`,
+        fontSize: 8, color: C.textMuted, letterSpacing: '0.12em',
+        textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5,
       }}>
         <Database size={8} />
         Wav2Vec2 · Bark-Small

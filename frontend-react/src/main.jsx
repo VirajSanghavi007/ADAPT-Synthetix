@@ -8,10 +8,11 @@ import './styles/globals.css'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15_000,
-      gcTime: 60_000,
-      retry: 1,
-      refetchOnWindowFocus: false,
+      staleTime:                  15_000,
+      gcTime:                     60_000,
+      retry:                      1,
+      refetchOnWindowFocus:       false,
+      refetchIntervalInBackground:false,  // stop polling when tab hidden
     },
   },
 })

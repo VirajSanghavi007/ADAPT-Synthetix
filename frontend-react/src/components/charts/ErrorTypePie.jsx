@@ -1,22 +1,23 @@
-import { useQuery } from '@tanstack/react-query'
+import { memo, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { getRemediationStatus } from '@/lib/api'
 import { C } from '@/lib/theme'
-import { LoadingOverlay, EmptyState } from '@/components/ui/Spinner'
+import { EmptyState } from '@/components/ui/Spinner'
 import { AlertCircle } from 'lucide-react'
 
-export function ErrorTypePie() {
-  const { data, isLoading } = useQuery({ queryKey: ['remediation_status'], queryFn: getRemediationStatus, refetchInterval: 15_000 })
+export const ErrorTypePie = memo(function ErrorTypePie({ data }) {
+  const { chartData, total } = useMemo(() => {
+    const t = data?.total_transcriptions || 0
+    return {
+      total: t,
+      chartData: [
+        { name: 'Clean',      value: data?.clean              || 0, color: C.forest },
+        { name: 'Remediated', value: data?.remediated         || 0, color: C.teal   },
+        { name: 'Pending',    value: data?.pending_remediation || 0, color: C.amber  },
+      ].filter((d) => d.value > 0),
+    }
+  }, [data])
 
-  if (isLoading) return <LoadingOverlay />
-  const total = data?.total_transcriptions || 0
   if (!total) return <EmptyState icon={<AlertCircle size={28} />} title="No data yet" />
-
-  const chartData = [
-    { name: 'Clean',      value: data.clean       || 0, color: C.green },
-    { name: 'Remediated', value: data.remediated  || 0, color: C.cyan  },
-    { name: 'Pending',    value: data.pending_remediation || 0, color: C.amber },
-  ].filter((d) => d.value > 0)
 
   return (
     <>
@@ -31,14 +32,14 @@ export function ErrorTypePie() {
           </Pie>
           <Tooltip
             formatter={(v, n) => [`${v} (${((v / total) * 100).toFixed(1)}%)`, n]}
-            contentStyle={{ background: '#1a1a1a', border: `1px solid ${C.borderBright}`, borderRadius: 6, fontSize: 10 }}
+            contentStyle={{ background: '#1a2232', border: `1px solid ${C.borderBright}`, borderRadius: 6, fontSize: 10 }}
           />
           <Legend iconSize={7} iconType="circle" formatter={(v) => <span style={{ fontSize: 9, color: C.textSecondary }}>{v}</span>} />
         </PieChart>
       </ResponsiveContainer>
       <div style={{ textAlign: 'center', fontSize: 10, color: C.textSecondary }}>
-        Remediation rate: <span style={{ color: C.cyan, fontWeight: 600 }}>{data.remediation_rate?.toFixed(1)}%</span>
+        Remediation rate: <span style={{ color: C.teal, fontWeight: 600 }}>{data?.remediation_rate?.toFixed(1)}%</span>
       </div>
     </>
   )
-}
+})
