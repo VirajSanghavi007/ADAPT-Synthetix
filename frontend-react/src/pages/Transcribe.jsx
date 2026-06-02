@@ -147,7 +147,7 @@ function ResultCard({ result }) {
 
 export default function Transcribe() {
   const { start, stop, isRecording, loading, analyserRef } = useRecorder()
-  const { referenceTranscript, setReferenceTranscript }    = useSessionStore()
+  const { referenceTranscript, setReferenceTranscript, recentRefs, lastResult: persistedResult } = useSessionStore()
   const lastResult = useUIStore((s) => s.lastResult)
   const toast      = useUIStore((s) => s.toast)
 
@@ -162,7 +162,8 @@ export default function Transcribe() {
     try {
       const result = await transcribeAudio(file, file.name, referenceTranscript)
       setUploadResult(result)
-      useUIStore.getState().setLastResult(result)
+      // Persist to localStorage so it survives page refresh
+      useSessionStore.getState().setLastResult(result)
       toast('File transcribed', 'success')
     } catch (err) { toast(`Upload failed: ${err.message}`, 'error') }
     finally       { setUploadLoading(false) }
@@ -173,7 +174,8 @@ export default function Transcribe() {
     handleFile(e.dataTransfer.files[0])
   }, [handleFile])
 
-  const result = uploadResult || lastResult
+  // Show: new upload → new recording → persisted from last session
+  const result = uploadResult || persistedResult
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, height: 'calc(100vh - 104px)' }}>
@@ -187,6 +189,7 @@ export default function Transcribe() {
               <input
                 value={referenceTranscript}
                 onChange={(e) => setReferenceTranscript(e.target.value)}
+                list="recent-refs"
                 placeholder="Enter ground-truth text…"
                 style={{
                   flex: 1, background: C.surfaceAlt, border: `1px solid ${C.border}`,
@@ -194,6 +197,9 @@ export default function Transcribe() {
                   fontSize: 11, outline: 'none', fontFamily: 'inherit',
                 }}
               />
+              <datalist id="recent-refs">
+                {(recentRefs || []).map((r, i) => <option key={i} value={r} />)}
+              </datalist>
               {referenceTranscript && (
                 <button onClick={() => setReferenceTranscript('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, display: 'flex' }}>
                   <X size={13} />

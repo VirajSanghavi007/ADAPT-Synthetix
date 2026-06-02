@@ -1,11 +1,12 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Layout }          from '@/components/layout/Layout'
-import { PageLoader }      from '@/components/ui/Spinner'
-import { LoadingScreen }   from '@/components/ui/LoadingScreen'
+import { Layout }            from '@/components/layout/Layout'
+import { PageLoader }        from '@/components/ui/Spinner'
+import { LoadingScreen }     from '@/components/ui/LoadingScreen'
+import { CookieBanner }      from '@/components/ui/CookieBanner'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { useAuth }         from '@/hooks/useAuth'
-import { useState }        from 'react'
+import { useRouteTracker }   from '@/hooks/useRouteTracker'
+import { useAuth }           from '@/hooks/useAuth'
 
 const Dashboard       = lazy(() => import('@/pages/Dashboard'))
 const Transcribe      = lazy(() => import('@/pages/Transcribe'))
@@ -18,11 +19,13 @@ const Login           = lazy(() => import('@/pages/Login'))
 
 function AppRoutes() {
   useKeyboardShortcuts()
+  // Restore last page on login + track page changes
+  useRouteTracker({ shouldRestore: true })
+
   const { user, isLoading, isAuthenticated } = useAuth()
 
   if (isLoading) return <PageLoader />
 
-  // Not authenticated → show login
   if (!isAuthenticated) {
     return (
       <Suspense fallback={<PageLoader />}>
@@ -48,13 +51,13 @@ function AppRoutes() {
           <Route path="/login"      element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <CookieBanner />
     </Layout>
   )
 }
 
 export default function App() {
   const [ready, setReady] = useState(false)
-
   return (
     <>
       <LoadingScreen onDone={() => setReady(true)} />

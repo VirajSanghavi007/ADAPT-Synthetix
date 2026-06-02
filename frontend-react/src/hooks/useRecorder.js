@@ -85,7 +85,8 @@ export function useRecorder() {
 
         try {
           const result = await transcribeAudio(blob, `recording.${ext}`, ref, sessionId)
-          uiStore.setLastResult(result)
+          // Persist to localStorage — survives page refresh
+          sessionStore.setLastResult(result)
           uiStore.toast('Transcription complete', 'success')
           resolve(result)
         } catch (err) {

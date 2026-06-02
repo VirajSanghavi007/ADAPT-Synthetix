@@ -1,6 +1,6 @@
+import { useSessionStore } from '@/store'
 import { C } from '@/lib/theme'
 
-// Google "G" SVG inline — no external icon dep
 function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -13,14 +13,16 @@ function GoogleIcon() {
 }
 
 export default function Login() {
+  const { visitCount, lastSeen } = useSessionStore()
+  const returning = visitCount > 0
+
   return (
     <div style={{
-      height: '100vh',
-      display: 'flex',
+      height: '100vh', display: 'flex',
       background: C.bg,
       fontFamily: "'Cascadia Code','JetBrains Mono',monospace",
     }}>
-      {/* Left panel — brand */}
+      {/* Left — branding */}
       <div style={{
         width: '45%', display: 'flex', flexDirection: 'column',
         justifyContent: 'center', padding: '60px 64px',
@@ -35,13 +37,12 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Feature list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {[
-            { accent: C.teal,     label: 'Wav2Vec2 ASR',     desc: 'CTC confidence + token uncertainty' },
+            { accent: C.teal,     label: 'Wav2Vec2 ASR',       desc: 'CTC confidence + token uncertainty' },
             { accent: C.forest,   label: 'Phoneme Diagnostics', desc: 'CUSUM drift · confusion matrix' },
-            { accent: C.lavender, label: 'LoRA Fine-tuning', desc: 'AdaLoRA · mixture of experts' },
-            { accent: C.amber,    label: 'TTS Remediation',  desc: 'Bark-small · priority queue' },
+            { accent: C.lavender, label: 'LoRA Fine-tuning',    desc: 'AdaLoRA · mixture of experts' },
+            { accent: C.amber,    label: 'TTS Remediation',     desc: 'Bark-small · priority queue' },
           ].map((f) => (
             <div key={f.label} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
               <div style={{ width: 3, height: 36, background: f.accent, borderRadius: 2, flexShrink: 0, marginTop: 2 }} />
@@ -54,30 +55,40 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right panel — sign in */}
+      {/* Right — sign in */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center',
-        padding: 60,
+        justifyContent: 'center', alignItems: 'center', padding: 60,
       }}>
         <div style={{ width: '100%', maxWidth: 340 }}>
+          {/* Returning user hint */}
+          {returning && lastSeen && (
+            <div style={{
+              fontSize: 10, color: C.teal, marginBottom: 24,
+              padding: '6px 10px', background: C.tealGlow,
+              borderRadius: 5, border: `1px solid ${C.teal}22`,
+              display: 'inline-block',
+            }}>
+              ↵ Welcome back — your session is saved
+            </div>
+          )}
+
           <div style={{ fontSize: 18, fontWeight: 700, color: C.textPrimary, marginBottom: 6 }}>
-            Sign in
+            {returning ? 'Sign back in' : 'Sign in'}
           </div>
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 36 }}>
-            Use your Google account to access the dashboard
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 32 }}>
+            Use your <strong style={{ color: C.textSecondary }}>Gmail</strong> or any Google account
           </div>
 
+          {/* Google sign-in button */}
           <a
             href="/auth/login"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               width: '100%', padding: '12px 20px',
-              background: C.textPrimary,
-              color: '#0c0f14',
+              background: C.textPrimary, color: '#0c0f14',
               borderRadius: 8, fontWeight: 600, fontSize: 13,
-              textDecoration: 'none',
-              fontFamily: 'inherit',
+              textDecoration: 'none', fontFamily: 'inherit',
               transition: 'opacity 0.15s',
             }}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '0.88'}
@@ -87,9 +98,19 @@ export default function Login() {
             Continue with Google
           </a>
 
-          <div style={{ marginTop: 24, fontSize: 10, color: C.textDim, lineHeight: 1.6, textAlign: 'center' }}>
-            By signing in you agree to our terms of service.
-            <br />Your data is not shared with third parties.
+          {/* Supported account types */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
+            {['Gmail', 'Google Workspace', 'Google One'].map((t) => (
+              <span key={t} style={{
+                fontSize: 8, color: C.textMuted, padding: '2px 7px',
+                border: `1px solid ${C.border}`, borderRadius: 3,
+              }}>{t}</span>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 28, fontSize: 10, color: C.textDim, lineHeight: 1.6, textAlign: 'center' }}>
+            We only store your name, email, and profile picture from Google.
+            <br />Your transcription data never leaves your device.
           </div>
         </div>
       </div>

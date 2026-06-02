@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
 import { Search, ChevronDown, ChevronUp, Volume2, X } from 'lucide-react'
 import { getSessions, synthesizeSpeech, SESSIONS_LIMIT } from '@/lib/api'
+import { useSessionStore } from '@/store'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingOverlay, EmptyState } from '@/components/ui/Spinner'
@@ -98,8 +99,14 @@ function ExpandedRow({ session }) {
 const ERROR_TYPES = ['all', 'clean', 'noise', 'accent', 'pronunciation']
 
 export default function History() {
-  const [search, setSearch]     = useState('')
-  const [typeFilter, setFilter] = useState('all')
+  // Restore search + filter from last session
+  const { historySearch, historyFilter, setHistorySearch, setHistoryFilter } = useSessionStore()
+  const [search, setSearchLocal]     = useState(historySearch)
+  const [typeFilter, setFilterLocal] = useState(historyFilter)
+
+  // Wrap setters to also persist
+  const setSearch = (v) => { setSearchLocal(v); setHistorySearch(v) }
+  const setFilter = (v) => { setFilterLocal(v); setHistoryFilter(v) }
   const [expanded, setExpanded] = useState(null)
 
   // Canonical queryKey matches Dashboard and Analytics — single cache entry

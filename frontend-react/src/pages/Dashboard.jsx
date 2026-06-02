@@ -11,7 +11,16 @@ import { Badge } from '@/components/ui/Badge'
 import { ErrorTypePie } from '@/components/charts/ErrorTypePie'
 import { ConfidenceHistogram } from '@/components/charts/ConfidenceHistogram'
 import { C } from '@/lib/theme'
-import { useUIStore } from '@/store'
+import { useUIStore, useSessionStore } from '@/store'
+import { useAuth } from '@/hooks/useAuth'
+import { formatDistanceToNow as fDto } from 'date-fns'
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+}
 
 // Bare number stat — no card chrome, just typography
 function Stat({ label, value, accent, note }) {
@@ -45,7 +54,9 @@ function Section({ title, link, linkLabel, children, style }) {
 }
 
 export default function Dashboard() {
-  const lastResult = useUIStore((s) => s.lastResult)
+  const { user }        = useAuth()
+  const { lastResult: persistedResult, visitCount, lastSeen } = useSessionStore()
+  const lastResult = persistedResult  // restored from localStorage
 
   const { data: sessions }  = useQuery({ queryKey: ['sessions', SESSIONS_LIMIT], queryFn: getSessions,          refetchInterval: 12_000 })
   const { data: remStat }   = useQuery({ queryKey: ['remediation_status'],        queryFn: getRemediationStatus, refetchInterval: 15_000 })
@@ -59,6 +70,23 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'grid', gap: 40, maxWidth: 1200 }}>
+
+      {/* Welcome / greeting */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}`, paddingBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, letterSpacing: '-0.02em' }}>
+            {greeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}.
+          </div>
+          <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>
+            {visitCount > 1
+              ? `Visit #${visitCount} · Last seen ${lastSeen ? fDto(new Date(lastSeen), { addSuffix: true }) : 'recently'}`
+              : 'Welcome — your workspace is ready.'}
+          </div>
+        </div>
+        {user?.picture && (
+          <img src={user.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', opacity: 0.8 }} />
+        )}
+      </div>
 
       {/* Stats row — bare numbers, no cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 32 }}>
