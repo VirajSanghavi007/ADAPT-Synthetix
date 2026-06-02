@@ -16,6 +16,8 @@ const PriorityQueue   = lazy(() => import('@/pages/PriorityQueue'))
 const History         = lazy(() => import('@/pages/History'))
 const ModelHub        = lazy(() => import('@/pages/ModelHub'))
 const Login           = lazy(() => import('@/pages/Login'))
+const PrivacyPolicy   = lazy(() => import('@/pages/PrivacyPolicy'))
+const Terms           = lazy(() => import('@/pages/Terms'))
 
 function AppRoutes() {
   useKeyboardShortcuts()
@@ -30,8 +32,10 @@ function AppRoutes() {
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="*"      element={<Navigate to="/login" replace />} />
+          <Route path="/login"   element={<Login />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms"   element={<Terms />} />
+          <Route path="*"        element={<Navigate to="/login" replace />} />
         </Routes>
       </Suspense>
     )
@@ -48,7 +52,9 @@ function AppRoutes() {
           <Route path="/queue"      element={<PriorityQueue />} />
           <Route path="/history"    element={<History />} />
           <Route path="/models"     element={<ModelHub />} />
-          <Route path="/login"      element={<Navigate to="/" replace />} />
+          <Route path="/login"   element={<Navigate to="/" replace />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms"   element={<Terms />} />
         </Routes>
       </Suspense>
       <CookieBanner />
