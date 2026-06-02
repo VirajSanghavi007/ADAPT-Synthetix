@@ -58,9 +58,9 @@ def test_get_recent_sessions_returns_all_dates(db_module):
 
 
 def test_update_diagnostics_new_columns(db_module):
-    row_id = db_module.log_transcription("s", "b.wav", "/b", "world", 1.5, "m")
-    db_module.update_diagnostics(
-        row_id=row_id,
+    # update_diagnostics is now a no-op shim — all columns written in log_transcription
+    row_id = db_module.log_transcription(
+        "s", "b.wav", "/b", "world", 1.5, "m",
         cer_score=0.05, wer_score=0.12, per_score=0.08,
         error_type="pronunciation", confidence_score=0.75,
         snr_db=18.5, noise_profile='{"noise_type":"clean"}',
@@ -69,10 +69,10 @@ def test_update_diagnostics_new_columns(db_module):
     rows = db_module.get_recent_sessions(limit=10)
     row  = next((r for r in rows if r["id"] == row_id), None)
     assert row is not None
-    assert row["wer_score"]          == pytest.approx(0.12, abs=0.001)
-    assert row["snr_db"]             == pytest.approx(18.5, abs=0.01)
-    assert row["nonconformity_score"]== pytest.approx(0.25, abs=0.001)
-    assert row["per_score"]          == pytest.approx(0.08, abs=0.001)
+    assert row["wer_score"]           == pytest.approx(0.12, abs=0.001)
+    assert row["snr_db"]              == pytest.approx(18.5, abs=0.01)
+    assert row["nonconformity_score"] == pytest.approx(0.25, abs=0.001)
+    assert row["per_score"]           == pytest.approx(0.08, abs=0.001)
 
 
 def test_update_remedial_path(db_module):

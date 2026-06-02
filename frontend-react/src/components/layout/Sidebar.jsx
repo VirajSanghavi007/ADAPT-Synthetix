@@ -1,89 +1,74 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Mic, BarChart2, Zap,
-  ListOrdered, History, Cpu, Database,
+  ListOrdered, History, Cpu,
 } from 'lucide-react'
 import { C } from '@/lib/theme'
 
 const NAV = [
-  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard, key: 'd' },
-  { to: '/transcribe', label: 'Transcribe', icon: Mic,             key: 't' },
-  { to: '/analytics',  label: 'Analytics',  icon: BarChart2,       key: 'a' },
-  { to: '/phonemes',   label: 'Phonemes',   icon: Zap,             key: 'p' },
-  { to: '/queue',      label: 'Queue',      icon: ListOrdered,     key: 'q' },
-  { to: '/history',    label: 'History',    icon: History,         key: 'h' },
-  { to: '/models',     label: 'Models',     icon: Cpu,             key: 'm' },
+  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/transcribe', label: 'Transcribe', icon: Mic             },
+  { to: '/analytics',  label: 'Analytics',  icon: BarChart2       },
+  { to: '/phonemes',   label: 'Phonemes',   icon: Zap             },
+  { to: '/queue',      label: 'Queue',      icon: ListOrdered     },
+  { to: '/history',    label: 'History',    icon: History         },
+  { to: '/models',     label: 'Models',     icon: Cpu             },
 ]
 
-// Module-level constants — built once, never recreated on render
-const BASE_LINK = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '7px 10px', borderRadius: 6, textDecoration: 'none',
-  fontSize: 11, transition: 'all 0.12s ease', letterSpacing: '0.03em',
+const activeStyle = {
+  display: 'flex', alignItems: 'center', gap: 9,
+  padding: '7px 12px', borderRadius: 6, textDecoration: 'none',
+  fontSize: 12, color: C.textPrimary, fontWeight: 500,
+  background: C.surfaceAlt, border: `1px solid ${C.border}`,
 }
-const ACTIVE_LINK = {
-  ...BASE_LINK,
-  color: C.teal, background: C.tealGlow,
-  border: `1px solid ${C.teal}1a`, fontWeight: 600,
+const inactiveStyle = {
+  display: 'flex', alignItems: 'center', gap: 9,
+  padding: '7px 12px', borderRadius: 6, textDecoration: 'none',
+  fontSize: 12, color: C.textMuted, fontWeight: 400,
+  background: 'transparent', border: '1px solid transparent',
 }
-const INACTIVE_LINK = {
-  ...BASE_LINK,
-  color: C.textSecondary, background: 'transparent',
-  border: '1px solid transparent', fontWeight: 400,
-}
-
-const linkStyle = ({ isActive }) => isActive ? ACTIVE_LINK : INACTIVE_LINK
 
 export function Sidebar() {
   return (
     <nav style={{
-      width: 196, flexShrink: 0, background: C.surface,
+      width: 180, flexShrink: 0,
       borderRight: `1px solid ${C.border}`,
-      display: 'flex', flexDirection: 'column', userSelect: 'none',
+      display: 'flex', flexDirection: 'column',
+      padding: '20px 0',
+      userSelect: 'none',
     }}>
       {/* Logo */}
-      <div style={{ padding: '18px 18px 14px', borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 24, height: 24, borderRadius: 4, background: C.tealGlow,
-            border: `1px solid ${C.teal}44`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Mic size={12} color={C.teal} />
-          </div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.teal, letterSpacing: '0.05em' }}>ADAPT</div>
-            <div style={{ fontSize: 8, color: C.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: -1 }}>Synthetix v2</div>
-          </div>
+      <div style={{ padding: '0 16px 24px', borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, letterSpacing: '-0.01em' }}>
+          ADAPT
+        </div>
+        <div style={{ fontSize: 9, color: C.textMuted, marginTop: 1, letterSpacing: '0.1em' }}>
+          Synthetix
         </div>
       </div>
 
       {/* Nav */}
-      <div style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {NAV.map(({ to, label, icon: Icon, key }) => (
-          <NavLink key={to} to={to} end={to === '/'} style={linkStyle}>
+      <div style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {NAV.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            style={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+          >
             {({ isActive }) => (
               <>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Icon size={13} style={{ opacity: isActive ? 1 : 0.5 }} />
-                  {label}
-                </span>
-                <span style={{
-                  fontSize: 8, color: C.textDim, border: `1px solid ${C.border}`,
-                  padding: '1px 4px', borderRadius: 3, fontWeight: 500,
-                }}>{key}</span>
+                <Icon size={13} style={{ opacity: isActive ? 0.9 : 0.4, flexShrink: 0 }} />
+                {label}
               </>
             )}
           </NavLink>
         ))}
       </div>
 
-      <div style={{
-        padding: '10px 18px', borderTop: `1px solid ${C.border}`,
-        fontSize: 8, color: C.textMuted, letterSpacing: '0.12em',
-        textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5,
-      }}>
-        <Database size={8} />
-        Wav2Vec2 · Bark-Small
+      {/* Footer */}
+      <div style={{ padding: '16px 20px 0', borderTop: `1px solid ${C.border}`, marginTop: 8, fontSize: 9, color: C.textMuted }}>
+        Wav2Vec2 · Bark
       </div>
     </nav>
   )
