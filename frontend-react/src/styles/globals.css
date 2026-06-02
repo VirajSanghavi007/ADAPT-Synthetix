@@ -1,48 +1,70 @@
-/* ── Reset ─────────────────────────────────────────────────── */
+/**
+ * Global styles — ADAPT-Synthetix
+ *
+ * Font strategy (rootwebdesign.studio guidelines):
+ *  • System font stack — zero download, instant render, most sustainable option.
+ *    Cascadia Code ships with Windows 11 Terminal, JetBrains Mono with JetBrains
+ *    IDEs, Fira Code common on Linux. ui-monospace resolves the OS best mono.
+ *  • If none match, falls back to Consolas (Windows) / Menlo (macOS).
+ *  • No external font requests = no render-blocking, no privacy leaks, no CO₂.
+ *
+ * Colour strategy (UX Planet natural palettes + Wix guidelines):
+ *  • Deep midnight backgrounds — not pure black (more natural, less harsh)
+ *  • Muted, varied-saturation accents inspired by night ocean, forest, earth
+ *  • High contrast text uses blue-grey, not pure white
+ */
+
+/* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── Design tokens ─────────────────────────────────────────── */
+/* ── Design tokens ──────────────────────────────────────── */
 :root {
-  --bg:              #080808;
-  --surface:         #0f0f0f;
-  --surface-alt:     #141414;
-  --surface-hover:   #1a1a1a;
-  --border:          #1e1e1e;
-  --border-bright:   #2a2a2a;
+  /* Backgrounds */
+  --bg:              #0c0f14;
+  --surface:         #121820;
+  --surface-alt:     #18212e;
+  --surface-hover:   #1e2a3a;
+  --border:          #1e2d3d;
+  --border-bright:   #2a3d52;
 
-  --cyan:            #00e5ff;
-  --cyan-dim:        #00b8cc;
-  --cyan-glow:       rgba(0,229,255,0.12);
-  --cyan-glow-lg:    rgba(0,229,255,0.25);
+  /* Primary — teal (deep ocean) */
+  --teal:            #3ecfbd;
+  --teal-dim:        #2eaa9b;
+  --teal-glow:       rgba(62,207,189,0.13);
 
-  --green:           #39ff14;
-  --green-dim:       #2acc10;
-  --green-glow:      rgba(57,255,20,0.12);
+  /* Forest green (natural success) */
+  --forest:          #52c98a;
+  --forest-glow:     rgba(82,201,138,0.13);
 
-  --red:             #ff4444;
-  --red-dim:         #cc3333;
-  --red-glow:        rgba(255,68,68,0.12);
+  /* Terracotta / clay (natural danger) */
+  --clay:            #d97b5e;
+  --clay-glow:       rgba(217,123,94,0.13);
 
-  --amber:           #ffb300;
-  --amber-dim:       #cc8f00;
-  --amber-glow:      rgba(255,179,0,0.12);
+  /* Amber (autumn warning) */
+  --amber:           #c9943a;
+  --amber-glow:      rgba(201,148,58,0.13);
 
-  --purple:          #bf5fff;
-  --purple-glow:     rgba(191,95,255,0.12);
+  /* Lavender (twilight accent) */
+  --lavender:        #8f82c7;
+  --lavender-glow:   rgba(143,130,199,0.13);
 
-  --text-primary:    #e8e8e8;
-  --text-secondary:  #888;
-  --text-muted:      #444;
-  --text-dim:        #2a2a2a;
+  /* Text — moonlit blue-grey */
+  --text-primary:    #cdd6e0;
+  --text-secondary:  #6d849a;
+  --text-muted:      #354656;
+  --text-dim:        #1c2d3c;
 
-  --font:            'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  --radius-sm:       4px;
-  --radius-md:       8px;
-  --radius-lg:       12px;
-  --shadow-card:     0 4px 32px rgba(0,0,0,0.7);
+  /* System monospace — no download required */
+  --font: 'Cascadia Code', 'JetBrains Mono', 'Fira Code',
+          ui-monospace, Menlo, Consolas, 'Courier New', monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.5);
 }
 
-/* ── Base ──────────────────────────────────────────────────── */
+/* ── Base ───────────────────────────────────────────────── */
 html, body, #root {
   height: 100%;
   background: var(--bg);
@@ -54,39 +76,48 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────────────── */
 ::-webkit-scrollbar           { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track     { background: transparent; }
 ::-webkit-scrollbar-thumb     { background: var(--border-bright); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover{ background: #3a3a3a; }
+::-webkit-scrollbar-thumb:hover{ background: #3a5068; }
 
-/* ── Selection ─────────────────────────────────────────────── */
-::selection { background: rgba(0,229,255,0.18); color: var(--cyan); }
+/* ── Selection ──────────────────────────────────────────── */
+::selection {
+  background: rgba(62,207,189,0.20);
+  color: var(--teal);
+}
 
-/* ── Elements ──────────────────────────────────────────────── */
+/* ── Elements ───────────────────────────────────────────── */
 input, textarea, select, button { font-family: var(--font); }
-a     { color: var(--cyan); text-decoration: none; }
+a     { color: var(--teal); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 
-/* ── Recharts overrides ────────────────────────────────────── */
+/* ── Recharts overrides ─────────────────────────────────── */
 .recharts-tooltip-wrapper       { outline: none !important; }
-.recharts-default-tooltip       { background: var(--surface-alt) !important; border: 1px solid var(--border-bright) !important; border-radius: 6px !important; font-family: var(--font) !important; font-size: 11px !important; color: var(--text-primary) !important; }
-.recharts-cartesian-axis-tick-value { font-family: var(--font) !important; }
+.recharts-default-tooltip {
+  background: var(--surface-alt) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: 6px !important;
+  font-family: var(--font) !important;
+  font-size: 11px !important;
+  color: var(--text-primary) !important;
+}
 
-/* ── Keyframes ─────────────────────────────────────────────── */
-@keyframes spin          { to { transform: rotate(360deg); } }
-@keyframes fade-in       { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slide-up      { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes pulse-glow    { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-@keyframes scan-line     {
+/* ── Keyframes ──────────────────────────────────────────── */
+@keyframes spin       { to { transform: rotate(360deg); } }
+@keyframes fade-in    { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes pulse-glow { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes scan-line  {
   0%   { transform: translateY(-100%); opacity: 0; }
   10%  { opacity: 1; }
   90%  { opacity: 1; }
   100% { transform: translateY(100vh); opacity: 0; }
 }
 
-/* ── Utility ───────────────────────────────────────────────── */
+/* ── Utilities ──────────────────────────────────────────── */
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-only  { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
