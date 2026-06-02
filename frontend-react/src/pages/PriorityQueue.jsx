@@ -1,26 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ListOrdered, Clock, CheckCircle, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { getPriorityQueue } from '@/lib/api'
-import { Card, CardHeader, CardBody } from '@/components/ui/Card'
-import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
-import { LoadingOverlay, EmptyState } from '@/components/ui/Spinner'
+import { LoadingOverlay } from '@/components/ui/Spinner'
 import { C } from '@/lib/theme'
 
+function Label({ children }) {
+  return <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 14 }}>{children}</div>
+}
+
 function PriorityBar({ value }) {
-  const max = 2.5
-  const pct = Math.min(100, (value / max) * 100)
-  const c   = pct > 60 ? C.red : pct > 30 ? C.amber : C.green
+  const pct = Math.min(100, (value / 2.5) * 100)
+  const c   = pct > 60 ? C.clay : pct > 30 ? C.amber : C.forest
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-      <div style={{ flex: 1, height: 5, background: C.border, borderRadius: 3, overflow: 'hidden', maxWidth: 110 }}>
-        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: 'easeOut' }}
-          style={{ height: '100%', background: c, borderRadius: 3, boxShadow: `0 0 5px ${c}77` }}
-        />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, height: 3, background: C.border, borderRadius: 2, maxWidth: 100, overflow: 'hidden' }}>
+        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }}
+          style={{ height: '100%', background: c, borderRadius: 2 }} />
       </div>
-      <span style={{ fontSize: 9, color: C.textSecondary, minWidth: 30 }}>{value.toFixed(3)}</span>
+      <span style={{ fontSize: 9, color: C.textMuted, minWidth: 28 }}>{value.toFixed(2)}</span>
     </div>
   )
 }
@@ -28,72 +27,85 @@ function PriorityBar({ value }) {
 function DomainPills({ matches }) {
   if (!matches) return null
   const terms    = matches.split(',').map((s) => s.trim()).filter(Boolean)
-  const medical  = terms.some((t) => ['patient','cardiac','dosage','medication','hospital','seizure'].includes(t))
-  const emergency= terms.some((t) => ['help','fire','ambulance','danger','emergency','rescue'].includes(t))
+  const medical  = terms.some((t) => ['patient','cardiac','dosage','medication','hospital'].includes(t))
+  const emergency= terms.some((t) => ['help','fire','ambulance','danger','emergency'].includes(t))
   return (
-    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {emergency && <Badge label="emergency" preset="emergency" />}
       {medical   && <Badge label="medical"   preset="medical" />}
       {terms.slice(0, 2).map((t) => (
-        <span key={t} style={{ fontSize: 8, color: C.textMuted, padding: '1px 4px', background: C.surfaceAlt, borderRadius: 2 }}>{t}</span>
+        <span key={t} style={{ fontSize: 8, color: C.textMuted, padding: '1px 5px', background: C.surfaceAlt, borderRadius: 3 }}>{t}</span>
       ))}
     </div>
   )
 }
 
 export default function PriorityQueue() {
-  const { data, isLoading, refetch } = useQuery({ queryKey: ['priority_queue'], queryFn: getPriorityQueue, refetchInterval: 8_000 })
+  const { data, isLoading, refetch } = useQuery({ queryKey: ['priority_queue'], queryFn: getPriorityQueue, refetchInterval: 20_000 })
 
   const stats = data?.stats || {}
   const queue = data?.queue || []
 
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
+    <div style={{ display: 'grid', gap: 40, maxWidth: 1100 }}>
+
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-        <StatCard label="Pending"    value={stats.pending    ?? 0} accent={C.amber} icon={<Clock size={14} />} />
-        <StatCard label="Processing" value={stats.processing ?? 0} accent={C.cyan}  icon={<ListOrdered size={14} />} />
-        <StatCard label="Completed"  value={stats.completed  ?? 0} accent={C.green} icon={<CheckCircle size={14} />} />
-        <StatCard label="Avg Priority" value={stats.avg_priority?.toFixed(3) ?? '—'} sub="0–2.5 scale" accent={C.purple} icon={<AlertTriangle size={14} />} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 28 }}>
+        {[
+          { label: 'Pending',     value: stats.pending    ?? 0, accent: C.amber },
+          { label: 'Processing',  value: stats.processing ?? 0, accent: C.teal  },
+          { label: 'Completed',   value: stats.completed  ?? 0, accent: C.forest },
+          { label: 'Avg priority', value: stats.avg_priority?.toFixed(3) ?? '—', accent: C.textPrimary },
+        ].map((s, i) => (
+          <div key={s.label} style={{ padding: '0 28px 0 0', borderRight: i < 3 ? `1px solid ${C.border}` : 'none', marginRight: i < 3 ? 28 : 0 }}>
+            <div style={{ fontSize: 9, color: C.textMuted, marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: s.accent, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.value}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Queue table */}
-      <Card>
-        <CardHeader title="Remediation Queue" subtitle={`${stats.total ?? 0} items · sorted by final priority`}
-          right={<button onClick={refetch} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 9, fontFamily: 'inherit', letterSpacing: '0.08em' }}>↺ refresh</button>}
-        />
+      {/* Table */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <Label>Remediation queue</Label>
+          <button onClick={refetch} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 9, fontFamily: 'inherit' }}>
+            ↺ refresh
+          </button>
+        </div>
+
         {isLoading ? (
           <LoadingOverlay />
         ) : !queue.length ? (
-          <EmptyState icon={<ListOrdered size={28} />} title="Queue is empty" sub="Transcriptions with errors will appear here" />
+          <div style={{ fontSize: 11, color: C.textMuted, padding: '20px 0' }}>Queue is empty — transcriptions with errors appear here</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
-                <tr style={{ borderBottom: `1px solid ${C.borderBright}` }}>
-                  {['#','Transcription','Error','Priority Score','Domain','Status','Age'].map((h) => (
-                    <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontSize: 8, color: C.textMuted, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                  {['#', 'Transcription', 'Error', 'Priority', 'Domain', 'Status', 'Age'].map((h) => (
+                    <th key={h} style={{ padding: '6px 12px 6px 0', textAlign: 'left', fontSize: 8, color: C.textMuted, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {queue.map((item, i) => (
-                  <motion.tr key={item.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}
-                    style={{ borderBottom: `1px solid ${C.border}`, background: item.status === 'completed' ? 'rgba(57,255,20,0.02)' : 'transparent' }}>
-                    <td style={{ padding: '9px 12px', color: C.textMuted, fontSize: 8 }}>#{item.id}</td>
-                    <td style={{ padding: '9px 12px', maxWidth: 200 }}>
+                  <motion.tr key={item.id}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                    style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 12px 10px 0', color: C.textDim, fontSize: 9 }}>{item.id}</td>
+                    <td style={{ padding: '10px 12px 10px 0', maxWidth: 220 }}>
                       <div className="truncate" style={{ color: C.textPrimary }}>{item.transcription}</div>
                     </td>
-                    <td style={{ padding: '9px 12px' }}><Badge preset={item.error_type} label={item.error_type || 'unknown'} /></td>
-                    <td style={{ padding: '9px 12px', minWidth: 150 }}>
+                    <td style={{ padding: '10px 12px 10px 0' }}><Badge preset={item.error_type} label={item.error_type || '?'} /></td>
+                    <td style={{ padding: '10px 12px 10px 0', minWidth: 140 }}>
                       <PriorityBar value={item.final_priority} />
-                      <div style={{ fontSize: 8, color: C.textMuted, marginTop: 2 }}>
-                        base {item.base_confidence?.toFixed(2)} × {item.domain_multiplier?.toFixed(1)}× domain
+                      <div style={{ fontSize: 8, color: C.textDim, marginTop: 3 }}>
+                        {item.base_confidence?.toFixed(2)} × {item.domain_multiplier?.toFixed(1)}
                       </div>
                     </td>
-                    <td style={{ padding: '9px 12px' }}><DomainPills matches={item.domain_matches} /></td>
-                    <td style={{ padding: '9px 12px' }}><Badge preset={item.status} label={item.status} dot /></td>
-                    <td style={{ padding: '9px 12px', fontSize: 9, color: C.textMuted, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 12px 10px 0' }}><DomainPills matches={item.domain_matches} /></td>
+                    <td style={{ padding: '10px 12px 10px 0' }}><Badge preset={item.status} label={item.status} dot /></td>
+                    <td style={{ padding: '10px 0', fontSize: 9, color: C.textMuted, whiteSpace: 'nowrap' }}>
                       {item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '—'}
                     </td>
                   </motion.tr>
@@ -102,26 +114,24 @@ export default function PriorityQueue() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* Formula explanation */}
-      <Card>
-        <CardHeader title="Priority Formula" subtitle="nonconformity × domain × error-type — research basis: Ernez et al. PMLR 2023 + DyPCL" />
-        <CardBody>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            <div style={{ padding: '12px 14px', background: C.surfaceAlt, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 10, lineHeight: 2.2 }}>
-              <div style={{ color: C.cyan }}>base = 1 − confidence_score</div>
-              <div style={{ color: C.purple }}>domain_mult = 1 + (0.5 × |vocab_matches|)</div>
-              <div style={{ color: C.amber }}>error_mult  = noise:1.2×  accent:1.1×  pronun:1.0×</div>
-              <div style={{ color: C.green, fontWeight: 700 }}>final = base × domain_mult × error_mult</div>
-            </div>
-            <div style={{ fontSize: 10, color: C.textSecondary }}>
-              <div style={{ marginBottom: 8 }}>NCS (nonconformity score) = 1 − confidence maps directly to conformal prediction priority (Ernez et al. 2023).</div>
-              <div>Domain multiplier boosts medical/emergency vocabulary per ADAPT-Synthetix closed-loop feedback design.</div>
-            </div>
+      {/* Formula */}
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 24 }}>
+        <Label>Priority formula</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+          <div style={{ fontFamily: 'inherit', fontSize: 11, lineHeight: 2.2, color: C.textSecondary }}>
+            <div><span style={{ color: C.teal }}>base</span> = 1 − confidence_score</div>
+            <div><span style={{ color: C.lavender }}>domain</span> = 1 + (0.5 × |vocab_matches|)</div>
+            <div><span style={{ color: C.amber }}>error</span> = noise:1.2× · accent:1.1× · pronun:1.0×</div>
+            <div style={{ color: C.forest, fontWeight: 600 }}>final = base × domain × error</div>
           </div>
-        </CardBody>
-      </Card>
+          <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.8 }}>
+            Nonconformity score (1−conf) maps to conformal prediction priority (Ernez et al. PMLR 2023).
+            Domain multiplier boosts medical/emergency terms.
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

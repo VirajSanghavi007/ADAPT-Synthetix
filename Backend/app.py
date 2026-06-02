@@ -53,6 +53,7 @@ from priority_queue import (
     RemediationPriorityQueue,
 )
 from session_logger import SessionLogger
+from auth import router as auth_router, get_current_user, AUTH_ENABLED
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
@@ -107,6 +108,9 @@ app = FastAPI(title="ADAPT-Synthetix", version="2.0.0", lifespan=lifespan)
 
 # GZip — compresses all JSON responses > 1 KB (~60-80% smaller)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Auth routes
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,

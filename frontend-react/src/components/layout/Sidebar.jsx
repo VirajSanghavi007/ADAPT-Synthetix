@@ -28,7 +28,7 @@ const inactiveStyle = {
   background: 'transparent', border: '1px solid transparent',
 }
 
-export function Sidebar() {
+export function Sidebar({ user, onLogout }) {
   return (
     <nav style={{
       width: 180, flexShrink: 0,
@@ -66,9 +66,29 @@ export function Sidebar() {
         ))}
       </div>
 
-      {/* Footer */}
-      <div style={{ padding: '16px 20px 0', borderTop: `1px solid ${C.border}`, marginTop: 8, fontSize: 9, color: C.textMuted }}>
-        Wav2Vec2 · Bark
+      {/* User */}
+      <div style={{ padding: '14px 12px 0', borderTop: `1px solid ${C.border}`, marginTop: 8 }}>
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+            {user.picture
+              ? <img src={user.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
+              : <div style={{ width: 24, height: 24, borderRadius: '50%', background: C.tealGlow, border: `1px solid ${C.teal}44`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: C.teal, fontWeight: 700 }}>
+                  {(user.name || user.email || '?')[0].toUpperCase()}
+                </div>
+            }
+            <div style={{ overflow: 'hidden', flex: 1 }}>
+              <div className="truncate" style={{ fontSize: 10, color: C.textPrimary }}>{user.name || 'User'}</div>
+              <div className="truncate" style={{ fontSize: 8, color: C.textMuted }}>{user.email}</div>
+            </div>
+          </div>
+        )}
+        <button onClick={onLogout} style={{
+          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          textAlign: 'left', fontSize: 9, color: C.textMuted, padding: '4px 0',
+          fontFamily: 'inherit', letterSpacing: '0.05em',
+        }}>
+          Sign out →
+        </button>
       </div>
     </nav>
   )
