@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "react-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend-react",
+      "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m", "uvicorn", "Backend.app:app",
+        "--host", "0.0.0.0", "--port", "5000", "--reload"
+      ],
+      "cwd": "${workspaceFolder}",
+      "port": 5000,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder};${workspaceFolder}/Backend"
+      }
+    }
+  ]
+}

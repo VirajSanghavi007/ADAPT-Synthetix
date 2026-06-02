@@ -1,15 +1,41 @@
 version: '3.8'
+
 services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: adapt
+      POSTGRES_PASSWORD: adapt
+      POSTGRES_DB: adaptsynthetix
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adapt -d adaptsynthetix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   adapt-synthetix:
     build: .
     ports:
       - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - USE_POSTGRES=true
+      - DATABASE_URL=postgresql://adapt:adapt@db:5432/adaptsynthetix
     volumes:
       - ./Backend/data:/app/Backend/data
       - ./Backend/logs:/app/Backend/logs
       - ./Backend/models:/app/Backend/models
       - ./Dataset:/app/Dataset
-      - ./.cache:/app/.cache
-    environment:
-      - PYTHONUNBUFFERED=1
+      - hf_cache:/app/.cache
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  pg_data:
+  hf_cache:

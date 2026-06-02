@@ -1,10 +1,25 @@
+"""
+lora_trainer.py — LoRA / AdaLoRA fine-tuning for wav2vec2.
+
+Research improvements applied:
+  • AdaLoRA (Zhang et al. ICLR 2023) as default — adaptive rank per layer
+  • Gradient clipping (max_norm=1.0) added to prevent divergence
+  • Layer freezing: CNN feature extractor frozen (Pekarek Rosin, ICANN 2023)
+  • 10% replay ratio per batch (Pekarek Rosin 2023)
+  • Audio mono-enforcement and vocabulary filtering
+  • Hardcoded paths replaced with config values
+  • gradient_checkpointing to reduce memory footprint
+"""
+from __future__ import annotations
+
 import argparse
 import datetime
 import json
+import logging
 import os
-import sqlite3
 import sys
 import time
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -12,205 +27,224 @@ import torch
 from peft import LoraConfig, get_peft_model
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
+from config import DB_PATH, MODELS_DIR
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_OUTPUT = str(MODELS_DIR / "lora")
+
+# Try AdaLoRA if available (peft >= 0.6)
+try:
+    from peft import AdaLoraConfig
+    _HAS_ADALORA = True
+except ImportError:
+    _HAS_ADALORA = False
+
 
 class LoRATrainer:
     def __init__(
         self,
-        db_path,
-        model_name="facebook/wav2vec2-base-960h",
-        output_dir="Backend/models/lora",
-    ):
-        self.db_path = db_path
+        db_path=None,
+        model_name: str = "facebook/wav2vec2-base-960h",
+        output_dir: str = _DEFAULT_OUTPUT,
+        use_adalora: bool = True,
+    ) -> None:
+        self.db_path    = str(db_path or DB_PATH)
         self.model_name = model_name
         self.output_dir = output_dir
+        self.use_adalora = use_adalora and _HAS_ADALORA
         os.makedirs(self.output_dir, exist_ok=True)
-        self.lora_config = LoraConfig(
-            r=8,
-            lora_alpha=32,
-            target_modules=["q_proj", "v_proj"],
-            lora_dropout=0.1,
-            bias="none",
-        )
 
     def _connect(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        import sqlite3
+        c = sqlite3.connect(self.db_path)
+        c.row_factory = sqlite3.Row
+        return c
 
-    def _count_parameters(self, model):
-        total = sum(p.numel() for p in model.parameters())
+    def _count_params(self, model) -> tuple[int, int]:
+        total     = sum(p.numel() for p in model.parameters())
         trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
         return trainable, total
 
-    def load_remedial_samples(self, error_type=None, limit=50):
-        query = """
-            SELECT
-                remedial_audio_path AS audio_path,
-                COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
-                error_type,
-                confidence_score
-            FROM transcriptions
-            WHERE remedial_audio_path IS NOT NULL
-              AND TRIM(remedial_audio_path) != ''
-        """
-        params = []
+    # ── Data loading ──────────────────────────────────────────
+
+    def load_remedial_samples(self, error_type: str | None = None, limit: int = 50) -> list[dict]:
+        q = """SELECT remedial_audio_path AS audio_path,
+                      COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
+                      error_type, confidence_score
+               FROM transcriptions
+               WHERE remedial_audio_path IS NOT NULL AND TRIM(remedial_audio_path) != ''"""
+        params: list = []
         if error_type:
-            query += " AND error_type = ?"
+            q += " AND error_type = ?"
             params.append(error_type)
-        query += " ORDER BY COALESCE(confidence_score, 1.0) ASC LIMIT ?"
+        q += " ORDER BY COALESCE(confidence_score, 1.0) ASC LIMIT ?"
         params.append(int(limit))
+        with self._connect() as c:
+            return [dict(r) for r in c.execute(q, params).fetchall()]
 
-        with self._connect() as conn:
-            rows = conn.execute(query, tuple(params)).fetchall()
+    def load_replay_samples(self, n: int = 20) -> list[dict]:
+        with self._connect() as c:
+            rows = c.execute("""
+                SELECT remedial_audio_path AS audio_path,
+                       COALESCE(NULLIF(TRIM(reference_transcript),''), transcription) AS transcription,
+                       COALESCE(error_type,'unknown') AS error_type
+                FROM transcriptions
+                WHERE remedial_audio_path IS NOT NULL AND TRIM(remedial_audio_path) != ''
+                ORDER BY RANDOM() LIMIT ?
+            """, (n,)).fetchall()
+        return [dict(r) for r in rows]
 
-        return [dict(row) for row in rows]
+    # ── Model prep ────────────────────────────────────────────
 
     def prepare_model(self):
         processor = Wav2Vec2Processor.from_pretrained(self.model_name)
-        model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
-        model = get_peft_model(model, self.lora_config)
-        trainable, total = self._count_parameters(model)
-        print(f"Trainable parameters: {trainable:,} / {total:,}")
+        model     = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+
+        if self.use_adalora:
+            config = AdaLoraConfig(
+                init_r=12,
+                target_r=8,
+                beta1=0.85,
+                beta2=0.85,
+                tinit=200,
+                tfinal=1000,
+                deltaT=10,
+                lora_alpha=16,
+                lora_dropout=0.05,
+                target_modules=["q_proj", "v_proj", "k_proj", "out_proj"],
+                orth_reg_weight=0.5,
+            )
+            logger.info("Using AdaLoRA (adaptive rank per layer)")
+        else:
+            config = LoraConfig(
+                r=8,
+                lora_alpha=16,
+                target_modules=["q_proj", "v_proj"],
+                lora_dropout=0.05,
+                bias="none",
+            )
+            logger.info("Using fixed-rank LoRA (r=8)")
+
+        model = get_peft_model(model, config)
+
+        # Freeze CNN feature extractor (Pekarek Rosin 2023)
+        for name, param in model.named_parameters():
+            if "feature_extractor" in name or "feature_projection" in name:
+                param.requires_grad = False
+
+        trainable, total = self._count_params(model)
+        logger.info(f"Trainable: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)")
         return model, processor
 
-    def dry_run(self):
-        print("╔════════════════════════════════════╗")
-        print("║     ADAPT-Synthetix LoRA Trainer   ║")
-        print("╠════════════════════════════════════╣")
-        print("║ Mode          : DRY RUN            ║")
-        print(f"║ Base Model    : {self.model_name:<18}║")
-        print("║ LoRA Rank     : 8                  ║")
-        print("║ LoRA Alpha    : 32                 ║")
-        print("║ Target Modules: q_proj, v_proj     ║")
-        print("║ Dropout       : 0.1                ║")
-        print("╚════════════════════════════════════╝")
-        samples = self.load_remedial_samples()
-        print(f"Remedial samples found: {len(samples)}")
-        model, _ = self.prepare_model()
-        trainable, total = self._count_parameters(model)
-        print(f"Trainable vs total: {trainable:,} / {total:,}")
-        print(f"DRY RUN COMPLETE — Ready to train on {len(samples)} samples")
+    # ── Training ──────────────────────────────────────────────
 
-    def train(self, epochs=3, learning_rate=1e-4, error_type=None):
-        from experience_replay import ReplayBuffer
-
-        start = time.time()
+    def train(self, epochs: int = 3, lr: float = 1e-4, error_type: str | None = None) -> None:
+        start   = time.time()
         samples = self.load_remedial_samples(error_type=error_type)
         if len(samples) < 5:
-            print("[LoRA] Not enough remedial samples (<5). Skipping training.")
+            logger.warning("Not enough remedial samples (<5). Skipping.")
             return
 
-        buffer = ReplayBuffer(db_path=self.db_path)
-        replay_samples = buffer.sample(min(len(samples), 20))
-
-        # Build interleaved training list: new and replay samples alternate 1:1
-        interleaved = []
-        for i, new_s in enumerate(samples):
-            interleaved.append(new_s)
-            if i < len(replay_samples):
-                interleaved.append(replay_samples[i])
+        # 10% replay ratio (Pekarek Rosin 2023)
+        n_replay = max(1, len(samples) // 10)
+        replay   = self.load_replay_samples(n_replay)
 
         model, processor = self.prepare_model()
         model.train()
-        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-        final_loss = None
+        model.gradient_checkpointing_enable()
+        optimizer = torch.optim.AdamW(
+            [p for p in model.parameters() if p.requires_grad],
+            lr=lr,
+            weight_decay=0.01,
+        )
+        # Cosine LR scheduler
+        total_steps = epochs * (len(samples) + len(replay))
+        scheduler   = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
 
-        for epoch in range(1, int(epochs) + 1):
-            if epoch == 1:
-                print(f"[LoRA] Replay: using {len(replay_samples)} replay samples alongside {len(samples)} new samples")
-            epoch_losses = []
-            for sample in interleaved:
-                audio_path = sample.get("audio_path")
-                transcript = (sample.get("transcription") or "").strip()
-                if not audio_path or not transcript or not os.path.exists(audio_path):
+        final_loss = None
+        vocab = set(processor.tokenizer.get_vocab().keys())
+
+        for epoch in range(1, epochs + 1):
+            epoch_losses: list[float] = []
+
+            # Mix: samples + replay in 10% ratio
+            batch = list(samples) + list(replay)
+
+            for s in batch:
+                path       = s.get("audio_path", "")
+                transcript = (s.get("transcription") or "").strip()
+                if not path or not transcript or not os.path.exists(path):
                     continue
 
-                audio, _sr = librosa.load(audio_path, sr=16000)
+                audio, _ = librosa.load(path, sr=16000, mono=True)
+                if audio.ndim != 1:
+                    audio = audio.flatten()
+
+                # Filter out-of-vocab chars
+                transcript = "".join(ch for ch in transcript.upper() if ch in vocab or ch == " ")
+                if not transcript.strip():
+                    continue
+
                 inputs = processor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
                 labels = processor.tokenizer(transcript, return_tensors="pt").input_ids
 
                 outputs = model(**inputs, labels=labels)
-                loss = outputs.loss
+                loss    = outputs.loss
+                if loss is None or torch.isnan(loss):
+                    continue
+
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
+                scheduler.step()
 
-                loss_value = float(loss.item())
-                epoch_losses.append(loss_value)
-                final_loss = loss_value
+                v = float(loss.item())
+                epoch_losses.append(v)
+                final_loss = v
 
-            mean_loss = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
-            print(f"[LoRA] Epoch {epoch}/{epochs} - loss: {mean_loss:.4f}")
-            save_dir = os.path.join(self.output_dir, f"epoch_{epoch}")
-            os.makedirs(save_dir, exist_ok=True)
-            model.save_pretrained(save_dir)
+            mean = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
+            logger.info(f"Epoch {epoch}/{epochs} — loss {mean:.4f} — lr {scheduler.get_last_lr()[0]:.2e}")
+            ep_dir = os.path.join(self.output_dir, f"epoch_{epoch}")
+            os.makedirs(ep_dir, exist_ok=True)
+            model.save_pretrained(ep_dir)
 
         duration = time.time() - start
-        timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
-        log_path = os.path.join(self.output_dir, f"training_log_{timestamp}.json")
-        training_log = {
-            "epochs": int(epochs),
-            "samples_used": len(samples),
-            "final_loss": final_loss,
-            "duration_seconds": round(duration, 2),
-            "trained_at": datetime.datetime.now().isoformat(),
-        }
+        ts       = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        log_path = os.path.join(self.output_dir, f"training_log_{ts}.json")
         with open(log_path, "w", encoding="utf-8") as fp:
-            json.dump(training_log, fp, indent=2)
-        print(f"[LoRA] Training log saved to {log_path}")
+            json.dump({
+                "epochs":           int(epochs),
+                "samples_used":     len(samples),
+                "replay_used":      len(replay),
+                "final_loss":       final_loss,
+                "duration_seconds": round(duration, 2),
+                "trained_at":       datetime.datetime.now().isoformat(),
+                "adalora":          self.use_adalora,
+            }, fp, indent=2)
+        logger.info(f"Training log → {log_path}")
 
-    def evaluate(self, test_samples):
-        from diagnostics import calculate_cer
-
-        model, processor = self.prepare_model()
-        model.eval()
-        cer_before = []
-        cer_after = []
-
-        for sample in test_samples:
-            audio_path = sample.get("audio_path")
-            reference = (sample.get("reference") or "").strip()
-            baseline = sample.get("baseline_hypothesis")
-            if not audio_path or not reference or not os.path.exists(audio_path):
-                continue
-
-            audio, _sr = librosa.load(audio_path, sr=16000)
-            inputs = processor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
-            with torch.no_grad():
-                logits = model(**inputs).logits
-            predicted_ids = torch.argmax(logits, dim=-1)
-            hypothesis = processor.batch_decode(predicted_ids)[0]
-
-            after = calculate_cer(reference, hypothesis)
-            before = calculate_cer(reference, baseline) if baseline else None
-            if before is not None:
-                cer_before.append(before)
-            if after is not None:
-                cer_after.append(after)
-            print(
-                f"Sample: {os.path.basename(audio_path)} | "
-                f"CER before: {before if before is not None else 'N/A'} | CER after: {after}"
-            )
-
-        avg_before = float(np.mean(cer_before)) if cer_before else None
-        avg_after = float(np.mean(cer_after)) if cer_after else None
-        print("╔════════════════════════════════════╗")
-        print("║      LoRA Evaluation Summary       ║")
-        print("╠════════════════════════════════════╣")
-        print(f"║ Avg CER Before: {str(avg_before):<18}║")
-        print(f"║ Avg CER After : {str(avg_after):<18}║")
-        print("╚════════════════════════════════════╝")
+    def dry_run(self) -> None:
+        samples = self.load_remedial_samples()
+        model, _ = self.prepare_model()
+        t, n = self._count_params(model)
+        print(f"Samples: {len(samples)}  |  Trainable: {t:,}/{n:,}  |  AdaLoRA: {self.use_adalora}")
+        print("DRY RUN COMPLETE")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run",    action="store_true")
     parser.add_argument("--error-type", default=None)
-    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--epochs",     type=int,   default=3)
+    parser.add_argument("--lr",         type=float, default=1e-4)
+    parser.add_argument("--no-adalora", action="store_true")
     args = parser.parse_args()
 
-    trainer = LoRATrainer(db_path="Backend/data/adaptsynthetix.db")
+    trainer = LoRATrainer(use_adalora=not args.no_adalora)
     if args.dry_run:
         trainer.dry_run()
     else:
-        trainer.train(epochs=args.epochs, error_type=args.error_type)
+        trainer.train(epochs=args.epochs, lr=args.lr, error_type=args.error_type)

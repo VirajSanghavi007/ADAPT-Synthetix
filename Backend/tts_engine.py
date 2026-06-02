@@ -1,46 +1,70 @@
+"""
+tts_engine.py — TTS synthesis via Bark (suno/bark-small).
+
+Bug fixes:
+  • Audio squeeze to 1-D before writing WAV
+  • Convert float32 → int16 for universal WAV compatibility
+  • load_tts() is thread-safe via a Lock
+"""
+from __future__ import annotations
+
+import threading
 from pathlib import Path
+
+import numpy as np
 from scipy.io.wavfile import write as write_wav
 from transformers import pipeline
 
-_LOCAL_MODEL = Path(__file__).parent / "models" / "bark-small"
+_LOCAL_MODEL  = Path(__file__).parent / "models" / "bark-small"
 TTS_MODEL_PATH = str(_LOCAL_MODEL) if (_LOCAL_MODEL / "config.json").exists() else "suno/bark-small"
 
-TTS_AVAILABLE = False
-_tts_pipeline = None
+TTS_AVAILABLE  = False
+_tts_pipeline  = None
 _load_attempted = False
+_load_lock      = threading.Lock()
 
 
 def load_tts():
     global TTS_AVAILABLE, _tts_pipeline, _load_attempted
-    if _tts_pipeline is not None:
-        return _tts_pipeline
-    if _load_attempted:
-        return None
-    _load_attempted = True
-    print(f"Loading TTS model ({TTS_MODEL_PATH})...")
-    try:
-        _tts_pipeline = pipeline("text-to-speech", model=TTS_MODEL_PATH)
-        TTS_AVAILABLE = True
-        print("TTS model ready.")
-    except Exception as e:
-        print(f"Failed to load TTS model: {e}")
-        TTS_AVAILABLE = False
+    with _load_lock:
+        if _tts_pipeline is not None or _load_attempted:
+            return _tts_pipeline
+        _load_attempted = True
+        print(f"[TTS] Loading {TTS_MODEL_PATH}…")
+        try:
+            _tts_pipeline = pipeline("text-to-speech", model=TTS_MODEL_PATH)
+            TTS_AVAILABLE = True
+            print("[TTS] Model ready.")
+        except Exception as e:
+            print(f"[TTS] Load failed: {e}")
+            TTS_AVAILABLE = False
     return _tts_pipeline
 
 
-def synthesize(text, output_path):
+def synthesize(text: str, output_path: str) -> tuple[str, float]:
+    """Synthesize text to WAV file. Returns (output_path, duration_seconds)."""
     load_tts()
     if not TTS_AVAILABLE or _tts_pipeline is None:
-        raise RuntimeError("TTS model not loaded")
+        raise RuntimeError("TTS model not loaded — check startup logs")
 
     result = _tts_pipeline(text)
-    audio = result["audio"]
-    sampling_rate = result["sampling_rate"]
+    audio  = result["audio"]
+    sr     = int(result["sampling_rate"])
 
-    # Handle tensor outputs without forcing torch import at module level.
+    # Unwrap tensor if needed
     if hasattr(audio, "detach"):
         audio = audio.detach().cpu().numpy()
 
-    write_wav(output_path, sampling_rate, audio)
-    duration_seconds = len(audio) / float(sampling_rate)
-    return output_path, duration_seconds
+    audio = np.array(audio, dtype=np.float32)
+
+    # Squeeze to 1-D (Bark may return (1, N) or (N,))
+    audio = audio.squeeze()
+    if audio.ndim != 1:
+        audio = audio.flatten()
+
+    # Convert to int16 for broad compatibility
+    audio_int16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+
+    write_wav(output_path, sr, audio_int16)
+    duration = len(audio_int16) / float(sr)
+    return output_path, duration

@@ -1,17 +1,45 @@
+# ── Python ────────────────────────────────────────────────────
+venv/
+.venv/
 vir_env/
-Backend/models/wav2vec2/
-Backend/models/bark-small/
-*.pt
-Backend/data/audio/*
-!Backend/data/audio/.gitkeep
-Backend/logs/*
-!Backend/logs/.gitkeep
 __pycache__/
 *.pyc
 *.pyo
-.env
-temp/
+.coverage
+.pytest_cache/
+
+# ── Models (large, downloaded at runtime) ─────────────────────
+Backend/models/wav2vec2/
+Backend/models/bark-small/
+*.pt
+*.bin
+
+# ── Data / audio files ────────────────────────────────────────
+Backend/data/audio/*
+!Backend/data/audio/.gitkeep
+Backend/temp/
+Backend/logs/*
+!Backend/logs/.gitkeep
 *.wav
 !Model/tts_output.wav
-Documentation/
+
+# ── Dataset ───────────────────────────────────────────────────
 Dataset/
+test-clean/
+
+# ── Env secrets ───────────────────────────────────────────────
+.env
+
+# ── Node ──────────────────────────────────────────────────────
+frontend-react/node_modules/
+
+# ── React build (generated — keep for deployment) ─────────────
+# frontend-react/build/   ← intentionally tracked so Render can serve it
+
+# ── DB (dev only) ─────────────────────────────────────────────
+Backend/data/adaptsynthetix.db
+
+# ── Misc ──────────────────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db

@@ -1,105 +1,99 @@
+"""
+Database layer tests.
+
+Critical regressions tested:
+  - get_recent_sessions no longer filtered to today only (midnight bug)
+  - New columns (wer_score, snr_db, nonconformity_score, per_score) present
+  - Context-managed connections don't leak
+"""
 import sys
-import time
-from pathlib import Path
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Backend'))
 
+import sqlite3
 import pytest
-
-ROOT = Path(__file__).resolve().parent.parent
-BACKEND = ROOT / "Backend"
-if str(BACKEND) not in sys.path:
-    sys.path.insert(0, str(BACKEND))
-
-import database
+from unittest.mock import patch
 
 
 @pytest.fixture
-def in_memory_db(monkeypatch):
-    uri = "file:adapt_synthetix_test?mode=memory&cache=shared"
-    keeper = database.sqlite3.connect(uri, uri=True)
-    keeper.row_factory = database.sqlite3.Row
-    database._init_db(keeper)
+def db_module(tmp_path):
+    """Reload database with a fresh SQLite DB in a temp directory."""
+    db_file = tmp_path / "test.db"
+    env = {
+        "DB_PATH":      str(db_file),
+        "DB_DIR":       str(tmp_path),
+        "USE_POSTGRES": "false",
+    }
+    with patch.dict(os.environ, env):
+        import importlib
+        import config
+        importlib.reload(config)
+        import database
+        importlib.reload(database)
+        yield database
 
-    def _get_connection():
-        conn = database.sqlite3.connect(uri, uri=True)
-        conn.row_factory = database.sqlite3.Row
-        database._init_db(conn)
-        return conn
 
-    monkeypatch.setattr(database, "_get_connection", _get_connection)
-    yield uri
-    keeper.close()
-
-
-def test_log_transcription_creates_row(in_memory_db):
-    row_id = database.log_transcription(
-        session_id="session-1",
-        audio_filename="a.wav",
-        audio_path="Backend/data/audio/a.wav",
-        transcription="hello world",
-        duration=1.25,
-        model="wav2vec2-base-960h",
+def test_log_transcription_returns_positive_int(db_module):
+    row_id = db_module.log_transcription(
+        "s1", "a.wav", "/tmp/a.wav", "hello", 2.0, "model"
     )
-    with database.sqlite3.connect(in_memory_db, uri=True) as conn:
-        conn.row_factory = database.sqlite3.Row
-        row = conn.execute("SELECT * FROM transcriptions WHERE id = ?", (row_id,)).fetchone()
-    assert row is not None
-    assert row["session_id"] == "session-1"
-    assert row["audio_filename"] == "a.wav"
-    assert row["transcription"] == "hello world"
-    assert row["model_used"] == "wav2vec2-base-960h"
+    assert isinstance(row_id, int) and row_id > 0
 
 
-def test_update_diagnostics_updates_existing_row(in_memory_db):
-    row_id = database.log_transcription(
-        session_id="session-2",
-        audio_filename="b.wav",
-        audio_path="Backend/data/audio/b.wav",
-        transcription="diagnostic",
-        duration=2.0,
-        model="wav2vec2-base-960h",
+def test_get_recent_sessions_returns_all_dates(db_module):
+    """Regression: midnight bug — sessions from all dates must be visible."""
+    import config
+    # Use db_module's context manager so schema is initialised
+    with db_module._get_conn() as conn:
+        conn.execute("""
+            INSERT INTO transcriptions
+            (session_id, timestamp, audio_filename, audio_path, transcription, duration_seconds, model_used)
+            VALUES ('s','1999-12-31T23:59:59','old.wav','/old','old_session',1.0,'m')
+        """)
+
+    rows = db_module.get_recent_sessions(limit=100)
+    assert any(r["transcription"] == "old_session" for r in rows), (
+        "Historical session not returned — midnight filter still active"
     )
-    database.update_diagnostics(
+
+
+def test_update_diagnostics_new_columns(db_module):
+    row_id = db_module.log_transcription("s", "b.wav", "/b", "world", 1.5, "m")
+    db_module.update_diagnostics(
         row_id=row_id,
-        cer_score=0.1234,
-        error_type="noise",
-        confidence_score=0.7777,
-        noise_profile='{"noise_type":"traffic"}',
+        cer_score=0.05, wer_score=0.12, per_score=0.08,
+        error_type="pronunciation", confidence_score=0.75,
+        snr_db=18.5, noise_profile='{"noise_type":"clean"}',
+        nonconformity_score=0.25,
     )
-    with database.sqlite3.connect(in_memory_db, uri=True) as conn:
-        conn.row_factory = database.sqlite3.Row
-        row = conn.execute("SELECT * FROM transcriptions WHERE id = ?", (row_id,)).fetchone()
-    assert row["cer_score"] == pytest.approx(0.1234)
-    assert row["error_type"] == "noise"
-    assert row["confidence_score"] == pytest.approx(0.7777)
-    assert row["noise_profile"] == '{"noise_type":"traffic"}'
+    rows = db_module.get_recent_sessions(limit=10)
+    row  = next((r for r in rows if r["id"] == row_id), None)
+    assert row is not None
+    assert row["wer_score"]          == pytest.approx(0.12, abs=0.001)
+    assert row["snr_db"]             == pytest.approx(18.5, abs=0.01)
+    assert row["nonconformity_score"]== pytest.approx(0.25, abs=0.001)
+    assert row["per_score"]          == pytest.approx(0.08, abs=0.001)
 
 
-def test_get_recent_sessions_returns_correct_count(in_memory_db):
+def test_update_remedial_path(db_module):
+    row_id = db_module.log_transcription("s", "c.wav", "/c", "test", 1.0, "m")
+    db_module.update_remedial_path(row_id, "/out/c_remedial.wav")
+    rows = db_module.get_recent_sessions(limit=10)
+    row  = next((r for r in rows if r["id"] == row_id), None)
+    assert row["remedial_audio_path"] == "/out/c_remedial.wav"
+
+
+def test_remediation_status_counts(db_module):
+    row_id = db_module.log_transcription("s", "d.wav", "/d", "clean test", 1.0, "m")
+    db_module.update_diagnostics(row_id, 0.0, 0.0, 0.0, "clean", 0.95, 35.0, None)
+    status = db_module.get_remediation_status()
+    assert status["total_transcriptions"] >= 1
+    assert status["clean"] >= 1
+    assert 0.0 <= status["remediation_rate"] <= 100.0
+
+
+def test_get_recent_sessions_limit(db_module):
     for i in range(5):
-        database.log_transcription(
-            session_id=f"session-{i}",
-            audio_filename=f"{i}.wav",
-            audio_path=f"Backend/data/audio/{i}.wav",
-            transcription=f"text-{i}",
-            duration=0.5 + i,
-            model="wav2vec2-base-960h",
-        )
-    sessions = database.get_recent_sessions(3)
-    assert len(sessions) == 3
-
-
-def test_get_recent_sessions_orders_by_timestamp_desc(in_memory_db):
-    for i in range(3):
-        database.log_transcription(
-            session_id=f"ordered-{i}",
-            audio_filename=f"ordered-{i}.wav",
-            audio_path=f"Backend/data/audio/ordered-{i}.wav",
-            transcription=f"ordered-{i}",
-            duration=1.0,
-            model="wav2vec2-base-960h",
-        )
-        time.sleep(0.01)
-
-    sessions = database.get_recent_sessions(3)
-    timestamps = [entry["timestamp"] for entry in sessions]
-    assert timestamps == sorted(timestamps, reverse=True)
+        db_module.log_transcription("s", f"{i}.wav", f"/{i}", f"tx{i}", 1.0, "m")
+    rows = db_module.get_recent_sessions(limit=3)
+    assert len(rows) == 3

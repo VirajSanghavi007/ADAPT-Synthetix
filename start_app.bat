@@ -1,81 +1,115 @@
 @echo off
-setlocal
-
+setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
-echo Starting ADAPT-Synthetix...
-echo Script: %~f0
-echo Version: 2026-05-28-venv-autocreate
+title ADAPT-Synthetix
+echo.
+echo  =========================================
+echo   ADAPT-Synthetix  ^|  Startup
+echo  =========================================
 echo.
 
-set "FFMPEG_BIN=%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-essentials_build\bin"
-if exist "%FFMPEG_BIN%\ffmpeg.exe" (
-    set "PATH=%PATH%;%FFMPEG_BIN%"
-)
-
-set "VENV_DIR=vir_env"
-if exist ".venv\Scripts\activate.bat" set "VENV_DIR=.venv"
-if exist "venv\Scripts\activate.bat" set "VENV_DIR=venv"
-if exist "vir_env\Scripts\activate.bat" set "VENV_DIR=vir_env"
-
-if not exist "%VENV_DIR%\Scripts\activate.bat" (
-    echo [INFO] Virtual environment not found. Creating %VENV_DIR%...
-    call :find_python
-    if errorlevel 1 goto :python_missing
-    "%PYTHON_EXE%" -m venv "%VENV_DIR%"
-    if errorlevel 1 goto :venv_failed
-)
-
-echo [1/3] Activating environment...
-call "%VENV_DIR%\Scripts\activate.bat"
-if errorlevel 1 goto :activate_failed
-
-echo [2/3] Installing/updating dependencies...
-python -m pip install -r requirements.txt
-if errorlevel 1 goto :deps_failed
-
-echo [3/3] Launching backend...
-echo.
-echo Application will be available at: http://localhost:5000
-echo.
-
-start "" http://localhost:5000
-uvicorn app:app --app-dir Backend --host 0.0.0.0 --port 5000 --reload
-
-pause
-exit /b 0
-
-:find_python
+:: ── Locate Python ─────────────────────────────────────────────────────────────
 set "PYTHON_EXE="
-where python >nul 2>nul
-if not errorlevel 1 (
-    set "PYTHON_EXE=python"
-    exit /b 0
+for %%P in (python python3 py) do (
+    where %%P >nul 2>nul
+    if not errorlevel 1 if not defined PYTHON_EXE set "PYTHON_EXE=%%P"
 )
-where py >nul 2>nul
-if not errorlevel 1 (
-    set "PYTHON_EXE=py"
-    exit /b 0
+if not defined PYTHON_EXE (
+    echo [ERROR] Python not found. Install from https://python.org
+    pause & exit /b 1
 )
-exit /b 1
+echo [OK] Python: %PYTHON_EXE%
 
-:python_missing
-echo [ERROR] Python was not found on PATH.
-echo Install Python 3.10+ or open this project from a terminal where python is available.
-pause
-exit /b 1
+:: ── Locate / create venv ──────────────────────────────────────────────────────
+set "VENV_DIR="
+for %%V in (venv .venv vir_env) do (
+    if exist "%%V\Scripts\activate.bat" if not defined VENV_DIR set "VENV_DIR=%%V"
+)
+if not defined VENV_DIR (
+    echo [INFO] Creating venv...
+    %PYTHON_EXE% -m venv venv || ( echo [ERROR] venv failed. & pause & exit /b 1 )
+    set "VENV_DIR=venv"
+)
+call "%VENV_DIR%\Scripts\activate.bat" || ( echo [ERROR] Activate failed. & pause & exit /b 1 )
+echo [OK] venv: %VENV_DIR%
 
-:venv_failed
-echo [ERROR] Failed to create virtual environment '%VENV_DIR%'.
-pause
-exit /b 1
+:: ── Install Python deps ───────────────────────────────────────────────────────
+echo [1/4] Checking Python dependencies...
+python -m pip install --quiet -r requirements.txt
+if errorlevel 1 python -m pip install -r requirements.txt
+echo [OK] Python deps ready.
 
-:activate_failed
-echo [ERROR] Failed to activate virtual environment '%VENV_DIR%'.
-pause
-exit /b 1
+:: ── Node.js PATH injection ────────────────────────────────────────────────────
+set "NODE_EXE="
+where npm >nul 2>nul && set "NODE_EXE=npm"
+if not defined NODE_EXE (
+    :: Common install paths
+    for %%N in (
+        "C:\Program Files\nodejs"
+        "C:\Program Files (x86)\nodejs"
+        "%LOCALAPPDATA%\Programs\nodejs"
+    ) do (
+        if exist "%%~N\npm.cmd" if not defined NODE_EXE (
+            set "PATH=%%~N;!PATH!"
+            set "NODE_EXE=npm"
+            echo [OK] Node.js found at %%~N
+        )
+    )
+)
 
-:deps_failed
-echo [ERROR] Failed to install dependencies from requirements.txt.
+:: ── Build React if needed ─────────────────────────────────────────────────────
+if defined NODE_EXE (
+    if not exist "frontend-react\build\index.html" (
+        echo [2/4] Building React frontend...
+        pushd frontend-react
+        call npm install --silent
+        call npm run build
+        popd
+        echo [OK] React build complete.
+    ) else (
+        echo [2/4] React build already up to date.
+    )
+) else (
+    echo [2/4] Node.js not found - using existing build if available.
+    echo        Install Node.js from https://nodejs.org for React frontend.
+)
+
+:: ── ffmpeg (optional) ─────────────────────────────────────────────────────────
+set "FFMPEG_OK=0"
+where ffmpeg >nul 2>nul && set "FFMPEG_OK=1"
+if "!FFMPEG_OK!"=="0" (
+    for %%F in (
+        "%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*\ffmpeg-*\bin"
+        "%ProgramFiles%\ffmpeg\bin"
+        "C:\ffmpeg\bin"
+        "C:\tools\ffmpeg\bin"
+    ) do if exist "%%~F\ffmpeg.exe" ( set "PATH=%%~F;!PATH!" & set "FFMPEG_OK=1" )
+)
+if "!FFMPEG_OK!"=="1" ( echo [OK] ffmpeg found.
+) else ( echo [WARN] ffmpeg not found - MP3/M4A upload limited. & echo        Install: winget install Gyan.FFmpeg )
+
+:: ── Set PYTHONPATH ────────────────────────────────────────────────────────────
+set "PYTHONPATH=%CD%;%CD%\Backend"
+
+:: ── Port check ────────────────────────────────────────────────────────────────
+if not defined PORT set "PORT=5000"
+netstat -ano | findstr ":!PORT! " >nul 2>nul
+if not errorlevel 1 echo [WARN] Port !PORT! already in use.
+
+:: ── Open browser ─────────────────────────────────────────────────────────────
+echo.
+echo  UI : http://localhost:!PORT!/
+echo.
+echo  Press Ctrl+C to stop.
+echo.
+timeout /t 2 /nobreak >nul
+start "" "http://localhost:!PORT!/"
+
+:: ── Launch ────────────────────────────────────────────────────────────────────
+echo [4/4] Starting backend...
+python -m uvicorn Backend.app:app --host 0.0.0.0 --port !PORT! --reload
+
+echo.
+echo [INFO] Server stopped.
 pause
-exit /b 1

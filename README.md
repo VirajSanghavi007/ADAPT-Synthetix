@@ -83,3 +83,39 @@ npm start   # http://localhost:3000 — proxies API to :5000
 docker-compose up
 # Open http://localhost:5000
 ```
+
+## Deployment
+
+ADAPT-Synthetix deploys to [Render](https://render.com) (free tier works for a research demo) with automatic CI/CD via GitHub Actions.
+
+### One-time setup
+
+1. **Fork & push** this repo to your GitHub account.
+2. Go to [render.com](https://render.com) → New → Web Service → connect your GitHub repo.
+   Render auto-detects `render.yaml` and configures the service.
+3. Copy the **Deploy Hook URL** from Render dashboard → your service → Settings → Deploy Hook.
+4. In your GitHub repo → Settings → Secrets → Actions, add a secret:
+   - `RENDER_DEPLOY_HOOK_URL` = the URL copied above.
+
+### How it works
+
+Every push to `main` triggers the GitHub Actions pipeline (`.github/workflows/deploy.yml`):
+
+1. **test** — runs `pytest tests/ -x -q` with the pinned CPU-only PyTorch stack.
+2. **build-and-push** — builds the Docker image and pushes it to `ghcr.io/<your-repo>:latest`.
+3. **deploy** — calls the Render deploy hook, which pulls the new image and restarts the service.
+
+### Environment variables
+
+Copy `.env.example` to `.env` for local Docker Compose runs:
+
+```bash
+cp .env.example .env
+docker-compose up
+```
+
+For Render, set env vars in the Render dashboard (or `render.yaml`). The `RENDER_DEPLOY_HOOK_URL` secret stays in GitHub — Render never needs it.
+
+### Persistent model cache
+
+The `render.yaml` attaches a 10 GB disk at `/app/.cache` so HuggingFace models survive redeploys without re-downloading.

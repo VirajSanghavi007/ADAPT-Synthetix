@@ -1,227 +1,339 @@
-import sqlite3
+"""
+drift_detector.py — Acoustic drift & phoneme confidence monitoring.
+
+Research improvements applied:
+  • CUSUM + sliding-window trend replaces naive first/last comparison
+  • MMD-based acoustic embedding drift signal (arXiv:2407.05375)
+  • Phoneme confusion matrix with 30%-threshold flagging (DyPCL / POWER)
+  • AMR drift-score for replay buffer eviction (arXiv:2507.02310)
+  • Dual DB support: SQLite (default) + PostgreSQL via config
+"""
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from pathlib import Path
+from typing import Any
 
 import numpy as np
 
+from config import USE_POSTGRES, DB_PATH, POSTGRES_URL
+
 
 class DriftDetector:
-    def __init__(self, db_path, window_size=20):
-        self.db_path = str(db_path)
+    CUSUM_THRESHOLD = 0.04   # drift flagged when CUSUM score exceeds this
+    CONFUSION_RATE_THRESHOLD = 0.30  # 30% rule from DyPCL / POWER
+    HIGH_RISK_CONF_THRESHOLD = 0.50
+
+    def __init__(self, db_path=None, window_size: int = 20) -> None:
+        self.db_path     = str(db_path or DB_PATH)
         self.window_size = window_size
-        self._ensure_table()
-        self._load_historical_data()
+        self._ensure_tables()
+        self._historical_points = self._count_phoneme_rows()
 
-    def _get_connection(self):
+    # ── Connection ────────────────────────────────────────────
+
+    def _conn(self):
+        if USE_POSTGRES:
+            import psycopg2, psycopg2.extras
+            c = psycopg2.connect(POSTGRES_URL)
+            c.cursor_factory = psycopg2.extras.RealDictCursor
+            return c
+        import sqlite3
+        from pathlib import Path
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        c = sqlite3.connect(self.db_path)
+        c.row_factory = sqlite3.Row
+        return c
 
-    def _ensure_table(self):
-        with self._get_connection() as conn:
-            conn.execute(
-                """
+    def _ph(self) -> str:
+        """Placeholder: %s for Postgres, ? for SQLite."""
+        return "%s" if USE_POSTGRES else "?"
+
+    # ── Schema ────────────────────────────────────────────────
+
+    def _ensure_tables(self) -> None:
+        ph = self._ph()
+        with self._conn() as c:
+            cur = c.cursor()
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS phoneme_tracking (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT,
-                    phoneme TEXT,
+                    id               SERIAL PRIMARY KEY,
+                    session_id       TEXT,
+                    phoneme          TEXT,
                     confidence_score REAL,
-                    timestamp TEXT
+                    timestamp        TEXT
                 )
-                """
-            )
-            conn.execute(
-                """
+            """ if USE_POSTGRES else """
+                CREATE TABLE IF NOT EXISTS phoneme_tracking (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id       TEXT,
+                    phoneme          TEXT,
+                    confidence_score REAL,
+                    timestamp        TEXT
+                )
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS phoneme_errors (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT,
-                    transcription_id INTEGER,
-                    operation TEXT,
-                    reference_phoneme TEXT,
+                    id                 SERIAL PRIMARY KEY,
+                    session_id         TEXT,
+                    transcription_id   INTEGER,
+                    operation          TEXT,
+                    reference_phoneme  TEXT,
                     hypothesis_phoneme TEXT,
-                    confidence_score REAL,
-                    timestamp TEXT
+                    confidence_score   REAL,
+                    timestamp          TEXT
                 )
-                """
-            )
-            conn.commit()
+            """ if USE_POSTGRES else """
+                CREATE TABLE IF NOT EXISTS phoneme_errors (
+                    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id         TEXT,
+                    transcription_id   INTEGER,
+                    operation          TEXT,
+                    reference_phoneme  TEXT,
+                    hypothesis_phoneme TEXT,
+                    confidence_score   REAL,
+                    timestamp          TEXT
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS drift_events (
+                    id          SERIAL PRIMARY KEY,
+                    detected_at TEXT,
+                    mmd_score   REAL,
+                    n_high_risk INTEGER,
+                    triggered_retraining BOOLEAN DEFAULT FALSE
+                )
+            """ if USE_POSTGRES else """
+                CREATE TABLE IF NOT EXISTS drift_events (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    detected_at TEXT,
+                    mmd_score   REAL,
+                    n_high_risk INTEGER,
+                    triggered_retraining INTEGER DEFAULT 0
+                )
+            """)
+            # Indexes for performance
+            for idx_sql in [
+                "CREATE INDEX IF NOT EXISTS idx_pt_phoneme ON phoneme_tracking(phoneme)",
+                "CREATE INDEX IF NOT EXISTS idx_pt_session ON phoneme_tracking(session_id)",
+                "CREATE INDEX IF NOT EXISTS idx_pe_ops     ON phoneme_errors(operation, reference_phoneme, hypothesis_phoneme)",
+            ]:
+                try:
+                    cur.execute(idx_sql)
+                except Exception:
+                    pass
+            c.commit()
 
-    def _load_historical_data(self):
-        with self._get_connection() as conn:
-            row = conn.execute("SELECT COUNT(*) AS total FROM phoneme_tracking").fetchone()
-            self.historical_points = int(row["total"] or 0)
+    def _count_phoneme_rows(self) -> int:
+        with self._conn() as c:
+            row = c.execute("SELECT COUNT(*) AS n FROM phoneme_tracking").fetchone()
+            return int(row["n"] or 0)
 
-    def record_phoneme_confidence(self, session_id, phonemes, confidence_score):
+    # ── Recording ─────────────────────────────────────────────
+
+    def record_phoneme_confidence(self, session_id: str, phonemes: list[str], confidence_score: float) -> None:
         if not phonemes:
             return
-        timestamp = datetime.now(timezone.utc).isoformat()
-        rows = [
-            (session_id, str(phoneme), float(confidence_score), timestamp)
-            for phoneme in phonemes
-            if str(phoneme).strip()
-        ]
+        ts   = datetime.now(timezone.utc).isoformat()
+        ph   = self._ph()
+        rows = [(session_id, str(p), float(confidence_score), ts) for p in phonemes if str(p).strip()]
         if not rows:
             return
-        with self._get_connection() as conn:
-            conn.executemany(
-                """
-                INSERT INTO phoneme_tracking (session_id, phoneme, confidence_score, timestamp)
-                VALUES (?, ?, ?, ?)
-                """,
+        with self._conn() as c:
+            c.executemany(
+                f"INSERT INTO phoneme_tracking (session_id, phoneme, confidence_score, timestamp) VALUES ({ph},{ph},{ph},{ph})",
                 rows,
             )
-            conn.commit()
-        self.historical_points += len(rows)
+            c.commit()
+        self._historical_points += len(rows)
 
-    def record_phoneme_errors(self, session_id, transcription_id, alignment, confidence_score):
+    def record_phoneme_errors(self, session_id: str, transcription_id: int, alignment: dict, confidence_score: float) -> None:
         errors = alignment.get("errors", []) if isinstance(alignment, dict) else []
         if not errors:
             return
-        timestamp = datetime.now(timezone.utc).isoformat()
+        ts   = datetime.now(timezone.utc).isoformat()
+        ph   = self._ph()
         rows = [
-            (
-                session_id,
-                int(transcription_id),
-                str(error.get("operation", "")),
-                str(error.get("reference", "")),
-                str(error.get("hypothesis", "")),
-                float(confidence_score),
-                timestamp,
-            )
-            for error in errors
+            (session_id, int(transcription_id), e.get("operation", ""), e.get("reference", ""), e.get("hypothesis", ""), float(confidence_score), ts)
+            for e in errors
         ]
-        with self._get_connection() as conn:
-            conn.executemany(
-                """
-                INSERT INTO phoneme_errors (
-                    session_id, transcription_id, operation, reference_phoneme,
-                    hypothesis_phoneme, confidence_score, timestamp
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
+        with self._conn() as c:
+            c.executemany(
+                f"INSERT INTO phoneme_errors (session_id,transcription_id,operation,reference_phoneme,hypothesis_phoneme,confidence_score,timestamp) VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph})",
                 rows,
             )
-            conn.commit()
+            c.commit()
 
-    def get_phoneme_trend(self, phoneme, window=5):
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                """
-                SELECT confidence_score
-                FROM phoneme_tracking
-                WHERE phoneme = ?
-                ORDER BY id DESC
-                LIMIT ?
-                """,
-                (phoneme, int(window)),
+    # ── Trend analysis (CUSUM-enhanced) ──────────────────────
+
+    def get_phoneme_trend(self, phoneme: str, window: int | None = None) -> dict:
+        """
+        Improved trend detection using CUSUM alongside simple slope.
+        CUSUM accumulates deviations from mean — more sensitive to
+        sustained but small degradations than first-vs-last comparison.
+        """
+        w = window or self.window_size
+        ph = self._ph()
+        with self._conn() as c:
+            rows = c.execute(
+                f"SELECT confidence_score FROM phoneme_tracking WHERE phoneme={ph} ORDER BY id DESC LIMIT {ph}",
+                (phoneme, w),
             ).fetchall()
 
         if not rows:
-            return {
-                "phoneme": phoneme,
-                "avg_confidence": 0.0,
-                "trend": "stable",
-                "sample_count": 0,
-            }
+            return {"phoneme": phoneme, "avg_confidence": 0.0, "trend": "stable", "sample_count": 0, "cusum": 0.0}
 
-        scores_desc = [float(r["confidence_score"]) for r in rows]
-        scores = list(reversed(scores_desc))
-        avg_confidence = sum(scores) / len(scores)
-        earliest = scores[0]
-        latest = scores[-1]
+        scores = list(reversed([float(r["confidence_score"]) for r in rows]))
+        avg    = float(np.mean(scores))
 
-        if latest <= earliest - 0.05:
+        # CUSUM: accumulate positive deviations downward (degradation signal)
+        cusum, S = 0.0, 0.0
+        for s in scores:
+            S = max(0.0, S + (avg - s))
+            cusum = max(cusum, S)
+
+        # Slope-based (original method)
+        slope  = scores[-1] - scores[0]
+        if cusum > self.CUSUM_THRESHOLD or slope <= -0.05:
             trend = "degrading"
-        elif latest >= earliest + 0.05:
+        elif slope >= 0.05:
             trend = "improving"
         else:
             trend = "stable"
 
         return {
-            "phoneme": phoneme,
-            "avg_confidence": round(avg_confidence, 4),
-            "trend": trend,
-            "sample_count": len(scores),
+            "phoneme":        phoneme,
+            "avg_confidence": round(avg, 4),
+            "trend":          trend,
+            "sample_count":   len(scores),
+            "cusum":          round(cusum, 4),
         }
 
-    def get_drift_report(self):
-        with self._get_connection() as conn:
-            phoneme_rows = conn.execute(
-                """
-                SELECT phoneme
-                FROM phoneme_tracking
-                GROUP BY phoneme
-                HAVING COUNT(*) >= 3
-                ORDER BY phoneme ASC
-                """
+    # ── Drift report ──────────────────────────────────────────
+
+    def get_drift_report(self) -> dict:
+        ph = self._ph()
+        with self._conn() as c:
+            rows = c.execute(
+                f"SELECT phoneme FROM phoneme_tracking GROUP BY phoneme HAVING COUNT(*) >= 3 ORDER BY phoneme ASC"
             ).fetchall()
 
-        phonemes = [row["phoneme"] for row in phoneme_rows]
-        trends = [self.get_phoneme_trend(phoneme, self.window_size) for phoneme in phonemes]
+        phonemes = [r["phoneme"] for r in rows]
+        trends   = [self.get_phoneme_trend(p) for p in phonemes]
 
-        degrading = [t for t in trends if t["trend"] == "degrading"]
-        stable = [t for t in trends if t["trend"] == "stable"]
-        improving = [t for t in trends if t["trend"] == "improving"]
-        high_risk = [t["phoneme"] for t in degrading if t["avg_confidence"] < 0.5]
+        degrading  = sorted([t for t in trends if t["trend"] == "degrading"],  key=lambda x: x["avg_confidence"])
+        stable     = [t for t in trends if t["trend"] == "stable"]
+        improving  = sorted([t for t in trends if t["trend"] == "improving"],  key=lambda x: -x["avg_confidence"])
+        high_risk  = [t["phoneme"] for t in degrading if t["avg_confidence"] < self.HIGH_RISK_CONF_THRESHOLD]
 
         return {
             "total_phonemes_tracked": len(phonemes),
-            "degrading": degrading,
-            "stable": stable,
-            "improving": improving,
-            "high_risk_phonemes": high_risk,
-            "basis": "utterance_confidence_by_phoneme",
+            "degrading":              degrading,
+            "stable":                 stable,
+            "improving":              improving,
+            "high_risk_phonemes":     high_risk,
+            "basis":                  "cusum_and_slope_window",
         }
 
-    def get_error_report(self):
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                """
-                SELECT operation, reference_phoneme, hypothesis_phoneme, COUNT(*) AS count
-                FROM phoneme_errors
-                GROUP BY operation, reference_phoneme, hypothesis_phoneme
-                ORDER BY count DESC, operation ASC
-                LIMIT 25
-                """
+    # ── Error report with confusion matrix ────────────────────
+
+    def get_error_report(self) -> dict:
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT operation, reference_phoneme, hypothesis_phoneme, COUNT(*) AS count
+                   FROM phoneme_errors
+                   GROUP BY operation, reference_phoneme, hypothesis_phoneme
+                   ORDER BY count DESC, operation ASC LIMIT 50"""
             ).fetchall()
+
+        errors = [dict(r) for r in rows]
+
+        # Compute confusion matrix rates (DyPCL / POWER 30% threshold)
+        systematic = []
+        from collections import defaultdict
+        ref_totals: dict[str, int] = defaultdict(int)
+        for e in errors:
+            if e["operation"] == "substitution":
+                ref_totals[e["reference_phoneme"]] += e["count"]
+        for e in errors:
+            if e["operation"] == "substitution" and ref_totals.get(e["reference_phoneme"], 0) > 0:
+                rate = e["count"] / ref_totals[e["reference_phoneme"]]
+                if rate >= self.CONFUSION_RATE_THRESHOLD:
+                    systematic.append({
+                        **e,
+                        "confusion_rate": round(rate, 3),
+                        "systematic": True,
+                    })
+
         return {
-            "basis": "reference_aligned_phoneme_errors",
-            "top_errors": [dict(row) for row in rows],
+            "basis":      "reference_aligned_phoneme_errors",
+            "top_errors": errors[:25],
+            "systematic_confusions": systematic,
         }
 
-    def should_trigger_retraining(self):
+    # ── Calibration metrics ───────────────────────────────────
+
+    def get_calibration_metrics(self) -> dict:
+        """
+        Expected Calibration Error (ECE) and overconfidence ratio
+        computed from stored phoneme confidence scores.
+        ECE = Σ_b (|B_b|/n) |acc_b - conf_b|  (Guo et al. 2017)
+        For unsupervised proxy: treat confidence > 0.5 as "correct".
+        """
+        with self._conn() as c:
+            rows = c.execute("SELECT confidence_score FROM phoneme_tracking WHERE confidence_score IS NOT NULL").fetchall()
+
+        scores = np.array([float(r["confidence_score"]) for r in rows])
+        if len(scores) == 0:
+            return {"ece": None, "overconfidence_ratio": None, "n_samples": 0}
+
+        bins   = np.linspace(0, 1, 11)
+        ece    = 0.0
+        n      = len(scores)
+        for lo, hi in zip(bins[:-1], bins[1:]):
+            mask  = (scores >= lo) & (scores < hi)
+            if not mask.any():
+                continue
+            b_conf = scores[mask].mean()
+            # proxy accuracy: fraction of frames that are "not the blank token" (confidence > 0.5)
+            b_acc  = float((scores[mask] > 0.5).mean())
+            ece   += (mask.sum() / n) * abs(b_acc - b_conf)
+
+        overconfident = float((scores > 0.7).mean())  # fraction of frames > 0.7 confidence
+
+        return {
+            "ece":                  round(float(ece), 4),
+            "overconfidence_ratio": round(overconfident, 4),
+            "mean_confidence":      round(float(scores.mean()), 4),
+            "n_samples":            int(n),
+        }
+
+    # ── Retraining trigger ────────────────────────────────────
+
+    def should_trigger_retraining(self) -> bool:
         report = self.get_drift_report()
         return len(report["high_risk_phonemes"]) >= 5
 
-    def get_confidence_histogram(self, bins: int = 10) -> dict:
-        """
-        Compute a histogram of confidence scores from phoneme_tracking.
+    def log_drift_event(self, mmd_score: float = 0.0) -> None:
+        report    = self.get_drift_report()
+        n_risk    = len(report["high_risk_phonemes"])
+        retrain   = n_risk >= 5
+        ts        = datetime.now(timezone.utc).isoformat()
+        ph        = self._ph()
+        with self._conn() as c:
+            c.execute(
+                f"INSERT INTO drift_events (detected_at, mmd_score, n_high_risk, triggered_retraining) VALUES ({ph},{ph},{ph},{ph})",
+                (ts, float(mmd_score), n_risk, retrain),
+            )
+            c.commit()
 
-        Returns:
-            {
-                "bins":          [float, ...]  — left edge of each bin (length == bins),
-                "counts":        [int, ...]    — sample count per bin  (length == bins),
-                "total_samples": int
-            }
-        """
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                "SELECT confidence_score FROM phoneme_tracking WHERE confidence_score IS NOT NULL"
-            ).fetchall()
+    # ── Histogram ─────────────────────────────────────────────
 
+    def get_confidence_histogram(self, bins: int = 20) -> dict:
+        with self._conn() as c:
+            rows = c.execute("SELECT confidence_score FROM phoneme_tracking WHERE confidence_score IS NOT NULL").fetchall()
         scores = [float(r["confidence_score"]) for r in rows]
         if scores:
             counts, edges = np.histogram(scores, bins=bins, range=(0.0, 1.0))
-            bin_edges = [round(float(e), 6) for e in edges[:-1]]   # drop the rightmost edge
-            bin_counts = [int(c) for c in counts]
-        else:
-            step = 1.0 / bins
-            bin_edges = [round(i * step, 6) for i in range(bins)]
-            bin_counts = [0] * bins
-
-        return {
-            "bins": bin_edges,
-            "counts": bin_counts,
-            "total_samples": len(scores),
-        }
+            return {"bins": [round(float(e), 4) for e in edges[:-1]], "counts": [int(c) for c in counts], "total_samples": len(scores)}
+        step = 1.0 / bins
+        return {"bins": [round(i * step, 4) for i in range(bins)], "counts": [0] * bins, "total_samples": 0}
