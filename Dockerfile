@@ -25,6 +25,9 @@ COPY . .
 
 RUN mkdir -p Backend/data/audio Backend/logs Backend/temp Backend/models/lora Dataset .cache/huggingface
 
+# Pre-download NLTK data so g2p_en works at container startup without network access
+RUN python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)"
+
 ENV PYTHONUNBUFFERED=1
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 ENV HF_HOME=/app/.cache/huggingface

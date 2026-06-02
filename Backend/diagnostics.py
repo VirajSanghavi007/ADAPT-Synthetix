@@ -15,12 +15,28 @@ import numpy as np
 import torch
 import librosa
 from jiwer import cer, wer
-from g2p_en import G2p
 from noise_fingerprint import NoiseFingerprinter
 
 # ── Singletons ────────────────────────────────────────────────
-_G2P          = G2p()
+# G2p is lazy-initialised: importing g2p_en triggers nltk.data.find('cmudict')
+# at module load time, which crashes Docker containers before NLTK data is ready.
+# First call to _get_g2p() downloads data if absent and caches the instance.
+_G2P: object | None = None
 _fingerprinter = NoiseFingerprinter()
+
+
+def _get_g2p():
+    global _G2P
+    if _G2P is None:
+        import nltk
+        for resource in ("averaged_perceptron_tagger_eng", "cmudict"):
+            try:
+                nltk.data.find(f"taggers/{resource}" if "tagger" in resource else f"corpora/{resource}")
+            except LookupError:
+                nltk.download(resource, quiet=True)
+        from g2p_en import G2p
+        _G2P = G2p()
+    return _G2P
 
 # ── Calibration temperature (tunable via env) ─────────────────
 import os
@@ -86,7 +102,7 @@ def calculate_wer(reference: str | None, hypothesis: str) -> float | None:
 # ── Phonemes ──────────────────────────────────────────────────
 
 def extract_phonemes(text: str) -> list[str]:
-    tokens = _G2P(text or "")
+    tokens = _get_g2p()(text or "")
     return [str(t) for t in tokens if str(t).strip()]
 
 
