@@ -38,7 +38,7 @@ export const ErrorTypePie = memo(function ErrorTypePie({ data }) {
         </PieChart>
       </ResponsiveContainer>
       <div style={{ textAlign: 'center', fontSize: 10, color: C.textSecondary }}>
-        Remediation rate: <span style={{ color: C.teal, fontWeight: 600 }}>{data?.remediation_rate?.toFixed(1)}%</span>
+        Remediation rate: <span style={{ color: C.teal, fontWeight: 600 }}>{(data?.remediation_rate ?? 0).toFixed(1)}%</span>
       </div>
     </>
   )

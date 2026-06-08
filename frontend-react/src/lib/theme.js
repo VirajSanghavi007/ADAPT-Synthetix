@@ -1,117 +1,125 @@
 /**
- * Design tokens — Natural dark palette.
+ * Design tokens — GitHub-inspired professional dark palette.
  *
- * Guidelines applied:
- *  • UX Planet "Natural Palettes": varied saturation, dark+light contrast pairs,
- *    no all-neon colours — inspired by night sky, deep ocean, forest, earth.
- *  • Wix colour schemes: one strong primary, muted neutrals, intentional accents.
- *  • Not pure black/white — backgrounds carry a faint hue (more natural, easier on eyes).
+ * Inspired by: GitHub dark mode, Linear, Vercel, Railway.
+ * Looks like real software built by a team, not AI-generated.
  *
- * Palette inspiration:
- *   bg/surface  → midnight ocean depth   (near-black with cool undertone)
- *   teal        → deep bioluminescent sea (primary — replaces electric cyan)
- *   forest      → old-growth forest green (replaces neon lime)
- *   clay        → terracotta / sunset     (replaces pure red)
- *   amber       → autumn honey            (replaces saturated yellow-orange)
- *   lavender    → twilight sky            (replaces electric purple)
- *   text        → moonlit blue-grey       (replaces pure white)
+ * Key rules:
+ *  - System sans-serif for body text (not monospace)
+ *  - Monospace only for code / transcription text / data
+ *  - Single blue accent (trustworthy, professional)
+ *  - No glow effects — flat cards with subtle borders
+ *  - Colors from GitHub's actual design system
  */
 
 export const C = {
   // ── Backgrounds ────────────────────────────────────────────
-  bg:           '#0c0f14',   // deep midnight — not pure black, cool undertone
-  surface:      '#121820',   // dark navy surface
-  surfaceAlt:   '#18212e',   // slightly raised surface
-  surfaceHover: '#1e2a3a',   // hover state
-  border:       '#1e2d3d',   // subtle blue-grey border
-  borderBright: '#2a3d52',   // visible border
+  bg:           '#0d1117',   // GitHub dark bg
+  surface:      '#161b22',   // card background
+  surfaceAlt:   '#21262d',   // input / secondary surface
+  surfaceHover: '#30363d',   // hover state
+  border:       '#30363d',   // standard border
+  borderBright: '#484f58',   // active / hover border
 
-  // ── Primary — Teal (deep ocean / bioluminescence) ──────────
-  teal:         '#3ecfbd',   // muted teal, not electric — natural deep-water hue
-  tealDim:      '#2eaa9b',
-  tealGlow:     'rgba(62,207,189,0.13)',
-  tealGlowLg:   'rgba(62,207,189,0.25)',
+  // ── Primary — Blue (professional, trustworthy) ─────────────
+  blue:         '#58a6ff',   // GitHub blue — link/accent
+  blueHover:    '#79c0ff',
+  blueDim:      'rgba(31,111,235,0.15)',
+  blueBg:       '#1f6feb',   // solid button bg
 
-  // ── Success — Forest green (old-growth, sage) ──────────────
-  forest:       '#52c98a',   // natural forest green, not neon
-  forestDim:    '#3daa70',
-  forestGlow:   'rgba(82,201,138,0.13)',
+  // ── Semantic ───────────────────────────────────────────────
+  green:        '#3fb950',   // GitHub green — success
+  greenDim:     'rgba(35,134,54,0.15)',
+  greenSolid:   '#238636',
 
-  // ── Danger — Terracotta / Clay (earth, sunset) ─────────────
-  clay:         '#d97b5e',   // warm terracotta — earthy, not screaming red
-  clayDim:      '#be6348',
-  clayGlow:     'rgba(217,123,94,0.13)',
+  red:          '#f85149',   // GitHub red — error/danger
+  redDim:       'rgba(248,81,73,0.15)',
 
-  // ── Warning — Amber (autumn honey, golden hour) ────────────
-  amber:        '#c9943a',   // warm earthy amber, not saturated yellow
-  amberDim:     '#a87a2a',
-  amberGlow:    'rgba(201,148,58,0.13)',
+  amber:        '#d29922',   // GitHub yellow — warning
+  amberDim:     'rgba(187,128,9,0.15)',
 
-  // ── Accent 2 — Lavender (twilight, soft violet) ────────────
-  lavender:     '#8f82c7',   // muted lavender — twilight sky, not electric purple
-  lavenderGlow: 'rgba(143,130,199,0.13)',
+  purple:       '#bc8cff',   // GitHub purple — accent
+  purpleDim:    'rgba(188,140,255,0.15)',
 
-  // ── Text — Moonlit blue-grey (not pure white) ──────────────
-  textPrimary:  '#cdd6e0',   // pale blue-grey — natural moonlight tone
-  textSecondary:'#6d849a',   // muted mid-tone
-  textMuted:    '#354656',   // subtle, barely-there
-  textDim:      '#1c2d3c',   // near-invisible tint
+  // ── Text ───────────────────────────────────────────────────
+  textPrimary:  '#e6edf3',   // GitHub primary text
+  textSecondary:'#8b949e',   // secondary / muted
+  textMuted:    '#6e7681',   // very muted
+  textDim:      '#484f58',   // near-invisible
 
-  // ── Semantic aliases (keep existing code working) ──────────
-  // Maps old cyan/green/red/purple/amber → new natural equivalents
-  cyan:         '#3ecfbd',
-  cyanDim:      '#2eaa9b',
-  cyanGlow:     'rgba(62,207,189,0.13)',
-  cyanGlowLg:   'rgba(62,207,189,0.25)',
+  // ── Semantic aliases — keeps existing pages working ────────
+  // Old neon names now map to the clean palette
+  teal:         '#58a6ff',
+  tealDim:      '#1f6feb',
+  tealGlow:     'rgba(31,111,235,0.12)',
+  tealGlowLg:   'rgba(31,111,235,0.20)',
 
-  green:        '#52c98a',
-  greenDim:     '#3daa70',
-  greenGlow:    'rgba(82,201,138,0.13)',
+  forest:       '#3fb950',
+  forestDim:    '#238636',
+  forestGlow:   'rgba(35,134,54,0.12)',
 
-  red:          '#d97b5e',
-  redDim:       '#be6348',
-  redGlow:      'rgba(217,123,94,0.13)',
+  clay:         '#f85149',
+  clayDim:      '#da3633',
+  clayGlow:     'rgba(248,81,73,0.12)',
 
-  purple:       '#8f82c7',
-  purpleGlow:   'rgba(143,130,199,0.13)',
+  lavender:     '#bc8cff',
+  lavenderGlow: 'rgba(188,140,255,0.12)',
+
+  cyan:         '#58a6ff',
+  cyanDim:      '#1f6feb',
+  cyanGlow:     'rgba(31,111,235,0.12)',
+  cyanGlowLg:   'rgba(31,111,235,0.20)',
+
+  greenDimOld:  '#238636',
+  greenGlow:    'rgba(35,134,54,0.12)',
+  redDimOld:    '#da3633',
+  redGlow:      'rgba(248,81,73,0.12)',
+  purpleGlow:   'rgba(188,140,255,0.12)',
+
+  // Glow values used in the old pages — now neutral/flat
+  amberGlow:    'rgba(210,153,34,0.12)',
 }
 
 // ── Semantic colour maps ────────────────────────────────────
 export const errorColor = {
-  clean:        C.forest,
-  noise:        C.amber,
-  accent:       C.lavender,
-  pronunciation:C.clay,
-  unknown:      C.textSecondary,
+  clean:         C.green,
+  noise:         C.amber,
+  accent:        C.purple,
+  pronunciation: C.red,
+  unknown:       C.textSecondary,
 }
 
 export const errorGlow = {
-  clean:        C.forestGlow,
-  noise:        C.amberGlow,
-  accent:       C.lavenderGlow,
-  pronunciation:C.clayGlow,
-  unknown:      'rgba(109,132,154,0.08)',
+  clean:         C.greenDim,
+  noise:         C.amberDim,
+  accent:        C.purpleDim,
+  pronunciation: C.redDim,
+  unknown:       'rgba(139,148,158,0.08)',
 }
 
 export const statusColor = {
   pending:    C.amber,
-  processing: C.teal,
-  completed:  C.forest,
+  processing: C.blue,
+  completed:  C.green,
 }
 
 export const trendColor = {
-  degrading: C.clay,
-  improving: C.forest,
+  degrading: C.red,
+  improving: C.green,
   stable:    C.textSecondary,
 }
 
-// ── Font — system-first monospace (no external download) ────
-export const font = `'Cascadia Code', 'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, Consolas, 'Courier New', monospace`
+// ── Typography ────────────────────────────────────────────────
+// Body text uses system sans-serif — NOT monospace
+// Monospace is reserved for code, transcription output, and data values
+export const font = `-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`
+export const fontMono = `ui-monospace, "Cascadia Code", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace`
 
 export const shadow = {
-  card:   '0 4px 24px rgba(0,0,0,0.5)',
-  glow:   (c) => `0 0 20px ${c}`,
-  glowSm: (c) => `0 0 8px ${c}`,
+  card:   '0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.15)',
+  sm:     '0 1px 2px rgba(0,0,0,0.3)',
+  glow:   () => 'none',   // no glows in new design
+  glowSm: () => 'none',
 }
 
-export const radius = { sm: '4px', md: '8px', lg: '10px' }
+export const radius = { sm: '6px', md: '6px', lg: '8px' }

@@ -1,46 +1,52 @@
 import { memo } from 'react'
-import { C, radius, shadow } from '@/lib/theme'
+import { C } from '@/lib/theme'
 
-export const Card = memo(function Card({ children, style, glow, onClick }) {
+export const Card = memo(function Card({ children, style, onClick }) {
   return (
     <div
       onClick={onClick}
       style={{
         background:   C.surface,
-        border:       `1px solid ${glow ? glow + '55' : C.border}`,
-        borderRadius: radius.lg,
-        boxShadow:    glow ? shadow.glow(glow + '22') : shadow.card,
-        transition:   'border-color 0.2s, box-shadow 0.2s',
+        border:       `1px solid ${C.border}`,
+        borderRadius: 8,
+        transition:   'border-color 0.15s',
         cursor:       onClick ? 'pointer' : undefined,
         ...style,
       }}
+      onMouseEnter={onClick ? (e) => { e.currentTarget.style.borderColor = C.borderBright } : undefined}
+      onMouseLeave={onClick ? (e) => { e.currentTarget.style.borderColor = C.border } : undefined}
     >
       {children}
     </div>
   )
 })
 
-export const CardHeader = memo(function CardHeader({ title, subtitle, right, accent }) {
+export const CardHeader = memo(function CardHeader({ title, subtitle, right }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start',
+      display: 'flex',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '14px 20px',
+      padding: '12px 16px',
       borderBottom: `1px solid ${C.border}`,
     }}>
       <div>
-        <div style={{
-          fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.14em', textTransform: 'uppercase',
-          color: accent || C.cyan, marginBottom: 2,
-        }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 10, color: C.textMuted }}>{subtitle}</div>}
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary }}>
+          {title}
+        </div>
+        {subtitle && (
+          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{subtitle}</div>
+        )}
       </div>
-      {right}
+      {right && <div style={{ flexShrink: 0 }}>{right}</div>}
     </div>
   )
 })
 
 export const CardBody = memo(function CardBody({ children, style }) {
-  return <div style={{ padding: '16px 20px', ...style }}>{children}</div>
+  return (
+    <div style={{ padding: '14px 16px', ...style }}>
+      {children}
+    </div>
+  )
 })

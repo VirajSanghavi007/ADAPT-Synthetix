@@ -264,6 +264,17 @@ export default function Login() {
             </span>
           </label>
 
+          {/* Demo mode notice — email sign-in is unverified */}
+          {showEmail && (
+            <div style={{
+              fontSize: 10, color: C.amber, marginBottom: 14,
+              padding: '6px 10px', background: C.amber + '15',
+              borderRadius: 4, border: `1px solid ${C.amber}44`,
+            }}>
+              Demo mode — email login is not verified. Any email/name is accepted.
+            </div>
+          )}
+
           {!showEmail ? (
             <>
               {/* Google sign-in */}

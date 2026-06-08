@@ -26,7 +26,7 @@ export function PhonemeTokenStrip({ phonemes = [], style }) {
         return (
           <span
             key={i}
-            title={`/${p.token}/ — ${(p.confidence * 100).toFixed(0)}% conf`}
+            title={`/${p.token}/ — ${((p.confidence ?? 0) * 100).toFixed(0)}% conf`}
             style={{
               padding: '2px 5px', borderRadius: 3,
               background: c + '16', border: `1px solid ${c}33`,

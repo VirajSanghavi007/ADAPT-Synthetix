@@ -1,95 +1,150 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Mic, BarChart2, Zap,
-  ListOrdered, History, Cpu,
+  ListOrdered, History, Cpu, LogOut,
 } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { C } from '@/lib/theme'
 
 const NAV = [
-  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
-  { to: '/transcribe', label: 'Transcribe', icon: Mic             },
-  { to: '/analytics',  label: 'Analytics',  icon: BarChart2       },
-  { to: '/phonemes',   label: 'Phonemes',   icon: Zap             },
-  { to: '/queue',      label: 'Queue',      icon: ListOrdered     },
-  { to: '/history',    label: 'History',    icon: History         },
-  { to: '/models',     label: 'Models',     icon: Cpu             },
+  { to: '/',          icon: LayoutDashboard, label: 'Dashboard',       key: 'd' },
+  { to: '/transcribe',icon: Mic,             label: 'Transcribe',       key: 't' },
+  { to: '/analytics', icon: BarChart2,       label: 'Analytics',        key: 'a' },
+  { to: '/phonemes',  icon: Zap,             label: 'Phoneme Explorer', key: 'p' },
+  { to: '/queue',     icon: ListOrdered,     label: 'Queue',            key: 'q' },
+  { to: '/history',   icon: History,         label: 'History',          key: 'h' },
+  { to: '/models',    icon: Cpu,             label: 'Model Hub',        key: 'm' },
 ]
 
-const activeStyle = {
-  display: 'flex', alignItems: 'center', gap: 9,
-  padding: '7px 12px', borderRadius: 6, textDecoration: 'none',
-  fontSize: 12, color: C.textPrimary, fontWeight: 500,
-  background: C.surfaceAlt, border: `1px solid ${C.border}`,
-}
-const inactiveStyle = {
-  display: 'flex', alignItems: 'center', gap: 9,
-  padding: '7px 12px', borderRadius: 6, textDecoration: 'none',
-  fontSize: 12, color: C.textMuted, fontWeight: 400,
-  background: 'transparent', border: '1px solid transparent',
-}
+export function Sidebar() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
-export function Sidebar({ user, onLogout }) {
   return (
-    <nav style={{
-      width: 180, flexShrink: 0,
+    <aside style={{
+      width: 220,
+      flexShrink: 0,
+      background: C.surface,
       borderRight: `1px solid ${C.border}`,
-      display: 'flex', flexDirection: 'column',
-      padding: '20px 0',
-      userSelect: 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      position: 'sticky',
+      top: 0,
     }}>
       {/* Logo */}
-      <div style={{ padding: '0 16px 24px', borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, letterSpacing: '-0.01em' }}>
-          ADAPT
-        </div>
-        <div style={{ fontSize: 9, color: C.textMuted, marginTop: 1, letterSpacing: '0.1em' }}>
-          Synthetix
+      <div style={{ padding: '20px 16px 16px', borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 6,
+            background: C.blueBg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0,
+          }}>A</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, letterSpacing: '-0.01em' }}>
+              ADAPT
+            </div>
+            <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>
+              Synthetix
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <div style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {NAV.map(({ to, label, icon: Icon }) => (
+      {/* Navigation */}
+      <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, padding: '8px 8px 4px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          Navigation
+        </div>
+        {NAV.map(({ to, icon: Icon, label, key }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
-            style={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+            style={({ isActive }) => ({
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '7px 10px',
+              borderRadius: 6,
+              marginBottom: 2,
+              color: isActive ? C.textPrimary : C.textSecondary,
+              background: isActive ? C.surfaceAlt : 'transparent',
+              border: isActive ? `1px solid ${C.border}` : '1px solid transparent',
+              fontSize: 13,
+              fontWeight: isActive ? 500 : 400,
+              textDecoration: 'none',
+              transition: 'all 0.12s',
+              cursor: 'pointer',
+            })}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.classList.contains('active')) {
+                e.currentTarget.style.background = C.surfaceHover
+                e.currentTarget.style.color = C.textPrimary
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!e.currentTarget.getAttribute('aria-current')) {
+                e.currentTarget.style.background = ''
+                e.currentTarget.style.color = ''
+              }
+            }}
           >
-            {({ isActive }) => (
-              <>
-                <Icon size={13} style={{ opacity: isActive ? 0.9 : 0.4, flexShrink: 0 }} />
-                {label}
-              </>
-            )}
+            <Icon size={15} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>{label}</span>
+            <span style={{
+              fontSize: 10, color: C.textDim, fontFamily: 'ui-monospace, monospace',
+              background: C.surfaceHover, borderRadius: 3, padding: '1px 4px',
+              border: `1px solid ${C.border}`,
+            }}>
+              {key}
+            </span>
           </NavLink>
         ))}
-      </div>
+      </nav>
 
-      {/* User */}
-      <div style={{ padding: '14px 12px 0', borderTop: `1px solid ${C.border}`, marginTop: 8 }}>
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+      {/* User section */}
+      {user && (
+        <div style={{ borderTop: `1px solid ${C.border}`, padding: '12px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 6 }}>
             {user.picture
-              ? <img src={user.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
-              : <div style={{ width: 24, height: 24, borderRadius: '50%', background: C.tealGlow, border: `1px solid ${C.teal}44`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: C.teal, fontWeight: 700 }}>
+              ? <img src={user.picture} alt="" style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0 }} />
+              : (
+                <div style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: C.blueBg, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#fff',
+                }}>
                   {(user.name || user.email || '?')[0].toUpperCase()}
                 </div>
-            }
-            <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div className="truncate" style={{ fontSize: 10, color: C.textPrimary }}>{user.name || 'User'}</div>
-              <div className="truncate" style={{ fontSize: 8, color: C.textMuted }}>{user.email}</div>
+              )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.textPrimary }}>
+                {user.name || 'User'}
+              </div>
+              <div className="truncate" style={{ fontSize: 11, color: C.textMuted }}>
+                {user.email}
+              </div>
             </div>
           </div>
-        )}
-        <button onClick={onLogout} style={{
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-          textAlign: 'left', fontSize: 9, color: C.textMuted, padding: '4px 0',
-          fontFamily: 'inherit', letterSpacing: '0.05em',
-        }}>
-          Sign out →
-        </button>
-      </div>
-    </nav>
+          <button
+            onClick={logout}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              width: '100%', padding: '6px 10px', borderRadius: 6,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: C.textMuted, fontSize: 12,
+              transition: 'all 0.12s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceHover; e.currentTarget.style.color = C.textPrimary }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.textMuted }}
+          >
+            <LogOut size={13} />
+            Sign out
+          </button>
+        </div>
+      )}
+    </aside>
   )
 }

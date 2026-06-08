@@ -13,7 +13,7 @@ export function Layout({ children }) {
       <Sidebar user={user} onLogout={logout} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         <TopBar />
-        <main style={{ flex: 1, overflow: 'auto', padding: 28 }}>
+        <main style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
           {children}
         </main>
       </div>

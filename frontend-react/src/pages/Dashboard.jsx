@@ -1,21 +1,21 @@
 import { useMemo } from 'react'
-import { Spinner } from '@/components/ui/Spinner'
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
+import { ArrowRight, Activity, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   getSessions, getRemediationStatus, getDriftReport,
   getPriorityQueue, getConfidenceHistogram, SESSIONS_LIMIT,
 } from '@/lib/api'
 import { Badge } from '@/components/ui/Badge'
+import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { ErrorTypePie } from '@/components/charts/ErrorTypePie'
 import { ConfidenceHistogram } from '@/components/charts/ConfidenceHistogram'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { Spinner } from '@/components/ui/Spinner'
 import { C } from '@/lib/theme'
-import { useUIStore, useSessionStore } from '@/store'
+import { useSessionStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDistanceToNow as fDto } from 'date-fns'
 
 function greeting() {
   const h = new Date().getHours()
@@ -24,194 +24,236 @@ function greeting() {
   return 'Good evening'
 }
 
-// Bare number stat — no card chrome, just typography
-function Stat({ label, value, accent, note }) {
+function StatCard({ label, value, sub, icon: Icon, accent }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 9, color: C.textMuted, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 36, fontWeight: 700, color: accent || C.textPrimary, lineHeight: 1, letterSpacing: '-0.02em' }}>
-        {value ?? '—'}
-      </div>
-      {note && <div style={{ fontSize: 10, color: C.textMuted }}>{note}</div>}
-    </div>
-  )
-}
-
-function Section({ title, link, linkLabel, children, style }) {
-  return (
-    <div style={style}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div style={{ fontSize: 10, color: C.textSecondary, fontWeight: 600 }}>{title}</div>
-        {link && (
-          <Link to={link} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, color: C.textMuted, textDecoration: 'none' }}>
-            {linkLabel || 'View all'} <ArrowRight size={9} />
-          </Link>
-        )}
-      </div>
-      {children}
-    </div>
+    <Card>
+      <CardBody style={{ padding: '16px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: C.textSecondary }}>{label}</div>
+          {Icon && (
+            <div style={{ width: 30, height: 30, borderRadius: 6, background: (accent || C.blue) + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon size={14} color={accent || C.blue} />
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: C.textPrimary, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 6 }}>
+          {value ?? '—'}
+        </div>
+        {sub && <div style={{ fontSize: 12, color: C.textMuted }}>{sub}</div>}
+      </CardBody>
+    </Card>
   )
 }
 
 export default function Dashboard() {
-  const { user }        = useAuth()
-  const { lastResult: persistedResult, visitCount, lastSeen } = useSessionStore()
-  const lastResult = persistedResult  // restored from localStorage
+  const { user } = useAuth()
+  const { lastResult, visitCount, lastSeen } = useSessionStore()
 
-  const { data: sessions, isLoading: sessionsLoading }  = useQuery({ queryKey: ['sessions', SESSIONS_LIMIT], queryFn: getSessions,          refetchInterval: 12_000 })
-  const { data: remStat, isLoading: remStatLoading }   = useQuery({ queryKey: ['remediation_status'],        queryFn: getRemediationStatus, refetchInterval: 15_000 })
-  const { data: drift }     = useQuery({ queryKey: ['drift_report'],               queryFn: getDriftReport,       refetchInterval: 20_000 })
-  const { data: queue }     = useQuery({ queryKey: ['priority_queue'],             queryFn: getPriorityQueue,     refetchInterval: 20_000 })
-  const { data: histogram } = useQuery({ queryKey: ['confidence_histogram', 18],   queryFn: () => getConfidenceHistogram({}, 18), refetchInterval: 30_000 })
+  const { data: sessions, isLoading: sessL }  = useQuery({ queryKey: ['sessions', SESSIONS_LIMIT], queryFn: getSessions,          refetchInterval: 12_000 })
+  const { data: remStat, isLoading: remL }    = useQuery({ queryKey: ['remediation_status'],        queryFn: getRemediationStatus, refetchInterval: 15_000 })
+  const { data: drift }                        = useQuery({ queryKey: ['drift_report'],               queryFn: getDriftReport,       refetchInterval: 20_000 })
+  const { data: queue }                        = useQuery({ queryKey: ['priority_queue'],             queryFn: getPriorityQueue,     refetchInterval: 20_000 })
+  const { data: histogram }                    = useQuery({ queryKey: ['confidence_histogram', 18],   queryFn: () => getConfidenceHistogram({}, 18), refetchInterval: 30_000 })
 
-  const recent   = useMemo(() => (sessions || []).slice(0, 8), [sessions])
+  const recent   = useMemo(() => (sessions || []).slice(0, 10), [sessions])
   const highRisk = drift?.high_risk_phonemes?.length ?? 0
   const pending  = queue?.stats?.pending ?? 0
 
   return (
-    <div style={{ display: 'grid', gap: 40, maxWidth: 1200 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, maxWidth: 1100 }}>
 
-      {/* Welcome / greeting */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}`, paddingBottom: 20 }}>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600, color: C.textPrimary, letterSpacing: '-0.01em' }}>
             {greeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}.
-          </div>
-          <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>
+          </h2>
+          <p style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>
             {visitCount > 1
-              ? `Visit #${visitCount} · Last seen ${lastSeen ? fDto(new Date(lastSeen), { addSuffix: true }) : 'recently'}`
-              : 'Welcome — your workspace is ready.'}
-          </div>
+              ? `Session ${visitCount} · Last seen ${lastSeen ? formatDistanceToNow(new Date(lastSeen), { addSuffix: true }) : 'recently'}`
+              : 'Your speech diagnostics workspace.'}
+          </p>
         </div>
         {user?.picture && (
-          <img src={user.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', opacity: 0.8 }} />
+          <img src={user.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%' }} />
         )}
       </div>
 
-      {/* Stats row — bare numbers, no cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 32 }}>
-        {[
-          { label: 'Transcriptions', value: remStatLoading ? '…' : (remStat?.total_transcriptions ?? '—'), accent: C.textPrimary },
-          { label: 'Remediation rate', value: remStatLoading ? '…' : remStat?.remediation_rate != null ? `${remStat.remediation_rate.toFixed(1)}%` : '—', accent: C.forest, note: `${remStat?.remediated ?? 0} remediated` },
-          { label: 'High-risk phonemes', value: highRisk, accent: highRisk > 0 ? C.clay : C.textMuted, note: highRisk > 0 ? 'CUSUM degrading' : 'all stable' },
-          { label: 'Queue pending', value: pending, accent: pending > 0 ? C.amber : C.textMuted, note: `${queue?.stats?.completed ?? 0} completed` },
-        ].map((s, i) => (
-          <div key={s.label} style={{
-            padding: '0 28px 0 0',
-            borderRight: i < 3 ? `1px solid ${C.border}` : 'none',
-            marginRight: i < 3 ? 28 : 0,
-          }}>
-            <Stat {...s} />
-          </div>
-        ))}
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <StatCard
+          label="Total transcriptions"
+          value={remL ? '…' : (remStat?.total_transcriptions ?? 0)}
+          sub={`${remStat?.clean ?? 0} clean`}
+          icon={Activity}
+          accent={C.blue}
+        />
+        <StatCard
+          label="Remediation rate"
+          value={remL ? '…' : remStat?.remediation_rate != null ? `${remStat.remediation_rate.toFixed(1)}%` : '—'}
+          sub={`${remStat?.remediated ?? 0} remediated`}
+          icon={CheckCircle2}
+          accent={C.green}
+        />
+        <StatCard
+          label="High-risk phonemes"
+          value={highRisk}
+          sub={highRisk > 0 ? 'CUSUM degrading' : 'All stable'}
+          icon={AlertTriangle}
+          accent={highRisk > 0 ? C.amber : C.textMuted}
+        />
+        <StatCard
+          label="Queue pending"
+          value={pending}
+          sub={`${queue?.stats?.completed ?? 0} completed`}
+          icon={Clock}
+          accent={pending > 0 ? C.amber : C.textMuted}
+        />
       </div>
 
-      {/* Main content — asymmetric: 60/40 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 48 }}>
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 16, alignItems: 'start' }}>
 
-        {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+        {/* Left */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Recent sessions — no card, just a list */}
-          <Section title="Recent activity" link="/history" linkLabel="All sessions">
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {sessionsLoading ? (
-                <Spinner size={18} style={{ padding: '16px 0' }} />
-              ) : recent.length === 0 ? (
-                <div style={{ fontSize: 11, color: C.textMuted, padding: '16px 0' }}>No sessions yet</div>
-              ) : null}
-              {recent.map((s, i) => (
-                <div key={s.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 0',
-                  borderBottom: i < recent.length - 1 ? `1px solid ${C.border}` : 'none',
-                }}>
-                  <Badge preset={s.error_type || 'clean'} label={s.error_type || 'clean'} dot />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="truncate" style={{ fontSize: 12, color: C.textPrimary }}>
-                      {s.transcription || <span style={{ color: C.textMuted }}>—</span>}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textMuted, marginTop: 2 }}>
-                      {s.timestamp ? formatDistanceToNow(new Date(s.timestamp), { addSuffix: true }) : ''}
-                      {s.confidence_score != null ? ` · ${(s.confidence_score * 100).toFixed(0)}% conf` : ''}
-                    </div>
-                  </div>
-                  {s.cer_score != null && (
-                    <span style={{ fontSize: 9, color: s.cer_score < 0.1 ? C.forest : C.amber, flexShrink: 0 }}>
-                      {(s.cer_score * 100).toFixed(0)}% CER
-                    </span>
-                  )}
+          {/* Recent sessions */}
+          <Card>
+            <CardHeader
+              title="Recent sessions"
+              right={
+                <Link to="/history" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.blue, textDecoration: 'none' }}>
+                  View all <ArrowRight size={12} />
+                </Link>
+              }
+            />
+            <div>
+              {sessL ? (
+                <div style={{ padding: 20, display: 'flex', justifyContent: 'center' }}>
+                  <Spinner size={18} />
                 </div>
-              ))}
+              ) : recent.length === 0 ? (
+                <div style={{ padding: '20px 16px', fontSize: 13, color: C.textMuted }}>
+                  No sessions yet. <Link to="/transcribe">Record audio to get started.</Link>
+                </div>
+              ) : (
+                recent.map((s, i) => (
+                  <div key={s.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '10px 16px',
+                    borderBottom: i < recent.length - 1 ? `1px solid ${C.border}` : 'none',
+                  }}>
+                    <Badge preset={s.error_type || 'clean'} label={s.error_type || 'clean'} dot />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="truncate mono" style={{ fontSize: 13, color: C.textPrimary }}>
+                        {s.transcription || <span style={{ color: C.textMuted, fontStyle: 'italic' }}>empty</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                        {s.timestamp ? formatDistanceToNow(new Date(s.timestamp), { addSuffix: true }) : ''}
+                        {s.duration_seconds != null ? ` · ${s.duration_seconds.toFixed(1)}s` : ''}
+                      </div>
+                    </div>
+                    {s.confidence_score != null && (
+                      <span style={{
+                        fontSize: 12, fontWeight: 600, flexShrink: 0,
+                        color: s.confidence_score > 0.7 ? C.green : s.confidence_score > 0.4 ? C.amber : C.red,
+                        fontFamily: 'ui-monospace, monospace',
+                      }}>
+                        {(s.confidence_score * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
-          </Section>
+          </Card>
 
           {/* Confidence histogram */}
-          <Section title="Confidence distribution">
-            <ErrorBoundary><ConfidenceHistogram data={histogram} /></ErrorBoundary>
-          </Section>
+          <Card>
+            <CardHeader title="Confidence distribution" />
+            <CardBody>
+              <ErrorBoundary>
+                <ConfidenceHistogram data={histogram} />
+              </ErrorBoundary>
+            </CardBody>
+          </Card>
         </div>
 
-        {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+        {/* Right */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Error split donut */}
-          <Section title="Error breakdown">
-            <ErrorBoundary><ErrorTypePie data={remStat} /></ErrorBoundary>
-          </Section>
+          {/* Error breakdown */}
+          <Card>
+            <CardHeader title="Error types" />
+            <CardBody>
+              <ErrorBoundary>
+                <ErrorTypePie data={remStat} />
+              </ErrorBoundary>
+            </CardBody>
+          </Card>
 
-          {/* Drift — only if there's something degrading */}
-          <Section title="Phoneme drift" link="/phonemes" linkLabel="Explorer">
-            {drift?.degrading?.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {drift.degrading.slice(0, 5).map((p) => (
-                  <div key={p.phoneme} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.clay, minWidth: 36, textAlign: 'right', letterSpacing: '0.04em' }}>
-                      /{p.phoneme}/
-                    </span>
-                    <div style={{ flex: 1, height: 3, background: C.border, borderRadius: 2 }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${(p.avg_confidence * 100).toFixed(0)}%`,
-                        background: p.avg_confidence > 0.5 ? C.amber : C.clay,
-                        borderRadius: 2,
-                      }} />
+          {/* Phoneme drift */}
+          <Card>
+            <CardHeader
+              title="Phoneme drift"
+              right={
+                <Link to="/phonemes" style={{ fontSize: 12, color: C.blue, textDecoration: 'none' }}>
+                  Explorer →
+                </Link>
+              }
+            />
+            <CardBody>
+              {drift?.degrading?.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {drift.degrading.slice(0, 6).map((p) => (
+                    <div key={p.phoneme} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        fontSize: 12, fontWeight: 600, color: C.red,
+                        minWidth: 34, textAlign: 'right',
+                        fontFamily: 'ui-monospace, monospace',
+                      }}>
+                        /{p.phoneme}/
+                      </span>
+                      <div style={{ flex: 1, height: 4, background: C.surfaceAlt, borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${(p.avg_confidence * 100).toFixed(0)}%`,
+                          background: p.avg_confidence > 0.5 ? C.amber : C.red,
+                          borderRadius: 2,
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: C.textMuted, minWidth: 32, textAlign: 'right', fontFamily: 'ui-monospace, monospace' }}>
+                        {(p.avg_confidence * 100).toFixed(0)}%
+                      </span>
                     </div>
-                    <span style={{ fontSize: 10, color: C.textMuted, minWidth: 30, textAlign: 'right' }}>
-                      {(p.avg_confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: C.forest }}>
-                ✓ All phonemes stable
-              </div>
-            )}
-          </Section>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.green, fontSize: 13 }}>
+                  <CheckCircle2 size={14} />
+                  All phonemes stable
+                </div>
+              )}
+            </CardBody>
+          </Card>
 
-          {/* Last transcription result */}
+          {/* Last result */}
           {lastResult && (
-            <Section title="Last result">
-              <div style={{
-                padding: '14px 16px',
-                background: C.surfaceAlt,
-                borderRadius: 8,
-                borderLeft: `3px solid ${C.teal}`,
-              }}>
-                <div style={{ fontSize: 13, color: C.textPrimary, lineHeight: 1.6, marginBottom: 10 }}>
+            <Card>
+              <CardHeader title="Last result" right={<Badge preset={lastResult.error_type || 'clean'} label={lastResult.error_type || 'clean'} dot />} />
+              <CardBody>
+                <p className="mono" style={{ fontSize: 13, color: C.textPrimary, lineHeight: 1.6, marginBottom: 10 }}>
                   "{lastResult.transcription}"
+                </p>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: C.textMuted }}>
+                  <span>{(lastResult.confidence * 100).toFixed(1)}% confidence</span>
+                  {lastResult.snr_db != null && <span>{lastResult.snr_db.toFixed(0)} dB SNR</span>}
+                  {lastResult.duration != null && <span>{lastResult.duration.toFixed(1)}s</span>}
                 </div>
-                <div style={{ display: 'flex', gap: 16, fontSize: 9, color: C.textMuted, flexWrap: 'wrap' }}>
-                  <span>{(lastResult.confidence * 100).toFixed(1)}% conf</span>
-                  {lastResult.cer_score  != null && <span>CER {(lastResult.cer_score  * 100).toFixed(1)}%</span>}
-                  {lastResult.snr_db     != null && <span>{lastResult.snr_db.toFixed(0)} dB</span>}
-                  <Badge preset={lastResult.error_type} label={lastResult.error_type} />
-                </div>
-              </div>
-            </Section>
+              </CardBody>
+            </Card>
           )}
         </div>
       </div>
