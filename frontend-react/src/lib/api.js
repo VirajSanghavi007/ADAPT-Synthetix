@@ -74,9 +74,18 @@ export const checkVocabulary   = (text, { signal } = {}) =>
   request(`/vocabulary_check?text=${encodeURIComponent(text)}`, { signal })
 
 // ── Models ─────────────────────────────────────────────────────
-export const getDatasetStats     = ({ signal } = {}) => request('/dataset_stats',       { signal })
-export const getLoraStatus       = ({ signal } = {}) => request('/lora_status',         { signal })
-export const getLoraExpertsStatus= ({ signal } = {}) => request('/lora_experts_status', { signal })
+export const getDatasetStats      = ({ signal } = {}) => request('/dataset_stats',       { signal })
+export const getLoraStatus        = ({ signal } = {}) => request('/lora_status',         { signal })
+export const getLoraExpertsStatus = ({ signal } = {}) => request('/lora_experts_status', { signal })
+export const getModelInfo         = ({ signal } = {}) => request('/model_info',          { signal })
+export const getTrainingStatus    = ({ signal } = {}) => request('/training_status',     { signal })
+
+export const triggerTraining = (errorType = null, epochs = 3) =>
+  request('/train', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ error_type: errorType || null, epochs }),
+  })
 
 // ── Drive ──────────────────────────────────────────────────────
 export const fetchDriveAudio = (url, { signal } = {}) =>

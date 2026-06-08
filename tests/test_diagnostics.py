@@ -184,3 +184,34 @@ class TestPhonemeAlignment:
         result = diagnostics.align_phoneme_errors("hello", "world")
         for key in ("reference_phonemes", "hypothesis_phonemes", "distance", "errors"):
             assert key in result
+
+
+# ── None-logits guards (Whisper compatibility) ────────────────
+
+class TestNoneLogitsGuards:
+    """
+    Both Wav2Vec2 (CTC) and Whisper (decoder scores) are valid logit sources.
+    Test stubs and model-load failures may pass None — must never raise.
+    """
+
+    def test_confidence_none_returns_zero(self):
+        assert diagnostics.extract_confidence(None) == 0.0
+
+    def test_uncertainty_none_returns_empty_list(self):
+        assert diagnostics.extract_token_uncertainty(None) == []
+
+    def test_confidence_whisper_stacked_scores(self):
+        """Stacked Whisper decoder scores [1, T_tokens, vocab_size] must work."""
+        T, V = 8, 51865  # realistic Whisper small vocab size
+        scores = torch.randn(1, T, V)
+        c = diagnostics.extract_confidence(scores)
+        assert isinstance(c, float)
+        assert 0.0 <= c <= 1.0
+
+    def test_uncertainty_whisper_stacked_scores(self):
+        T, V = 8, 51865
+        scores = torch.randn(1, T, V)
+        unc = diagnostics.extract_token_uncertainty(scores)
+        assert isinstance(unc, list)
+        assert len(unc) == T
+        assert all(0.0 <= h <= 1.0 for h in unc)
