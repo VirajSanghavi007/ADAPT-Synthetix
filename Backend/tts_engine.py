@@ -1,15 +1,11 @@
-"""
-tts_engine.py — TTS synthesis via Bark (suno/bark-small).
-
-Bug fixes:
-  • Audio squeeze to 1-D before writing WAV
-  • Convert float32 → int16 for universal WAV compatibility
-  • load_tts() is thread-safe via a Lock
-"""
+"""TTS synthesis via Bark (suno/bark-small). Thread-safe loader."""
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 from scipy.io.wavfile import write as write_wav
@@ -30,13 +26,13 @@ def load_tts():
         if _tts_pipeline is not None or _load_attempted:
             return _tts_pipeline
         _load_attempted = True
-        print(f"[TTS] Loading {TTS_MODEL_PATH}…")
+        logger.info("Loading TTS model from %s …", TTS_MODEL_PATH)
         try:
             _tts_pipeline = pipeline("text-to-speech", model=TTS_MODEL_PATH)
             TTS_AVAILABLE = True
-            print("[TTS] Model ready.")
+            logger.info("TTS model ready.")
         except Exception as e:
-            print(f"[TTS] Load failed: {e}")
+            logger.warning("TTS model load failed: %s", e)
             TTS_AVAILABLE = False
     return _tts_pipeline
 

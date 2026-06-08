@@ -1,20 +1,10 @@
-"""
-priority_queue.py — Error remediation priority queue.
-
-Fixes:
-  • MEDICAL_VOCABULARY and EMERGENCY_VOCABULARY are now frozensets (O(1) lookup)
-  • error_type now used in priority multiplier (noise=1.2×, accent=1.1×, pronunciation=1.0×)
-  • Connection uses context manager for proper cleanup
-  • get_queue returns all statuses for dashboard visibility
-  • Index added for final_priority column
-"""
+"""Remediation priority queue with domain-weighted scoring."""
 from __future__ import annotations
 
-import sqlite3
-from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from config import USE_POSTGRES, POSTGRES_URL
+from config import USE_POSTGRES
+from db_utils import get_connection as _get_conn_factory, ph as _ph_fn
 
 # ── Vocabularies (frozensets for O(1) lookup) ─────────────────
 MEDICAL_VOCABULARY: frozenset[str] = frozenset({
@@ -45,28 +35,11 @@ class RemediationPriorityQueue:
         self.db_path = str(db_path)
         self._init_table()
 
-    @contextmanager
     def _conn(self):
-        if USE_POSTGRES:
-            import psycopg2, psycopg2.extras
-            c = psycopg2.connect(POSTGRES_URL)
-            c.cursor_factory = psycopg2.extras.RealDictCursor
-            try:
-                yield c
-                c.commit()
-            finally:
-                c.close()
-        else:
-            c = sqlite3.connect(self.db_path)
-            c.row_factory = sqlite3.Row
-            try:
-                yield c
-                c.commit()
-            finally:
-                c.close()
+        return _get_conn_factory(self.db_path)
 
     def _ph(self) -> str:
-        return "%s" if USE_POSTGRES else "?"
+        return _ph_fn()
 
     def _init_table(self) -> None:
         ph = self._ph()

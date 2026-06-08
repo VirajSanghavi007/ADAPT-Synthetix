@@ -19,7 +19,9 @@ export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e) => {
       // Ignore when typing in inputs
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.target.isContentEditable) return
 
       // Cmd/Ctrl + K → command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {

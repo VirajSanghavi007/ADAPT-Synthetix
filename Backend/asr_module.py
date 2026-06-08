@@ -1,12 +1,4 @@
-"""
-asr_module.py — Wav2Vec2 ASR inference.
-
-Optimisations applied:
-  • Thread-safe double-checked singleton (load once, reuse forever)
-  • torch.inference_mode() instead of no_grad() — faster, less overhead
-  • Audio validated before inference (shape + length checks)
-  • Logging instead of print statements
-"""
+"""Wav2Vec2 ASR inference. Thread-safe singleton model loader."""
 from __future__ import annotations
 
 import logging
@@ -69,3 +61,9 @@ def transcribe_audio_with_logits(
     duration        = librosa.get_duration(y=audio, sr=16_000)
 
     return transcription, duration, logits, audio
+
+
+def transcribe_audio(filepath: str) -> tuple[str, float]:
+    """Convenience wrapper — returns (transcription, duration) without logits/audio array."""
+    transcription, duration, _, _ = transcribe_audio_with_logits(filepath)
+    return transcription, duration

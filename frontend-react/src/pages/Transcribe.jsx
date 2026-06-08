@@ -64,9 +64,12 @@ function ResultCard({ result }) {
     finally   { setSynthLoading(false) }
   }
 
+  const opConfidence = { substitution: 0.25, deletion: 0.10, insertion: 0.40 }
   const tokens = (result.phoneme_errors || []).slice(0, 40).map((pe) => ({
     token:      pe.hypothesis || pe.reference || '?',
-    confidence: result.confidence ?? 0.5,
+    confidence: pe.operation in opConfidence
+      ? opConfidence[pe.operation]
+      : Math.min(result.confidence ?? 0.5, 0.95),
     trend:      pe.operation !== 'equal' ? 'degrading' : 'stable',
   }))
 

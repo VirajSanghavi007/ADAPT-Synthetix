@@ -1,14 +1,4 @@
-"""
-auth.py — Auth layer: Google OAuth, email/name, backdoor.
-
-Routes:
-  GET  /auth/login        → Google OAuth redirect
-  GET  /auth/callback     → OAuth code exchange → JWT cookie
-  POST /auth/email        → email + name sign-in (no verification, trust input)
-  POST /auth/backdoor     → owner backdoor (requires BACKDOOR_KEY env var)
-  GET  /auth/me           → current user from cookie
-  POST /auth/logout       → clear cookie
-"""
+"""Authentication: Google OAuth 2.0, email sign-in, backdoor."""
 from __future__ import annotations
 
 import base64
@@ -22,18 +12,46 @@ import urllib.parse
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Rate limiter — applied only to auth mutation routes to slow credential brute-force.
+_limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────
 CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID",     "")
 CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-SECRET_KEY    = os.environ.get("AUTH_SECRET_KEY",      "change-me-in-production-min-32-chars!!")
+SECRET_KEY    = os.environ.get("AUTH_SECRET_KEY",      "")
 REDIRECT_URI  = os.environ.get("AUTH_REDIRECT_URI",    "http://localhost:5000/auth/callback")
 AUTH_ENABLED  = os.environ.get("AUTH_ENABLED",         "true").lower() != "false"
-BACKDOOR_KEY  = os.environ.get("BACKDOOR_KEY",         "adapt-owner-2024")  # change this
+BACKDOOR_KEY  = os.environ.get("BACKDOOR_KEY",         "")
+
+
+def validate_startup_config() -> None:
+    """
+    Validate required auth environment variables at server startup.
+    Raises RuntimeError so the server refuses to start with insecure defaults.
+    Call this from the FastAPI lifespan, NOT at import time (import must stay side-effect-free).
+    """
+    if not SECRET_KEY:
+        raise RuntimeError(
+            "AUTH_SECRET_KEY is not set. Generate one with:\n"
+            "  python -c \"import secrets; print(secrets.token_hex(32))\"\n"
+            "then add it to your .env file."
+        )
+    if not BACKDOOR_KEY:
+        raise RuntimeError(
+            "BACKDOOR_KEY is not set. Set it to a strong random value in your .env file."
+        )
+    if AUTH_ENABLED and (not CLIENT_ID or not CLIENT_SECRET):
+        raise RuntimeError(
+            "AUTH_ENABLED=true requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to be set. "
+            "Set AUTH_ENABLED=false for local dev without Google credentials."
+        )
 COOKIE_NAME   = "adapt_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7   # 7 days
 
@@ -62,9 +80,17 @@ def _verify(token: str) -> dict | None:
         if len(parts) != 3:
             return None
         header, body, sig = parts
+        # Validate base64 decodability before HMAC — catches malformed tokens
+        try:
+            base64.urlsafe_b64decode(header + "==")
+            base64.urlsafe_b64decode(body + "==")
+            base64.urlsafe_b64decode(sig + "==")
+        except Exception:
+            return None
         expected = _b64url(hmac.new(SECRET_KEY.encode(), f"{header}.{body}".encode(), hashlib.sha256).digest())
         if not hmac.compare_digest(sig, expected):
-            return None
+            # Structurally valid token but wrong signature → key rotation sentinel
+            return {"_expired": True}
         payload = json.loads(base64.urlsafe_b64decode(body + "=="))
         if payload.get("exp", 0) < time.time():
             return None
@@ -90,7 +116,10 @@ def get_current_user(request: Request) -> dict | None:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
-    return _verify(token)
+    result = _verify(token)
+    if result and result.get("_expired"):
+        return None
+    return result
 
 def require_user(request: Request) -> dict:
     user = get_current_user(request)
@@ -140,13 +169,21 @@ async def callback(code: str):
 
 
 # ── Email / name sign-in ──────────────────────────────────────
+# WARNING: This endpoint accepts any email/name pair with NO verification.
+# The user-supplied email is taken at face value — there is no OTP, no link,
+# and no check that the address exists or belongs to the requester.
+# This is intentional for demo/prototype purposes only. Do NOT use in
+# production without adding proper email verification (OTP, magic link, etc.).
+# API consumers can detect this mode via the X-Auth-Mode: demo-unverified
+# response header.
 class EmailSignIn(BaseModel):
     name:              str
     email:             str
     accepted_terms:    bool
 
 @router.post("/email")
-def email_signin(body: EmailSignIn, response: Response):
+@_limiter.limit("10/minute")  # slow down email enumeration / brute-force
+def email_signin(request: Request, body: EmailSignIn, response: Response):
     if not body.accepted_terms:
         raise HTTPException(400, "You must accept the Terms of Service to continue")
     name  = body.name.strip()
@@ -155,6 +192,7 @@ def email_signin(body: EmailSignIn, response: Response):
         raise HTTPException(400, "Name is required")
     if "@" not in email or "." not in email.split("@")[-1]:
         raise HTTPException(400, "Invalid email address")
+    response.headers["X-Auth-Mode"] = "demo-unverified"
     _set_cookie(response, {
         "sub":     f"email:{email}",
         "email":   email,
@@ -170,7 +208,8 @@ class BackdoorPayload(BaseModel):
     key: str
 
 @router.post("/backdoor")
-def backdoor(body: BackdoorPayload, response: Response):
+@_limiter.limit("10/minute")  # slow down backdoor key brute-force
+def backdoor(request: Request, body: BackdoorPayload, response: Response):
     if not body.key or body.key != BACKDOOR_KEY:
         raise HTTPException(403, "Invalid key")
     _set_cookie(response, {
@@ -187,6 +226,14 @@ def backdoor(body: BackdoorPayload, response: Response):
 # ── Session ───────────────────────────────────────────────────
 @router.get("/me")
 def me(request: Request):
+    token = request.cookies.get(COOKIE_NAME) if AUTH_ENABLED else None
+    if token:
+        raw = _verify(token)
+        if raw and raw.get("_expired"):
+            return JSONResponse(
+                {"error": "Session expired", "code": "SESSION_EXPIRED"},
+                status_code=401,
+            )
     user = get_current_user(request)
     if not user:
         raise HTTPException(401, "Not authenticated")

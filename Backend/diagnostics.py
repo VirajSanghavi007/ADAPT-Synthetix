@@ -1,14 +1,4 @@
-"""
-diagnostics.py — Research-backed ASR diagnostic pipeline.
-
-Key improvements applied (see docs/RESEARCH.md for citations):
-  • CTC token-level uncertainty via entropy (Rumberg et al., Interspeech 2023)
-  • Selective temperature scaling for confidence calibration (arXiv:2509.07195)
-  • Phoneme Error Rate (PER) as a distinct metric from CER
-  • Conformal-prediction-style nonconformity score for priority queue
-  • Phoneme confusion matrix threshold rule from DyPCL / POWER
-  • WER added alongside CER (jiwer)
-"""
+"""ASR diagnostic pipeline: confidence, error rates, phoneme alignment, noise."""
 from __future__ import annotations
 
 import numpy as np
