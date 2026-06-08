@@ -1,13 +1,4 @@
-"""
-drift_detector.py — Acoustic drift & phoneme confidence monitoring.
-
-Research improvements applied:
-  • CUSUM + sliding-window trend replaces naive first/last comparison
-  • MMD-based acoustic embedding drift signal (arXiv:2407.05375)
-  • Phoneme confusion matrix with 30%-threshold flagging (DyPCL / POWER)
-  • AMR drift-score for replay buffer eviction (arXiv:2507.02310)
-  • Dual DB support: SQLite (default) + PostgreSQL via config
-"""
+"""Phoneme confidence drift monitoring with CUSUM trend detection."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -15,7 +6,8 @@ from typing import Any
 
 import numpy as np
 
-from config import USE_POSTGRES, DB_PATH, POSTGRES_URL
+from config import USE_POSTGRES, DB_PATH
+from db_utils import get_connection as _get_conn_factory, ph as _ph_fn
 
 
 class DriftDetector:
@@ -32,21 +24,10 @@ class DriftDetector:
     # ── Connection ────────────────────────────────────────────
 
     def _conn(self):
-        if USE_POSTGRES:
-            import psycopg2, psycopg2.extras
-            c = psycopg2.connect(POSTGRES_URL)
-            c.cursor_factory = psycopg2.extras.RealDictCursor
-            return c
-        import sqlite3
-        from pathlib import Path
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        c = sqlite3.connect(self.db_path)
-        c.row_factory = sqlite3.Row
-        return c
+        return _get_conn_factory(self.db_path)
 
     def _ph(self) -> str:
-        """Placeholder: %s for Postgres, ? for SQLite."""
-        return "%s" if USE_POSTGRES else "?"
+        return _ph_fn()
 
     # ── Schema ────────────────────────────────────────────────
 
@@ -185,17 +166,19 @@ class DriftDetector:
         scores = list(reversed([float(r["confidence_score"]) for r in rows]))
         avg    = float(np.mean(scores))
 
-        # CUSUM: accumulate positive deviations downward (degradation signal)
-        cusum, S = 0.0, 0.0
+        # Two-sided CUSUM: separate degradation and improvement signals
+        S_low, S_high = 0.0, 0.0
         for s in scores:
-            S = max(0.0, S + (avg - s))
-            cusum = max(cusum, S)
+            S_low  = max(0.0, S_low  + (avg - s))   # degradation signal
+            S_high = max(0.0, S_high + (s - avg))    # improvement signal
+        cusum_deg = S_low
+        cusum_imp = S_high
 
         # Slope-based (original method)
-        slope  = scores[-1] - scores[0]
-        if cusum > self.CUSUM_THRESHOLD or slope <= -0.05:
+        slope = scores[-1] - scores[0]
+        if cusum_deg > self.CUSUM_THRESHOLD or slope <= -0.05:
             trend = "degrading"
-        elif slope >= 0.05:
+        elif cusum_imp > self.CUSUM_THRESHOLD or slope >= 0.05:
             trend = "improving"
         else:
             trend = "stable"
@@ -205,7 +188,9 @@ class DriftDetector:
             "avg_confidence": round(avg, 4),
             "trend":          trend,
             "sample_count":   len(scores),
-            "cusum":          round(cusum, 4),
+            "cusum":          round(cusum_deg, 4),
+            "cusum_deg":      round(cusum_deg, 4),
+            "cusum_imp":      round(cusum_imp, 4),
         }
 
     # ── Drift report ──────────────────────────────────────────

@@ -1,14 +1,4 @@
-"""
-database.py — Unified DB layer (SQLite + PostgreSQL).
-
-Optimisations applied:
-  • Schema initialised ONCE per process (module-level flag), not on every request
-  • log_transcription now writes ALL diagnostic columns in a single INSERT
-    (eliminates the separate update_diagnostics() round-trip per transcription)
-  • get_recent_sessions projects only needed columns, accepts offset for pagination
-  • WAL mode + NORMAL sync on every SQLite connection for concurrent read safety
-  • contextmanager always closes connection — no leaks
-"""
+"""Database layer — SQLite/PostgreSQL dual-mode schema and queries."""
 from __future__ import annotations
 
 import json
@@ -17,7 +7,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
-from config import DB_PATH, USE_POSTGRES, POSTGRES_URL
+from config import DB_PATH, USE_POSTGRES
+from db_utils import get_connection, ph as _ph
 
 _schema_done = False   # initialised once per process
 
@@ -26,41 +17,14 @@ _schema_done = False   # initialised once per process
 @contextmanager
 def _get_conn():
     global _schema_done
-    if USE_POSTGRES:
-        try:
-            import psycopg2, psycopg2.extras
-        except ImportError as exc:
-            raise ImportError("psycopg2-binary required for PostgreSQL") from exc
-        conn = psycopg2.connect(POSTGRES_URL)
-        conn.cursor_factory = psycopg2.extras.RealDictCursor
+    with get_connection(sqlite_pragmas=True) as conn:
         if not _schema_done:
-            _init_postgres(conn)
+            if USE_POSTGRES:
+                _init_postgres(conn)
+            else:
+                _init_sqlite(conn)
             _schema_done = True
-        try:
-            yield conn
-            conn.commit()
-        finally:
-            conn.close()
-    else:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA cache_size=-8000")   # 8 MB page cache
-        conn.execute("PRAGMA foreign_keys=ON")
-        if not _schema_done:
-            _init_sqlite(conn)
-            _schema_done = True
-        try:
-            yield conn
-            conn.commit()
-        finally:
-            conn.close()
-
-
-def _ph() -> str:
-    return "%s" if USE_POSTGRES else "?"
+        yield conn
 
 
 # ── Schema — SQLite ───────────────────────────────────────────
@@ -142,6 +106,24 @@ def _init_sqlite(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_pq_priority ON priority_queue(final_priority DESC);
         CREATE INDEX IF NOT EXISTS idx_pq_status   ON priority_queue(status);
+
+        CREATE TABLE IF NOT EXISTS vocabulary_terms (
+            domain TEXT NOT NULL,
+            term   TEXT NOT NULL,
+            PRIMARY KEY (domain, term)
+        );
+        CREATE INDEX IF NOT EXISTS idx_vocab_domain ON vocabulary_terms(domain);
+
+        CREATE TABLE IF NOT EXISTS training_runs (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            state       TEXT    NOT NULL DEFAULT 'idle',
+            progress    INTEGER NOT NULL DEFAULT 0,
+            message     TEXT    NOT NULL DEFAULT '',
+            error_type  TEXT,
+            epochs      INTEGER,
+            started_at  TEXT,
+            finished_at TEXT
+        );
     """)
     # Migrate older DBs
     existing = {r[1] for r in conn.execute("PRAGMA table_info(transcriptions)").fetchall()}
@@ -215,6 +197,25 @@ def _init_postgres(conn) -> None:
                 base_confidence REAL NOT NULL, domain_multiplier REAL NOT NULL,
                 final_priority REAL NOT NULL, domain_matches TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS vocabulary_terms (
+                domain TEXT NOT NULL,
+                term   TEXT NOT NULL,
+                PRIMARY KEY (domain, term)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS training_runs (
+                id          SERIAL PRIMARY KEY,
+                state       TEXT    NOT NULL DEFAULT 'idle',
+                progress    INTEGER NOT NULL DEFAULT 0,
+                message     TEXT    NOT NULL DEFAULT '',
+                error_type  TEXT,
+                epochs      INTEGER,
+                started_at  TEXT,
+                finished_at TEXT
             )
         """)
     conn.commit()
@@ -298,6 +299,113 @@ def get_recent_sessions(limit: int = 100, offset: int = 0) -> list[dict]:
             (min(limit, 500), max(offset, 0)),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_session_by_id(row_id: int) -> dict | None:
+    ph = _ph()
+    with _get_conn() as conn:
+        row = conn.execute(
+            f"SELECT * FROM transcriptions WHERE id={ph}",
+            (row_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        # Parse noise_profile JSON
+        if result.get("noise_profile") and isinstance(result["noise_profile"], str):
+            try:
+                result["noise_profile"] = json.loads(result["noise_profile"])
+            except Exception:
+                result["noise_profile"] = None
+        # Fetch phoneme errors
+        pe_rows = conn.execute(
+            f"SELECT * FROM phoneme_errors WHERE transcription_id={ph} ORDER BY id ASC",
+            (row_id,),
+        ).fetchall()
+        result["phoneme_errors"] = [dict(r) for r in pe_rows]
+        # Fetch priority queue entry
+        pq_row = conn.execute(
+            f"SELECT * FROM priority_queue WHERE transcription_id={ph} LIMIT 1",
+            (row_id,),
+        ).fetchone()
+        result["queue_entry"] = dict(pq_row) if pq_row else None
+    return result
+
+
+def get_vocabulary_terms(domain: str) -> list[str]:
+    """Return all terms for a given domain (e.g. 'medical', 'emergency')."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT term FROM vocabulary_terms WHERE domain={_ph()} ORDER BY term",
+            (domain,),
+        ).fetchall()
+    return [r["term"] for r in rows]
+
+
+def add_vocabulary_term(domain: str, term: str) -> None:
+    """Insert a new term (no-op if already exists — PRIMARY KEY conflict)."""
+    ph = _ph()
+    with _get_conn() as conn:
+        conn.execute(
+            f"INSERT OR IGNORE INTO vocabulary_terms (domain, term) VALUES ({ph},{ph})",
+            (domain, term),
+        )
+
+
+def seed_vocabulary_if_empty(medical: frozenset, emergency: frozenset) -> None:
+    """Seed vocabulary_terms from static sets on first run (if table is empty)."""
+    ph = _ph()
+    with _get_conn() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM vocabulary_terms").fetchone()[0]
+        if count == 0:
+            conn.executemany(
+                f"INSERT OR IGNORE INTO vocabulary_terms (domain, term) VALUES ({ph},{ph})",
+                [("medical", t) for t in sorted(medical)] + [("emergency", t) for t in sorted(emergency)],
+            )
+
+
+def upsert_training_status(
+    state: str,
+    progress: int,
+    message: str,
+    run_id: Optional[int] = None,
+) -> int:
+    ph = _ph()
+    ts = datetime.now(timezone.utc).isoformat()
+    with _get_conn() as conn:
+        if run_id is None:
+            cur = conn.execute(
+                f"""INSERT INTO training_runs (state, progress, message, started_at)
+                    VALUES ({ph},{ph},{ph},{ph})""",
+                (state, progress, message, ts),
+            )
+            if USE_POSTGRES:
+                row = conn.execute("SELECT lastval()").fetchone()
+                return int(list(row.values())[0])
+            return cur.lastrowid
+        finished = ts if state in ("idle", "error") else None
+        conn.execute(
+            f"""UPDATE training_runs
+                SET state={ph}, progress={ph}, message={ph}, finished_at={ph}
+                WHERE id={ph}""",
+            (state, progress, message, finished, run_id),
+        )
+        return run_id
+
+
+def get_training_status() -> dict:
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM training_runs ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    if row is None:
+        return {"state": "idle", "progress": 0, "message": ""}
+    d = dict(row)
+    return {
+        "state":    d.get("state", "idle"),
+        "progress": d.get("progress", 0),
+        "message":  d.get("message", ""),
+    }
 
 
 def get_remediation_status() -> dict:

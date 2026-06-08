@@ -1,15 +1,4 @@
-"""
-lora_trainer.py — LoRA / AdaLoRA fine-tuning for wav2vec2.
-
-Research improvements applied:
-  • AdaLoRA (Zhang et al. ICLR 2023) as default — adaptive rank per layer
-  • Gradient clipping (max_norm=1.0) added to prevent divergence
-  • Layer freezing: CNN feature extractor frozen (Pekarek Rosin, ICANN 2023)
-  • 10% replay ratio per batch (Pekarek Rosin 2023)
-  • Audio mono-enforcement and vocabulary filtering
-  • Hardcoded paths replaced with config values
-  • gradient_checkpointing to reduce memory footprint
-"""
+"""LoRA/AdaLoRA fine-tuning for Wav2Vec2 on remedial samples."""
 from __future__ import annotations
 
 import argparse
@@ -28,6 +17,7 @@ from peft import LoraConfig, get_peft_model
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from config import DB_PATH, MODELS_DIR
+from experience_replay import ReplayBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +43,7 @@ class LoRATrainer:
         self.model_name = model_name
         self.output_dir = output_dir
         self.use_adalora = use_adalora and _HAS_ADALORA
+        self.replay_buffer = ReplayBuffer(db_path=self.db_path)
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _connect(self):
@@ -84,6 +75,10 @@ class LoRATrainer:
             return [dict(r) for r in c.execute(q, params).fetchall()]
 
     def load_replay_samples(self, n: int = 20) -> list[dict]:
+        samples = self.replay_buffer.sample(n)
+        if samples:
+            return samples
+        # Fallback SQL query on first training run before buffer is populated
         with self._connect() as c:
             rows = c.execute("""
                 SELECT remedial_audio_path AS audio_path,
@@ -134,12 +129,12 @@ class LoRATrainer:
                 param.requires_grad = False
 
         trainable, total = self._count_params(model)
-        logger.info(f"Trainable: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)")
+        logger.info("Trainable: %s / %s (%.2f%%)", f"{trainable:,}", f"{total:,}", 100 * trainable / total)
         return model, processor
 
     # ── Training ──────────────────────────────────────────────
 
-    def train(self, epochs: int = 3, lr: float = 1e-4, error_type: str | None = None) -> None:
+    def train(self, epochs: int = 3, lr: float = 1e-4, error_type: str | None = None, on_epoch=None) -> None:
         start   = time.time()
         samples = self.load_remedial_samples(error_type=error_type)
         if len(samples) < 5:
@@ -203,9 +198,16 @@ class LoRATrainer:
                 v = float(loss.item())
                 epoch_losses.append(v)
                 final_loss = v
+                self.replay_buffer.add(
+                    path,
+                    transcript,
+                    s.get("error_type") or "unknown",
+                )
 
             mean = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
-            logger.info(f"Epoch {epoch}/{epochs} — loss {mean:.4f} — lr {scheduler.get_last_lr()[0]:.2e}")
+            logger.info("Epoch %d/%d — loss %.4f — lr %.2e", epoch, epochs, mean, scheduler.get_last_lr()[0])
+            if on_epoch is not None:
+                on_epoch(epoch, epochs, mean)
             ep_dir = os.path.join(self.output_dir, f"epoch_{epoch}")
             os.makedirs(ep_dir, exist_ok=True)
             model.save_pretrained(ep_dir)
@@ -223,14 +225,59 @@ class LoRATrainer:
                 "trained_at":       datetime.datetime.now().isoformat(),
                 "adalora":          self.use_adalora,
             }, fp, indent=2)
-        logger.info(f"Training log → {log_path}")
+        logger.info("Training log → %s", log_path)
+
+    # ── Evaluation ────────────────────────────────────────────
+
+    def evaluate(self, samples: list) -> dict:
+        """
+        Evaluate LoRA-adapted model on holdout samples.
+
+        Args:
+            samples: list of dicts with keys 'audio_path' and 'reference' (or 'transcription')
+
+        Returns:
+            {"wer": float, "per": float, "sample_count": int}
+        """
+        from asr_module import transcribe_audio_with_logits
+        import diagnostics as _diag
+
+        if not samples:
+            return {"wer": 0.0, "per": 0.0, "sample_count": 0}
+
+        wer_scores: list[float] = []
+        per_scores: list[float] = []
+        for s in samples:
+            audio_path = str(s.get("audio_path", ""))
+            reference  = str(s.get("reference") or s.get("transcription") or "").strip()
+            if not audio_path or not reference or not os.path.exists(audio_path):
+                continue
+            try:
+                hypothesis, _, _, _ = transcribe_audio_with_logits(audio_path)
+                wer = _diag.calculate_wer(reference, hypothesis)
+                per = _diag.phoneme_error_rate(reference, hypothesis)
+                if wer is not None:
+                    wer_scores.append(wer)
+                if per is not None:
+                    per_scores.append(per)
+            except Exception as exc:
+                logger.warning("evaluate: skipping %s — %s", audio_path, exc)
+
+        n = len(wer_scores)
+        result = {
+            "wer":          round(sum(wer_scores) / n, 4) if n else 0.0,
+            "per":          round(sum(per_scores) / len(per_scores), 4) if per_scores else 0.0,
+            "sample_count": n,
+        }
+        logger.info("Evaluation complete: %s", result)
+        return result
 
     def dry_run(self) -> None:
         samples = self.load_remedial_samples()
         model, _ = self.prepare_model()
         t, n = self._count_params(model)
-        print(f"Samples: {len(samples)}  |  Trainable: {t:,}/{n:,}  |  AdaLoRA: {self.use_adalora}")
-        print("DRY RUN COMPLETE")
+        logger.info("Samples: %d  |  Trainable: %s/%s  |  AdaLoRA: %s", len(samples), f"{t:,}", f"{n:,}", self.use_adalora)
+        logger.info("DRY RUN COMPLETE")
 
 
 if __name__ == "__main__":
