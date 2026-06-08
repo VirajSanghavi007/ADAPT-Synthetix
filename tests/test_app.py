@@ -21,6 +21,8 @@ def app_client(monkeypatch):
 
     fake_tts = types.ModuleType("tts_engine")
     fake_tts.TTS_AVAILABLE = True
+    fake_tts.TTS_MODEL_PATH = "suno/bark-small"
+    fake_tts.load_tts = lambda: None
     fake_tts.synthesize = lambda text, output_path: (output_path, 1.0)
     monkeypatch.setitem(sys.modules, "tts_engine", fake_tts)
 

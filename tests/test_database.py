@@ -97,3 +97,32 @@ def test_get_recent_sessions_limit(db_module):
         db_module.log_transcription("s", f"{i}.wav", f"/{i}", f"tx{i}", 1.0, "m")
     rows = db_module.get_recent_sessions(limit=3)
     assert len(rows) == 3
+
+
+def test_log_transcription_all_diagnostic_fields_non_null(db_module):
+    """1a: all diagnostic columns written in a single INSERT — none should be NULL."""
+    row_id = db_module.log_transcription(
+        "session-diag", "diag.wav", "/diag.wav",
+        "patient requires triage", 3.5, "wav2vec2-base-960h",
+        cer_score=0.08,
+        wer_score=0.15,
+        per_score=0.06,
+        error_type="accent",
+        confidence_score=0.82,
+        snr_db=22.0,
+        noise_profile='{"noise_type":"crowd"}',
+        nonconformity_score=0.18,
+    )
+    rows = db_module.get_recent_sessions(limit=10)
+    row = next((r for r in rows if r["id"] == row_id), None)
+    assert row is not None, "Row not found after insert"
+    assert row["cer_score"] is not None,          "cer_score is NULL"
+    assert row["wer_score"] is not None,          "wer_score is NULL"
+    assert row["per_score"] is not None,          "per_score is NULL"
+    assert row["error_type"] is not None,         "error_type is NULL"
+    assert row["confidence_score"] is not None,   "confidence_score is NULL"
+    assert row["snr_db"] is not None,             "snr_db is NULL"
+    assert row["noise_profile"] is not None,      "noise_profile is NULL"
+    assert row["nonconformity_score"] is not None,"nonconformity_score is NULL"
+    assert row["cer_score"] == pytest.approx(0.08, abs=0.001)
+    assert row["confidence_score"] == pytest.approx(0.82, abs=0.001)
