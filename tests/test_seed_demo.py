@@ -18,6 +18,8 @@ def test_seed_demo_populates_transcriptions(tmp_path):
         import importlib
         import config
         importlib.reload(config)
+        import db_utils
+        importlib.reload(db_utils)
         import database
         importlib.reload(database)
         import seed_demo
