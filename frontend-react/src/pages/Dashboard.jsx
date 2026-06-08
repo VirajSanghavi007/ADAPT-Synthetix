@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Spinner } from '@/components/ui/Spinner'
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
@@ -10,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/Badge'
 import { ErrorTypePie } from '@/components/charts/ErrorTypePie'
 import { ConfidenceHistogram } from '@/components/charts/ConfidenceHistogram'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { C } from '@/lib/theme'
 import { useUIStore, useSessionStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
@@ -58,8 +60,8 @@ export default function Dashboard() {
   const { lastResult: persistedResult, visitCount, lastSeen } = useSessionStore()
   const lastResult = persistedResult  // restored from localStorage
 
-  const { data: sessions }  = useQuery({ queryKey: ['sessions', SESSIONS_LIMIT], queryFn: getSessions,          refetchInterval: 12_000 })
-  const { data: remStat }   = useQuery({ queryKey: ['remediation_status'],        queryFn: getRemediationStatus, refetchInterval: 15_000 })
+  const { data: sessions, isLoading: sessionsLoading }  = useQuery({ queryKey: ['sessions', SESSIONS_LIMIT], queryFn: getSessions,          refetchInterval: 12_000 })
+  const { data: remStat, isLoading: remStatLoading }   = useQuery({ queryKey: ['remediation_status'],        queryFn: getRemediationStatus, refetchInterval: 15_000 })
   const { data: drift }     = useQuery({ queryKey: ['drift_report'],               queryFn: getDriftReport,       refetchInterval: 20_000 })
   const { data: queue }     = useQuery({ queryKey: ['priority_queue'],             queryFn: getPriorityQueue,     refetchInterval: 20_000 })
   const { data: histogram } = useQuery({ queryKey: ['confidence_histogram', 18],   queryFn: () => getConfidenceHistogram({}, 18), refetchInterval: 30_000 })
@@ -91,8 +93,8 @@ export default function Dashboard() {
       {/* Stats row — bare numbers, no cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 32 }}>
         {[
-          { label: 'Transcriptions', value: remStat?.total_transcriptions ?? '—', accent: C.textPrimary },
-          { label: 'Remediation rate', value: remStat?.remediation_rate != null ? `${remStat.remediation_rate.toFixed(1)}%` : '—', accent: C.forest, note: `${remStat?.remediated ?? 0} remediated` },
+          { label: 'Transcriptions', value: remStatLoading ? '…' : (remStat?.total_transcriptions ?? '—'), accent: C.textPrimary },
+          { label: 'Remediation rate', value: remStatLoading ? '…' : remStat?.remediation_rate != null ? `${remStat.remediation_rate.toFixed(1)}%` : '—', accent: C.forest, note: `${remStat?.remediated ?? 0} remediated` },
           { label: 'High-risk phonemes', value: highRisk, accent: highRisk > 0 ? C.clay : C.textMuted, note: highRisk > 0 ? 'CUSUM degrading' : 'all stable' },
           { label: 'Queue pending', value: pending, accent: pending > 0 ? C.amber : C.textMuted, note: `${queue?.stats?.completed ?? 0} completed` },
         ].map((s, i) => (
@@ -115,9 +117,11 @@ export default function Dashboard() {
           {/* Recent sessions — no card, just a list */}
           <Section title="Recent activity" link="/history" linkLabel="All sessions">
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {recent.length === 0 && (
+              {sessionsLoading ? (
+                <Spinner size={18} style={{ padding: '16px 0' }} />
+              ) : recent.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textMuted, padding: '16px 0' }}>No sessions yet</div>
-              )}
+              ) : null}
               {recent.map((s, i) => (
                 <div key={s.id} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
@@ -146,7 +150,7 @@ export default function Dashboard() {
 
           {/* Confidence histogram */}
           <Section title="Confidence distribution">
-            <ConfidenceHistogram data={histogram} />
+            <ErrorBoundary><ConfidenceHistogram data={histogram} /></ErrorBoundary>
           </Section>
         </div>
 
@@ -155,7 +159,7 @@ export default function Dashboard() {
 
           {/* Error split donut */}
           <Section title="Error breakdown">
-            <ErrorTypePie data={remStat} />
+            <ErrorBoundary><ErrorTypePie data={remStat} /></ErrorBoundary>
           </Section>
 
           {/* Drift — only if there's something degrading */}

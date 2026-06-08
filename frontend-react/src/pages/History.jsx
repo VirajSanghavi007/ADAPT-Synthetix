@@ -2,14 +2,34 @@ import { useState, useMemo, Fragment, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
-import { Search, ChevronDown, ChevronUp, Volume2, X } from 'lucide-react'
-import { getSessions, synthesizeSpeech, SESSIONS_LIMIT } from '@/lib/api'
+import { Search, ChevronDown, ChevronUp, Volume2, X, Download, ExternalLink } from 'lucide-react'
+import { getSessions, getSessionDetail, synthesizeSpeech, SESSIONS_LIMIT } from '@/lib/api'
 import { useSessionStore } from '@/store'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingOverlay, EmptyState } from '@/components/ui/Spinner'
 import { useUIStore } from '@/store'
 import { C } from '@/lib/theme'
+
+const PAGE_SIZE = 25
+
+function exportCSV(rows) {
+  const cols = ['id', 'timestamp', 'transcription', 'error_type', 'confidence_score', 'cer_score', 'wer_score', 'snr_db']
+  const header = cols.join(',')
+  const escape = (v) => {
+    if (v == null) return ''
+    const s = String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const body = rows.map((r) => cols.map((c) => escape(r[c])).join(',')).join('\n')
+  const blob = new Blob([header + '\n' + body], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `sessions_export_${Date.now()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 function parseNoise(raw) {
   try { return JSON.parse(raw || '{}') } catch { return {} }
@@ -96,6 +116,86 @@ function ExpandedRow({ session }) {
   )
 }
 
+function DetailPanel({ sessionId, onClose }) {
+  const [detail, setDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    setLoading(true); setError(null)
+    getSessionDetail(sessionId)
+      .then(setDetail)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [sessionId])
+
+  const opColor = { substitution: C.clay, deletion: C.amber, insertion: C.lavender }
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, right: 0, width: 420, height: '100vh',
+      background: C.surface, borderLeft: `1px solid ${C.border}`,
+      zIndex: 200, overflowY: 'auto', boxShadow: '-8px 0 32px #00000044',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: C.textPrimary }}>Session #{sessionId}</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, padding: 4 }}>
+          <X size={14} />
+        </button>
+      </div>
+      <div style={{ padding: 18, flex: 1 }}>
+        {loading && <div style={{ fontSize: 11, color: C.textMuted }}>Loading…</div>}
+        {error && <div style={{ fontSize: 11, color: C.clay }}>Error: {error}</div>}
+        {detail && (
+          <>
+            <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 }}>Transcription</div>
+            <div style={{ fontSize: 11, color: C.textPrimary, lineHeight: 1.7, padding: '8px 10px', background: C.surfaceAlt, borderRadius: 6, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+              {detail.transcription}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+              {[
+                ['Confidence', detail.confidence_score != null ? `${(detail.confidence_score * 100).toFixed(1)}%` : '—', C.teal],
+                ['CER',  detail.cer_score  != null ? `${(detail.cer_score * 100).toFixed(1)}%` : '—', C.amber],
+                ['WER',  detail.wer_score  != null ? `${(detail.wer_score * 100).toFixed(1)}%` : '—', C.amber],
+                ['PER',  detail.per_score  != null ? `${(detail.per_score * 100).toFixed(1)}%` : '—', C.lavender],
+                ['SNR',  detail.snr_db     != null ? `${detail.snr_db.toFixed(1)} dB` : '—', C.textSecondary],
+                ['Type', detail.error_type || '—', C.textSecondary],
+              ].map(([k, v, c]) => (
+                <div key={k} style={{ padding: '6px 10px', background: C.surfaceAlt, borderRadius: 4, border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 8, color: C.textMuted, marginBottom: 2 }}>{k}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: c }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            {detail.noise_profile?.noise_type && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 }}>Noise</div>
+                <span style={{ fontSize: 9, padding: '2px 8px', borderRadius: 3, background: C.tealGlow, color: C.teal, border: `1px solid ${C.teal}33` }}>
+                  {detail.noise_profile.noise_type}
+                </span>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 }}>Phoneme errors</div>
+              {!detail.phoneme_errors?.length
+                ? <div style={{ fontSize: 10, color: C.textMuted }}>No phoneme data</div>
+                : detail.phoneme_errors.slice(0, 20).map((pe, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 2, background: (opColor[pe.operation] || C.teal) + '22', color: opColor[pe.operation] || C.teal }}>{pe.operation}</span>
+                    <span style={{ fontSize: 10, color: C.textSecondary }}>{pe.reference_phoneme || '∅'} → {pe.hypothesis_phoneme || '∅'}</span>
+                  </div>
+                ))
+              }
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const ERROR_TYPES = ['all', 'clean', 'noise', 'accent', 'pronunciation']
 
 export default function History() {
@@ -105,9 +205,11 @@ export default function History() {
   const [typeFilter, setFilterLocal] = useState(historyFilter)
 
   // Wrap setters to also persist
-  const setSearch = (v) => { setSearchLocal(v); setHistorySearch(v) }
-  const setFilter = (v) => { setFilterLocal(v); setHistoryFilter(v) }
+  const setSearch = (v) => { setSearchLocal(v); setHistorySearch(v); setPage(1) }
+  const setFilter = (v) => { setFilterLocal(v); setHistoryFilter(v); setPage(1) }
   const [expanded, setExpanded] = useState(null)
+  const [page, setPage] = useState(1)
+  const [detailId, setDetailId] = useState(null)
 
   // Canonical queryKey matches Dashboard and Analytics — single cache entry
   const { data: sessions, isLoading } = useQuery({
@@ -130,14 +232,21 @@ export default function History() {
     return s
   }, [sessions, typeFilter, search])
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const pageStart = (safePage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(safePage * PAGE_SIZE, filtered.length)
+
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
+      {detailId != null && <DetailPanel sessionId={detailId} onClose={() => setDetailId(null)} />}
       <Card>
         <CardHeader
           title="Session History"
           subtitle={`${filtered.length} / ${sessions?.length ?? 0} records`}
           right={
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative' }}>
                 <Search size={10} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: C.textMuted }} />
                 <input
@@ -164,6 +273,21 @@ export default function History() {
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                 }}>{f}</button>
               ))}
+              <button
+                onClick={() => exportCSV(filtered)}
+                disabled={!filtered.length}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '3px 9px', borderRadius: 3,
+                  border: `1px solid ${C.border}`,
+                  background: 'transparent',
+                  color: C.textMuted, fontSize: 9,
+                  cursor: filtered.length ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', opacity: filtered.length ? 1 : 0.4,
+                }}
+              >
+                <Download size={9} /> Export CSV
+              </button>
             </div>
           }
         />
@@ -172,8 +296,9 @@ export default function History() {
         ) : !filtered.length ? (
           <EmptyState icon={<Search size={28} />} title="No sessions found" sub="Try a different filter" />
         ) : (
+          <>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }} aria-label="Session history">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${C.borderBright}` }}>
                   {['Time', 'Transcription', 'Type', 'Conf', 'CER', 'WER', ''].map((h) => (
@@ -182,7 +307,7 @@ export default function History() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s, i) => (
+                {paged.map((s, i) => (
                   <Fragment key={s.id}>
                     <motion.tr
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -207,7 +332,16 @@ export default function History() {
                         {s.wer_score != null ? `${(s.wer_score * 100).toFixed(1)}%` : '—'}
                       </td>
                       <td style={{ padding: '9px 12px', color: C.textMuted }}>
-                        {expanded === s.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {expanded === s.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDetailId(s.id) }}
+                            title="View detail"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, padding: 0, display: 'flex' }}
+                          >
+                            <ExternalLink size={10} />
+                          </button>
+                        </div>
                       </td>
                     </motion.tr>
                     <AnimatePresence>
@@ -218,6 +352,28 @@ export default function History() {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 9, color: C.textMuted }}>
+                Showing {pageStart}–{pageEnd} of {filtered.length}
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  style={{ padding: '2px 8px', borderRadius: 3, border: `1px solid ${C.border}`, background: 'transparent', color: safePage === 1 ? C.textDim : C.textMuted, fontSize: 9, cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+                >Previous</button>
+                <span style={{ fontSize: 9, color: C.textMuted, lineHeight: '22px' }}>{safePage} / {totalPages}</span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  style={{ padding: '2px 8px', borderRadius: 3, border: `1px solid ${C.border}`, background: 'transparent', color: safePage === totalPages ? C.textDim : C.textMuted, fontSize: 9, cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+                >Next</button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </Card>
     </div>

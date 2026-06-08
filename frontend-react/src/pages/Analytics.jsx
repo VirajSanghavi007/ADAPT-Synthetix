@@ -10,6 +10,7 @@ import { ConfidenceHistogram } from '@/components/charts/ConfidenceHistogram'
 import { NoiseBreakdown } from '@/components/charts/NoiseBreakdown'
 import { ErrorTypePie } from '@/components/charts/ErrorTypePie'
 import { LoadingOverlay } from '@/components/ui/Spinner'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { C } from '@/lib/theme'
 
 function Label({ children }) {
@@ -100,12 +101,12 @@ export default function Analytics() {
   const { data: histogram }   = useQuery({ queryKey: ['confidence_histogram', 18], queryFn: () => getConfidenceHistogram({}, 18), refetchInterval: 30_000 })
 
   const { withRef, avgCer, avgConf } = useMemo(() => {
-    const wr = (sessions || []).filter((s) => s.cer_score != null)
+    const wr   = (sessions || []).filter((s) => s.cer_score != null)
+    const conf = (sessions || []).filter((s) => s.confidence_score != null)
     return {
       withRef: wr,
-      avgCer:  wr.length ? wr.reduce((a, s) => a + s.cer_score, 0) / wr.length : null,
-      avgConf: (sessions || []).filter((s) => s.confidence_score != null)
-                 .reduce((a, s, _, arr) => a + s.confidence_score / arr.length, 0) || null,
+      avgCer:  wr.length   ? wr.reduce((a, s) => a + s.cer_score, 0) / wr.length : null,
+      avgConf: conf.length ? conf.reduce((a, s) => a + s.confidence_score, 0) / conf.length : null,
     }
   }, [sessions])
 
@@ -136,15 +137,15 @@ export default function Analytics() {
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 40 }}>
         <div>
           <Label>Confidence distribution</Label>
-          <ConfidenceHistogram data={histogram} />
+          <ErrorBoundary><ConfidenceHistogram data={histogram} /></ErrorBoundary>
         </div>
         <div>
           <Label>Noise profile</Label>
-          <NoiseBreakdown data={noiseData} />
+          <ErrorBoundary><NoiseBreakdown data={noiseData} /></ErrorBoundary>
         </div>
         <div>
           <Label>Error split</Label>
-          <ErrorTypePie data={remStat} />
+          <ErrorBoundary><ErrorTypePie data={remStat} /></ErrorBoundary>
         </div>
       </div>
 

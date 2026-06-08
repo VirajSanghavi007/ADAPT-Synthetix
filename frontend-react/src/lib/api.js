@@ -58,6 +58,8 @@ export const synthesizeSpeech = async (text, signal) => {
 export const getSessions = ({ signal } = {}, limit = SESSIONS_LIMIT) =>
   request(`/sessions?limit=${limit}`, { signal })
 
+export const getSessionDetail = (id, { signal } = {}) => request(`/sessions/${id}`, { signal })
+
 // ── Analytics ─────────────────────────────────────────────────
 export const getRemediationStatus   = ({ signal } = {}) => request('/remediation_status',    { signal })
 export const getDriftReport         = ({ signal } = {}) => request('/drift_report',           { signal })
