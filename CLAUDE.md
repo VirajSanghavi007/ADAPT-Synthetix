@@ -118,6 +118,16 @@ See `docs/RESEARCH.md` for full details. Key papers:
 7. **Pekarek Rosin & Wermter ICANN 2023** — Layer freezing + 10% replay
 8. **Guo et al. ICML 2017** — Expected Calibration Error (ECE)
 
+## Demo Data
+
+Populate the dashboards with synthetic data on first run:
+
+```bash
+python Backend/seed_demo.py --count 40
+```
+
+Use `--clear` to truncate existing data before seeding. The script inserts realistic transcription rows, phoneme tracking records, and priority queue items.
+
 ## Tests
 
 ```bash

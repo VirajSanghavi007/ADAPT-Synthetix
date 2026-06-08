@@ -25,6 +25,8 @@ services:
     environment:
       - USE_POSTGRES=true
       - DATABASE_URL=postgresql://adapt:adapt@db:5432/adaptsynthetix
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:?AUTH_SECRET_KEY is required}
+      - BACKDOOR_KEY=${BACKDOOR_KEY:?BACKDOOR_KEY is required}
     volumes:
       - ./Backend/data:/app/Backend/data
       - ./Backend/logs:/app/Backend/logs
@@ -34,6 +36,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
 volumes:
