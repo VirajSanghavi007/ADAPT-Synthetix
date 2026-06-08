@@ -1,12 +1,11 @@
-"""
-lora_experts.py — Mixture of LoRA Experts: one adapter per error type.
+"""Mixture-of-experts LoRA router: one adapter per error type."""
 
-Each expert is a separate LoRA adapter trained exclusively on samples of its
-error type, allowing the model to specialise per acoustic failure mode.
-"""
-
+import logging
 from pathlib import Path
 from lora_trainer import LoRATrainer
+from config import MODELS_DIR
+
+logger = logging.getLogger(__name__)
 
 
 class LoRAExpertRouter:
@@ -16,11 +15,11 @@ class LoRAExpertRouter:
         self,
         db_path,
         base_model="facebook/wav2vec2-base-960h",
-        output_dir="Backend/models/lora_experts",
+        output_dir: str | None = None,
     ):
         self.db_path = str(db_path)
         self.base_model = base_model
-        self.output_dir = Path(output_dir)
+        self.output_dir = Path(output_dir or str(MODELS_DIR / "lora_experts"))
         for error_type in self.ERROR_TYPES:
             (self.output_dir / error_type).mkdir(parents=True, exist_ok=True)
 
@@ -28,7 +27,7 @@ class LoRAExpertRouter:
         """Train a dedicated LoRA adapter for one error type."""
         if error_type not in self.ERROR_TYPES:
             raise ValueError(f"Unknown error_type '{error_type}'. Must be one of {self.ERROR_TYPES}")
-        print(f"[Experts] Training expert: {error_type}")
+        logger.info("Training expert: %s", error_type)
         trainer = LoRATrainer(
             db_path=self.db_path,
             model_name=self.base_model,
@@ -39,9 +38,9 @@ class LoRAExpertRouter:
     def train_all(self, epochs: int = 3) -> None:
         """Train one expert adapter per error type sequentially."""
         for i, error_type in enumerate(self.ERROR_TYPES, start=1):
-            print(f"[Experts] [{i}/{len(self.ERROR_TYPES)}] Starting expert: {error_type}")
+            logger.info("[%d/%d] Starting expert: %s", i, len(self.ERROR_TYPES), error_type)
             self.train_expert(error_type=error_type, epochs=epochs)
-        print("[Experts] All experts complete.")
+        logger.info("All experts complete.")
 
     def get_adapter_status(self) -> dict:
         """
