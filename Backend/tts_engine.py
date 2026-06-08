@@ -1,23 +1,41 @@
-"""TTS synthesis via Bark (suno/bark-small). Thread-safe loader."""
+"""TTS synthesis via Bark. Thread-safe singleton loader.
+
+Default model: suno/bark (full model — much better prosody than bark-small).
+Override with TTS_MODEL env var, e.g. TTS_MODEL=suno/bark-small for lighter inference.
+"""
 from __future__ import annotations
 
 import logging
 import threading
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 from transformers import pipeline
 
-_LOCAL_MODEL  = Path(__file__).parent / "models" / "bark-small"
-TTS_MODEL_PATH = str(_LOCAL_MODEL) if (_LOCAL_MODEL / "config.json").exists() else "suno/bark-small"
+from config import TTS_MODEL, MODELS_DIR
 
-TTS_AVAILABLE  = False
-_tts_pipeline  = None
-_load_attempted = False
-_load_lock      = threading.Lock()
+logger = logging.getLogger(__name__)
+
+# ── Resolve model path ────────────────────────────────────────
+# Prefer downloaded local copies; respect TTS_MODEL env var for hub fallback.
+_LOCAL_BARK       = MODELS_DIR / "bark"
+_LOCAL_BARK_SMALL = MODELS_DIR / "bark-small"
+
+if _LOCAL_BARK.is_dir() and (_LOCAL_BARK / "config.json").exists():
+    TTS_MODEL_PATH = str(_LOCAL_BARK)
+elif _LOCAL_BARK_SMALL.is_dir() and (_LOCAL_BARK_SMALL / "config.json").exists():
+    TTS_MODEL_PATH = str(_LOCAL_BARK_SMALL)
+else:
+    TTS_MODEL_PATH = TTS_MODEL  # from config — defaults to "suno/bark"
+
+logger.info("TTS model path: %s", TTS_MODEL_PATH)
+
+# ── Singleton state ───────────────────────────────────────────
+TTS_AVAILABLE    = False
+_tts_pipeline    = None
+_load_attempted  = False
+_load_lock       = threading.Lock()
 
 
 def load_tts():
@@ -31,17 +49,22 @@ def load_tts():
             _tts_pipeline = pipeline("text-to-speech", model=TTS_MODEL_PATH)
             TTS_AVAILABLE = True
             logger.info("TTS model ready.")
-        except Exception as e:
-            logger.warning("TTS model load failed: %s", e)
+        except Exception as exc:
+            logger.warning("TTS model load failed: %s", exc)
             TTS_AVAILABLE = False
     return _tts_pipeline
 
 
 def synthesize(text: str, output_path: str) -> tuple[str, float]:
-    """Synthesize text to WAV file. Returns (output_path, duration_seconds)."""
+    """
+    Synthesize text to WAV file.
+
+    Returns (output_path, duration_seconds).
+    Raises RuntimeError if TTS model failed to load at startup.
+    """
     load_tts()
     if not TTS_AVAILABLE or _tts_pipeline is None:
-        raise RuntimeError("TTS model not loaded — check startup logs")
+        raise RuntimeError("TTS model not available — check server startup logs")
 
     result = _tts_pipeline(text)
     audio  = result["audio"]

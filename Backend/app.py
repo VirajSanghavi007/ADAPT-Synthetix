@@ -23,7 +23,7 @@ import diagnostics
 import tts_engine
 from lora_experts import LoRAExpertRouter
 from asr_module import transcribe_audio_with_logits
-from config import DB_PATH, TEMP_DIR, RAW_AUDIO_DIR, FRONTEND_DIR
+from config import DB_PATH, TEMP_DIR, RAW_AUDIO_DIR, FRONTEND_DIR, AUTO_TRAIN_THRESHOLD, ASR_BACKEND
 from database import (
     get_recent_sessions,
     get_remediation_status,
@@ -308,13 +308,81 @@ class RemediationStatusResponse(BaseModel):
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
-    return {"status": "healthy", "asr": "wav2vec2-base-960h",
-            "tts": "suno/bark-small", "session_id": SESSION_ID}
+    import asr_module as _asr
+    asr_label = getattr(_asr, "ASR_MODEL_PATH", ASR_BACKEND)
+    tts_label = getattr(tts_engine, "TTS_MODEL_PATH", "unknown")
+    return {"status": "healthy", "asr": asr_label, "tts": tts_label, "session_id": SESSION_ID}
 
 
 @app.get("/tts_status")
 async def tts_status():
     return {"available": tts_engine.TTS_AVAILABLE, "model": tts_engine.TTS_MODEL_PATH}
+
+
+@app.get("/model_info")
+async def model_info():
+    """Report the currently active ASR and TTS models with their configuration."""
+    import asr_module as _asr
+    asr_info = _asr.get_model_info() if hasattr(_asr, "get_model_info") else {"backend": ASR_BACKEND}
+    tts_info = {
+        "model":     getattr(tts_engine, "TTS_MODEL_PATH", "unknown"),
+        "available": getattr(tts_engine, "TTS_AVAILABLE", False),
+    }
+    return {"asr": asr_info, "tts": tts_info, "session_id": SESSION_ID}
+
+
+@app.post("/transcribe_compare")
+async def transcribe_compare(
+    audio: Optional[UploadFile] = File(default=None),
+):
+    """
+    Run the same audio through both ASR backends and return a side-by-side comparison.
+    Useful for evaluating Whisper vs. Wav2Vec2 on domain-specific speech.
+    """
+    if audio is None:
+        return JSONResponse({"error": "No audio part"}, status_code=400)
+    if not audio.filename or not _allowed(audio.filename):
+        return JSONResponse({"error": "Unsupported format"}, status_code=400)
+
+    filepath = _safe_temp(audio.filename)
+    try:
+        data = await audio.read()
+        if len(data) > MAX_AUDIO_BYTES:
+            return JSONResponse({"error": "File too large"}, status_code=413)
+        filepath.write_bytes(data)
+
+        results: dict = {}
+        for backend in ("whisper", "wav2vec2"):
+            try:
+                import importlib, sys, types
+                # Temporarily override config to use the target backend
+                import config as _cfg
+                _orig = _cfg.ASR_BACKEND
+                _cfg.ASR_BACKEND = backend
+
+                # Build a one-off function call using the backend-specific private function
+                import asr_module as _asr
+                if backend == "whisper":
+                    fn = _asr._transcribe_whisper
+                else:
+                    fn = _asr._transcribe_wav2vec2
+
+                text, dur, logits, audio_arr = await _run(fn, str(filepath))
+                conf = diagnostics.extract_confidence(logits)
+                noise = await _run(diagnostics.classify_noise_profile, audio_arr)
+                results[backend] = {
+                    "transcription": text,
+                    "duration":      dur,
+                    "confidence":    conf,
+                    "noise_type":    noise.get("noise_type", "unknown"),
+                }
+                _cfg.ASR_BACKEND = _orig
+            except Exception as exc:
+                results[backend] = {"error": str(exc)}
+
+        return results
+    finally:
+        filepath.unlink(missing_ok=True)
 
 
 # ── Transcribe ────────────────────────────────────────────────
@@ -363,10 +431,12 @@ async def transcribe(
         perm_path = DATA_AUDIO_DIR / f"{uuid.uuid4().hex}_{Path(audio.filename).name}"
         shutil.copy2(filepath, perm_path)
 
+        import asr_module as _asr_mod
+        _model_used = getattr(_asr_mod, "ASR_MODEL_PATH", ASR_BACKEND)
         row_id = await _run(
             log_transcription,
             active_sid, Path(audio.filename).name, str(perm_path),
-            transcription, duration, "wav2vec2-base-960h", ref,
+            transcription, duration, _model_used, ref,
             cer_score=cer_score,
             wer_score=wer_score,
             per_score=per_score,
@@ -391,6 +461,13 @@ async def transcribe(
             logger.warning("Drift threshold exceeded — session %s", active_sid)
             if 'session_logger' in globals() and session_logger is not None:
                 session_logger.log("DRIFT_ALERT", f"session={active_sid}")
+            if AUTO_TRAIN_THRESHOLD > 0:
+                sample_count = await _run(_count_remedial_samples)
+                if sample_count >= AUTO_TRAIN_THRESHOLD:
+                    logger.info("Auto-triggering LoRA training (%d samples available)", sample_count)
+                    background_tasks.add_task(_auto_train)
+                    if 'session_logger' in globals() and session_logger is not None:
+                        session_logger.log("AUTO_TRAIN_QUEUED", f"samples={sample_count}")
 
         queue_id = None
         if error_type != "clean":
@@ -624,12 +701,64 @@ async def trigger_training(payload: TrainRequest, background_tasks: BackgroundTa
     return {"message": "Training started", "error_type": payload.error_type, "epochs": payload.epochs}
 
 
+def _count_remedial_samples() -> int:
+    """Return number of transcriptions with a remedial audio path (for auto-train gating)."""
+    try:
+        from database import _get_conn as _db_conn
+        with _db_conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM transcriptions "
+                "WHERE remedial_audio_path IS NOT NULL AND TRIM(remedial_audio_path) != ''"
+            ).fetchone()
+            return int(row["n"]) if row else 0
+    except Exception:
+        return 0
+
+
+def _auto_train() -> None:
+    """Background task: run LoRA fine-tuning triggered by phoneme drift detection."""
+    try:
+        run_id = upsert_training_status("running", 0, "Auto-triggered by drift detection")
+
+        if ASR_BACKEND == "whisper":
+            from lora_trainer import WhisperLoRATrainer
+            trainer = WhisperLoRATrainer(db_path=DB_PATH)
+        else:
+            from lora_trainer import LoRATrainer
+            trainer = LoRATrainer(db_path=DB_PATH)
+
+        samples = trainer.load_remedial_samples()
+        n = len(samples)
+        if n < 5:
+            upsert_training_status("idle", 0, f"Auto-train: not enough samples ({n} < 5). Skipped.", run_id=run_id)
+            return
+
+        upsert_training_status("running", 5, f"Auto-train: loaded {n} samples", run_id=run_id)
+
+        def _on_epoch(epoch: int, total: int, loss: float) -> None:
+            pct = 5 + int(85 * epoch / total)
+            upsert_training_status("running", pct, f"Auto-train epoch {epoch}/{total} loss={loss:.4f}", run_id=run_id)
+
+        trainer.train(epochs=3, on_epoch=_on_epoch)
+        upsert_training_status("idle", 100, "Auto-training complete.", run_id=run_id)
+        logger.info("Auto-training completed successfully (%d samples, backend=%s)", n, ASR_BACKEND)
+    except Exception:
+        logger.exception("Auto-training failed")
+        try:
+            upsert_training_status("error", 0, "Auto-training failed — check server logs.")
+        except Exception:
+            pass
+
+
 def _run_training(error_type: Optional[str], epochs: int) -> None:
-    from lora_trainer import LoRATrainer
+    if ASR_BACKEND == "whisper":
+        from lora_trainer import WhisperLoRATrainer as _TrainerCls
+    else:
+        from lora_trainer import LoRATrainer as _TrainerCls  # type: ignore[assignment]
 
     run_id = upsert_training_status("running", 0, "Initialising…")
     try:
-        trainer = LoRATrainer(db_path=DB_PATH)
+        trainer = _TrainerCls(db_path=DB_PATH)
         samples = trainer.load_remedial_samples(error_type=error_type)
         n = len(samples)
         if n < 5:

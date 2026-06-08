@@ -39,6 +39,34 @@ CONFIDENCE_TEMPERATURE = float(os.environ.get("CONFIDENCE_TEMPERATURE", "1.0"))
 CONF_THRESHOLD_LOW     = float(os.environ.get("CONF_THRESHOLD_LOW",      "0.40"))
 SNR_THRESHOLD_LOW      = float(os.environ.get("SNR_THRESHOLD_LOW",       "10.0"))
 
+# ── ASR / TTS model backends ──────────────────────────────────
+# ASR_BACKEND: "whisper" (default, best accuracy) or "wav2vec2" (CTC, faster on CPU)
+ASR_BACKEND    = os.environ.get("ASR_BACKEND",    "whisper")
+# ASR_MODEL: HuggingFace model ID or local path.
+#   Whisper: "openai/whisper-small" | "openai/whisper-medium" | "openai/whisper-large-v3"
+#   Wav2Vec2: "facebook/wav2vec2-large-robust-ft-swbd-300h" | "facebook/wav2vec2-base-960h"
+ASR_MODEL      = os.environ.get("ASR_MODEL",      "openai/whisper-small")
+WAV2VEC2_MODEL = os.environ.get("WAV2VEC2_MODEL", "facebook/wav2vec2-large-robust-ft-swbd-300h")
+
+# TTS_MODEL: "suno/bark" (full, best quality) or "suno/bark-small" (faster, lower quality)
+TTS_MODEL      = os.environ.get("TTS_MODEL",      "suno/bark")
+
+# Audio denoising via noisereduce before ASR (spectral subtraction)
+ENABLE_DENOISING = os.environ.get("ENABLE_DENOISING", "true").lower() == "true"
+
+# Whisper-specific settings
+WHISPER_LANGUAGE      = os.environ.get("WHISPER_LANGUAGE", "en")   # set "" for auto-detect
+WHISPER_DOMAIN_PROMPT = os.environ.get(
+    "WHISPER_DOMAIN_PROMPT",
+    "Medical emergency transcription: dyspnea, tachycardia, hypertension, bradycardia, "
+    "arrhythmia, intubation, defibrillation, myocardial infarction, hypoxemia, "
+    "resuscitation, epinephrine, atropine, anaphylaxis, diaphoresis, cyanosis.",
+)
+
+# Auto-training: trigger LoRA fine-tuning when phoneme drift fires AND this many
+# remedial samples are available (set 0 to disable auto-training)
+AUTO_TRAIN_THRESHOLD = int(os.environ.get("AUTO_TRAIN_THRESHOLD", "50"))
+
 
 def init_directories() -> None:
     """Create all required directories. Call once at app startup."""

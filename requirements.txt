@@ -17,6 +17,7 @@ tokenizers==0.22.2
 huggingface_hub==1.11.0
 g2p_en==2.1.0
 jiwer==4.0.0
+noisereduce>=0.4.0
 
 # ── API / web ──────────────────────────────────────────────────────────────────
 fastapi==0.136.3
@@ -30,6 +31,9 @@ pydantic==2.13.4
 # psycopg2-binary has no py3.14 wheel yet; only needed when USE_POSTGRES=true.
 # Install manually if using PostgreSQL: pip install psycopg2-binary
 # psycopg2-binary==2.9.10
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+slowapi==0.1.9
 
 # ── Testing ────────────────────────────────────────────────────────────────────
 pytest==9.0.3

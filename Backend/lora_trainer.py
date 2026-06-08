@@ -280,6 +280,208 @@ class LoRATrainer:
         logger.info("DRY RUN COMPLETE")
 
 
+class WhisperLoRATrainer:
+    """
+    LoRA fine-tuning for WhisperForConditionalGeneration.
+
+    Fine-tunes the cross-attention (q_proj / v_proj) in both the encoder and decoder
+    while keeping the CNN front-end and positional embeddings frozen.  Uses the same
+    10 % experience-replay ratio as LoRATrainer (Pekarek Rosin & Wermter, ICANN 2023).
+    """
+
+    def __init__(
+        self,
+        db_path=None,
+        model_name: str | None = None,
+        output_dir: str | None = None,
+    ) -> None:
+        from config import ASR_MODEL
+        self.db_path    = str(db_path or DB_PATH)
+        self.model_name = model_name or ASR_MODEL
+        self.output_dir = output_dir or str(MODELS_DIR / "whisper_lora")
+        self.replay_buffer = ReplayBuffer(db_path=self.db_path)
+        os.makedirs(self.output_dir, exist_ok=True)
+
+    def _connect(self):
+        import sqlite3
+        c = sqlite3.connect(self.db_path)
+        c.row_factory = sqlite3.Row
+        return c
+
+    def _count_params(self, model) -> tuple[int, int]:
+        total     = sum(p.numel() for p in model.parameters())
+        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        return trainable, total
+
+    def load_remedial_samples(self, error_type: str | None = None, limit: int = 50) -> list[dict]:
+        q = """SELECT remedial_audio_path AS audio_path,
+                      COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
+                      error_type, confidence_score
+               FROM transcriptions
+               WHERE remedial_audio_path IS NOT NULL AND TRIM(remedial_audio_path) != ''"""
+        params: list = []
+        if error_type:
+            q += " AND error_type = ?"
+            params.append(error_type)
+        q += " ORDER BY COALESCE(confidence_score, 1.0) ASC LIMIT ?"
+        params.append(int(limit))
+        with self._connect() as c:
+            return [dict(r) for r in c.execute(q, params).fetchall()]
+
+    def prepare_model(self):
+        from transformers import WhisperForConditionalGeneration, WhisperProcessor
+
+        logger.info("Loading Whisper model for LoRA training: %s", self.model_name)
+        processor = WhisperProcessor.from_pretrained(self.model_name)
+        model     = WhisperForConditionalGeneration.from_pretrained(self.model_name)
+
+        lora_cfg = LoraConfig(
+            r=8,
+            lora_alpha=16,
+            # Target cross-attention in both encoder and decoder
+            target_modules=["q_proj", "v_proj"],
+            lora_dropout=0.05,
+            bias="none",
+        )
+        model = get_peft_model(model, lora_cfg)
+
+        # Freeze CNN front-end (conv layers) — equivalent to feature extractor freeze
+        for name, param in model.named_parameters():
+            if "conv" in name and "embed" not in name:
+                param.requires_grad = False
+
+        trainable, total = self._count_params(model)
+        logger.info("Whisper LoRA — trainable: %s / %s (%.2f%%)",
+                    f"{trainable:,}", f"{total:,}", 100 * trainable / total)
+        return model, processor
+
+    def train(
+        self,
+        epochs: int = 3,
+        lr: float = 1e-4,
+        error_type: str | None = None,
+        on_epoch=None,
+    ) -> None:
+        start   = time.time()
+        samples = self.load_remedial_samples(error_type=error_type)
+        if len(samples) < 5:
+            logger.warning("WhisperLoRATrainer: not enough remedial samples (<5). Skipping.")
+            return
+
+        n_replay = max(1, len(samples) // 10)
+        replay   = self.replay_buffer.sample(n_replay) or []
+
+        model, processor = self.prepare_model()
+        model.train()
+        optimizer = torch.optim.AdamW(
+            [p for p in model.parameters() if p.requires_grad],
+            lr=lr,
+            weight_decay=0.01,
+        )
+        total_steps = epochs * (len(samples) + len(replay))
+        scheduler   = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, total_steps))
+
+        final_loss = None
+        pad_token_id = processor.tokenizer.pad_token_id
+
+        for epoch in range(1, epochs + 1):
+            epoch_losses: list[float] = []
+            batch = list(samples) + list(replay)
+
+            for s in batch:
+                path       = s.get("audio_path", "")
+                transcript = (s.get("transcription") or "").strip()
+                if not path or not transcript or not os.path.exists(path):
+                    continue
+
+                try:
+                    audio, _ = librosa.load(path, sr=16000, mono=True)
+                    input_features = processor(
+                        audio, sampling_rate=16000, return_tensors="pt"
+                    ).input_features
+
+                    label_ids = processor(text=transcript, return_tensors="pt").input_ids
+                    # Mask padding with -100 so it doesn't contribute to loss
+                    label_ids[label_ids == pad_token_id] = -100
+
+                    outputs = model(input_features=input_features, labels=label_ids)
+                    loss = outputs.loss
+                    if loss is None or torch.isnan(loss):
+                        continue
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    optimizer.step()
+                    scheduler.step()
+
+                    v = float(loss.item())
+                    epoch_losses.append(v)
+                    final_loss = v
+                    self.replay_buffer.add(path, transcript, s.get("error_type") or "unknown")
+                except Exception as exc:
+                    logger.warning("WhisperLoRATrainer: skipping sample %s — %s", path, exc)
+
+            mean = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
+            logger.info("Whisper epoch %d/%d — loss %.4f", epoch, epochs, mean)
+            if on_epoch is not None:
+                on_epoch(epoch, epochs, mean)
+            ep_dir = os.path.join(self.output_dir, f"epoch_{epoch}")
+            os.makedirs(ep_dir, exist_ok=True)
+            model.save_pretrained(ep_dir)
+
+        duration = time.time() - start
+        ts       = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        log_path = os.path.join(self.output_dir, f"training_log_{ts}.json")
+        with open(log_path, "w", encoding="utf-8") as fp:
+            json.dump({
+                "backend":          "whisper",
+                "model":            self.model_name,
+                "epochs":           int(epochs),
+                "samples_used":     len(samples),
+                "replay_used":      len(replay),
+                "final_loss":       final_loss,
+                "duration_seconds": round(duration, 2),
+                "trained_at":       datetime.datetime.now().isoformat(),
+            }, fp, indent=2)
+        logger.info("Whisper LoRA training log → %s", log_path)
+
+    def evaluate(self, samples: list) -> dict:
+        """Evaluate LoRA-adapted Whisper on holdout samples. Returns WER dict."""
+        from asr_module import transcribe_audio_with_logits
+        import diagnostics as _diag
+
+        if not samples:
+            return {"wer": 0.0, "per": 0.0, "sample_count": 0}
+
+        wer_scores: list[float] = []
+        per_scores: list[float] = []
+        for s in samples:
+            audio_path = str(s.get("audio_path", ""))
+            reference  = str(s.get("reference") or s.get("transcription") or "").strip()
+            if not audio_path or not reference or not os.path.exists(audio_path):
+                continue
+            try:
+                hypothesis, _, _, _ = transcribe_audio_with_logits(audio_path)
+                w = _diag.calculate_wer(reference, hypothesis)
+                p = _diag.phoneme_error_rate(reference, hypothesis)
+                if w is not None:
+                    wer_scores.append(w)
+                if p is not None:
+                    per_scores.append(p)
+            except Exception as exc:
+                logger.warning("WhisperLoRATrainer.evaluate: skipping %s — %s", audio_path, exc)
+
+        n = len(wer_scores)
+        result = {
+            "wer":          round(sum(wer_scores) / n, 4) if n else 0.0,
+            "per":          round(sum(per_scores) / len(per_scores), 4) if per_scores else 0.0,
+            "sample_count": n,
+        }
+        logger.info("Whisper evaluation complete: %s", result)
+        return result
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()

@@ -35,29 +35,39 @@ _TEMPERATURE: float = float(os.environ.get("CONFIDENCE_TEMPERATURE", "1.0"))
 
 # ── Confidence ────────────────────────────────────────────────
 
-def extract_confidence(logits_tensor: torch.Tensor, temperature: float = _TEMPERATURE) -> float:
+def extract_confidence(logits_tensor: torch.Tensor | None, temperature: float = _TEMPERATURE) -> float:
     """
-    Frame-level CTC confidence with optional temperature scaling.
+    Confidence score from ASR logits with optional temperature scaling.
+
+    Works for both backends:
+    - Wav2Vec2 CTC: logits shape [1, T_frames, vocab_size]
+    - Whisper decoder: stacked scores shape [1, T_tokens, vocab_size]
 
     Temperature scaling (Guo et al. 2017; arXiv:2509.07195):
       P_cal = softmax(logits / T)
     T > 1 softens overconfident predictions; T = 1.0 is vanilla.
 
-    Returns mean of per-frame max probability — range [0, 1].
+    Returns mean of per-frame/per-token max probability — range [0, 1].
+    Returns 0.0 when logits are unavailable (e.g. test stubs, model errors).
     """
+    if logits_tensor is None:
+        return 0.0
     scaled = logits_tensor / max(temperature, 1e-6)
     probs  = torch.softmax(scaled, dim=-1)
     return round(float(probs.max(dim=-1).values.mean().item()), 4)
 
 
-def extract_token_uncertainty(logits_tensor: torch.Tensor) -> list[float]:
+def extract_token_uncertainty(logits_tensor: torch.Tensor | None) -> list[float]:
     """
-    Per-frame binary entropy H_t = -p log p - (1-p) log(1-p)
-    where p = max-probability at frame t (Rumberg et al., Interspeech 2023).
+    Per-frame/per-token binary entropy H_t = -p log p - (1-p) log(1-p)
+    where p = max-probability at frame/token t (Rumberg et al., Interspeech 2023).
 
-    Returns list of per-frame uncertainties in [0, 1].
-    Frames with H_t > 0.5 are considered uncertain.
+    Compatible with both Wav2Vec2 CTC and Whisper decoder logits.
+    Returns list of uncertainties in [0, 1]. Values > 0.5 are considered uncertain.
+    Returns empty list when logits are unavailable.
     """
+    if logits_tensor is None:
+        return []
     probs   = torch.softmax(logits_tensor.squeeze(0), dim=-1)
     p       = probs.max(dim=-1).values.detach().cpu().numpy()
     eps     = 1e-9
