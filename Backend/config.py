@@ -68,7 +68,10 @@ WHISPER_DOMAIN_PROMPT = os.environ.get(
 AUTO_TRAIN_THRESHOLD = int(os.environ.get("AUTO_TRAIN_THRESHOLD", "50"))
 
 
+DATASETS_DIR = Path(os.environ.get("DATASETS_DIR", str(ROOT_DIR / "Backend" / "data" / "datasets")))
+
+
 def init_directories() -> None:
     """Create all required directories. Call once at app startup."""
-    for d in [DB_DIR, RAW_AUDIO_DIR, REMEDIAL_DIR, LOGS_DIR, MODELS_DIR, TEMP_DIR]:
+    for d in [DB_DIR, RAW_AUDIO_DIR, REMEDIAL_DIR, LOGS_DIR, MODELS_DIR, TEMP_DIR, DATASETS_DIR]:
         d.mkdir(parents=True, exist_ok=True)

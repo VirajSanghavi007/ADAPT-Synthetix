@@ -90,3 +90,22 @@ export const triggerTraining = (errorType = null, epochs = 3) =>
 // ── Drive ──────────────────────────────────────────────────────
 export const fetchDriveAudio = (url, { signal } = {}) =>
   request('/fetch_drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }), signal })
+
+// ── Dataset download ───────────────────────────────────────────
+export const getAvailableDatasets  = ({ signal } = {}) => request('/available_datasets', { signal })
+export const getDownloadStatus     = ({ signal } = {}) => request('/download_status',     { signal })
+export const triggerDatasetDownload = (dataset) =>
+  request('/download_dataset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset }),
+  })
+
+// ── Base model training ────────────────────────────────────────
+export const getBaseTrainingStatus = ({ signal } = {}) => request('/base_training_status', { signal })
+export const triggerBaseTraining   = (dataset, epochs = 3, max_samples = 2000) =>
+  request('/train_base_model', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset, epochs, max_samples }),
+  })
+export const reloadAsrModel = () =>
+  request('/reload_asr_model', { method: 'POST' })

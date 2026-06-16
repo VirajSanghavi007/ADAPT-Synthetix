@@ -77,10 +77,10 @@ function ExpandedRow({ session }) {
             <div>
               <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 10 }}>Metrics</div>
               {[
-                ['Confidence', session.confidence_score != null ? `${(session.confidence_score * 100).toFixed(1)}%` : '—', C.teal],
+                ['Confidence', session.confidence_score != null ? `${(session.confidence_score * 100).toFixed(1)}%` : '—', C.blue],
                 ['CER',        session.cer_score != null ? `${(session.cer_score * 100).toFixed(1)}%` : '—', C.amber],
                 ['WER',        session.wer_score != null ? `${(session.wer_score * 100).toFixed(1)}%` : '—', C.amber],
-                ['PER',        session.per_score != null ? `${(session.per_score * 100).toFixed(1)}%` : '—', C.lavender],
+                ['PER',        session.per_score != null ? `${(session.per_score * 100).toFixed(1)}%` : '—', C.purple],
                 ['SNR',        session.snr_db    != null ? `${session.snr_db.toFixed(1)} dB` : '—', C.textSecondary],
                 ['Duration',   session.duration_seconds ? `${session.duration_seconds.toFixed(2)}s` : '—', C.textSecondary],
               ].map(([k, v, c]) => (
@@ -100,9 +100,9 @@ function ExpandedRow({ session }) {
               ))}
               <button onClick={synthesize} disabled={synthLoading} style={{
                 marginTop: 14, display: 'flex', alignItems: 'center', gap: 6,
-                padding: '5px 10px', background: C.tealGlow,
-                border: `1px solid ${C.teal}33`, borderRadius: 4,
-                color: C.teal, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
+                padding: '5px 10px', background: C.blueDim,
+                border: `1px solid ${C.border}`, borderRadius: 4,
+                color: C.blue, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
               }}>
                 <Volume2 size={11} />
                 {synthLoading ? 'Generating…' : 'Synthesize'}
@@ -130,7 +130,7 @@ function DetailPanel({ sessionId, onClose }) {
       .finally(() => setLoading(false))
   }, [sessionId])
 
-  const opColor = { substitution: C.clay, deletion: C.amber, insertion: C.lavender }
+  const opColor = { substitution: C.red, deletion: C.amber, insertion: C.purple }
 
   return (
     <div style={{
@@ -147,7 +147,7 @@ function DetailPanel({ sessionId, onClose }) {
       </div>
       <div style={{ padding: 18, flex: 1 }}>
         {loading && <div style={{ fontSize: 11, color: C.textMuted }}>Loading…</div>}
-        {error && <div style={{ fontSize: 11, color: C.clay }}>Error: {error}</div>}
+        {error && <div style={{ fontSize: 11, color: C.red }}>Error: {error}</div>}
         {detail && (
           <>
             <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 }}>Transcription</div>
@@ -156,10 +156,10 @@ function DetailPanel({ sessionId, onClose }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
               {[
-                ['Confidence', detail.confidence_score != null ? `${(detail.confidence_score * 100).toFixed(1)}%` : '—', C.teal],
+                ['Confidence', detail.confidence_score != null ? `${(detail.confidence_score * 100).toFixed(1)}%` : '—', C.blue],
                 ['CER',  detail.cer_score  != null ? `${(detail.cer_score * 100).toFixed(1)}%` : '—', C.amber],
                 ['WER',  detail.wer_score  != null ? `${(detail.wer_score * 100).toFixed(1)}%` : '—', C.amber],
-                ['PER',  detail.per_score  != null ? `${(detail.per_score * 100).toFixed(1)}%` : '—', C.lavender],
+                ['PER',  detail.per_score  != null ? `${(detail.per_score * 100).toFixed(1)}%` : '—', C.purple],
                 ['SNR',  detail.snr_db     != null ? `${detail.snr_db.toFixed(1)} dB` : '—', C.textSecondary],
                 ['Type', detail.error_type || '—', C.textSecondary],
               ].map(([k, v, c]) => (
@@ -172,7 +172,7 @@ function DetailPanel({ sessionId, onClose }) {
             {detail.noise_profile?.noise_type && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 }}>Noise</div>
-                <span style={{ fontSize: 9, padding: '2px 8px', borderRadius: 3, background: C.tealGlow, color: C.teal, border: `1px solid ${C.teal}33` }}>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 3, background: C.blueDim, color: C.blue, border: `1px solid ${C.border}` }}>
                   {detail.noise_profile.noise_type}
                 </span>
               </div>
@@ -183,7 +183,7 @@ function DetailPanel({ sessionId, onClose }) {
                 ? <div style={{ fontSize: 10, color: C.textMuted }}>No phoneme data</div>
                 : detail.phoneme_errors.slice(0, 20).map((pe, i) => (
                   <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 2, background: (opColor[pe.operation] || C.teal) + '22', color: opColor[pe.operation] || C.teal }}>{pe.operation}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: C.surfaceAlt, color: opColor[pe.operation] || C.blue, border: `1px solid ${C.border}` }}>{pe.operation}</span>
                     <span style={{ fontSize: 10, color: C.textSecondary }}>{pe.reference_phoneme || '∅'} → {pe.hypothesis_phoneme || '∅'}</span>
                   </div>
                 ))
@@ -266,9 +266,9 @@ export default function History() {
               {ERROR_TYPES.map((f) => (
                 <button key={f} onClick={() => setFilter(f)} style={{
                   padding: '2px 7px', borderRadius: 3,
-                  border: `1px solid ${typeFilter === f ? C.teal : C.border}`,
-                  background: typeFilter === f ? C.tealGlow : 'transparent',
-                  color: typeFilter === f ? C.teal : C.textMuted,
+                  border: `1px solid ${typeFilter === f ? C.blue : C.border}`,
+                  background: typeFilter === f ? C.blueDim : 'transparent',
+                  color: typeFilter === f ? C.blue : C.textMuted,
                   fontSize: 8, cursor: 'pointer', fontFamily: 'inherit',
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                 }}>{f}</button>
@@ -322,13 +322,13 @@ export default function History() {
                         <div className="truncate" style={{ color: C.textPrimary }}>{s.transcription || '—'}</div>
                       </td>
                       <td style={{ padding: '9px 12px' }}><Badge preset={s.error_type || 'clean'} label={s.error_type || 'clean'} dot /></td>
-                      <td style={{ padding: '9px 12px', color: s.confidence_score > 0.7 ? C.forest : s.confidence_score > 0.4 ? C.amber : C.clay }}>
+                      <td style={{ padding: '9px 12px', color: s.confidence_score > 0.7 ? C.green : s.confidence_score > 0.4 ? C.amber : C.red }}>
                         {s.confidence_score != null ? `${(s.confidence_score * 100).toFixed(0)}%` : '—'}
                       </td>
-                      <td style={{ padding: '9px 12px', color: s.cer_score != null ? (s.cer_score < 0.1 ? C.forest : C.amber) : C.textMuted }}>
+                      <td style={{ padding: '9px 12px', color: s.cer_score != null ? (s.cer_score < 0.1 ? C.green : C.amber) : C.textMuted }}>
                         {s.cer_score != null ? `${(s.cer_score * 100).toFixed(1)}%` : '—'}
                       </td>
-                      <td style={{ padding: '9px 12px', color: s.wer_score != null ? (s.wer_score < 0.2 ? C.forest : C.amber) : C.textMuted }}>
+                      <td style={{ padding: '9px 12px', color: s.wer_score != null ? (s.wer_score < 0.2 ? C.green : C.amber) : C.textMuted }}>
                         {s.wer_score != null ? `${(s.wer_score * 100).toFixed(1)}%` : '—'}
                       </td>
                       <td style={{ padding: '9px 12px', color: C.textMuted }}>

@@ -14,7 +14,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { C } from '@/lib/theme'
 
 function Label({ children }) {
-  return <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 12 }}>{children}</div>
+  return <div style={{ fontSize: 11, fontWeight: 600, color: C.textSecondary, marginBottom: 12 }}>{children}</div>
 }
 
 function InlineStat({ label, value, accent }) {
@@ -47,12 +47,12 @@ const CERTrend = memo(function CERTrend({ sessions }) {
       <LineChart data={data}>
         <XAxis dataKey="t" tick={{ fontSize: 8, fill: C.textMuted }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
         <YAxis tick={{ fontSize: 8, fill: C.textMuted }} axisLine={false} tickLine={false} width={24} />
-        <Tooltip contentStyle={{ background: '#1a2232', border: `1px solid ${C.borderBright}`, borderRadius: 6, fontSize: 10 }} />
-        <Legend formatter={(v) => <span style={{ fontSize: 9, color: C.textSecondary }}>{v}</span>} />
+        <Tooltip contentStyle={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 6, fontSize: 10 }} />
+        <Legend formatter={(v) => <span style={{ fontSize: 10, color: C.textSecondary }}>{v}</span>} />
         <ReferenceLine y={10} stroke={C.amber + '44'} strokeDasharray="4 2" />
-        <Line type="monotone" dataKey="cer"  name="CER %" stroke={C.clay}  strokeWidth={1.5} dot={false} />
-        <Line type="monotone" dataKey="wer"  name="WER %" stroke={C.amber} strokeWidth={1.5} dot={false} />
-        <Line type="monotone" dataKey="conf" name="Conf %" stroke={C.teal} strokeWidth={1.5} dot={false} />
+        <Line type="monotone" dataKey="cer"  name="CER %"  stroke={C.red}   strokeWidth={1.5} dot={false} />
+        <Line type="monotone" dataKey="wer"  name="WER %"  stroke={C.amber} strokeWidth={1.5} dot={false} />
+        <Line type="monotone" dataKey="conf" name="Conf %"  stroke={C.blue}  strokeWidth={1.5} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -60,7 +60,7 @@ const CERTrend = memo(function CERTrend({ sessions }) {
 
 const PhonemeErrorTable = memo(function PhonemeErrorTable({ errors }) {
   if (!errors?.length) return <div style={{ fontSize: 11, color: C.textMuted, padding: '12px 0' }}>No phoneme error data</div>
-  const opC = { substitution: C.clay, deletion: C.amber, insertion: C.lavender }
+  const opC = { substitution: C.red, deletion: C.amber, insertion: C.purple }
   return (
     <div style={{ overflowY: 'auto', maxHeight: 260 }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -117,9 +117,9 @@ export default function Analytics() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 32 }}>
         {[
           { label: 'Avg CER',         value: avgCer  != null ? `${(avgCer  * 100).toFixed(1)}%` : '—', accent: C.amber  },
-          { label: 'Avg confidence',  value: avgConf != null ? `${(avgConf * 100).toFixed(1)}%` : '—', accent: C.teal   },
+          { label: 'Avg confidence',  value: avgConf != null ? `${(avgConf * 100).toFixed(1)}%` : '—', accent: C.blue   },
           { label: 'Reference sessions', value: withRef.length, accent: C.textPrimary },
-          { label: 'ECE',             value: calibration?.ece != null ? calibration.ece.toFixed(3) : '—', accent: C.lavender },
+          { label: 'ECE',             value: calibration?.ece != null ? calibration.ece.toFixed(3) : '—', accent: C.purple },
         ].map((s, i) => (
           <div key={s.label} style={{ padding: '0 28px 0 0', borderRight: i < 3 ? `1px solid ${C.border}` : 'none', marginRight: i < 3 ? 28 : 0 }}>
             <InlineStat {...s} />
@@ -175,7 +175,7 @@ export default function Analytics() {
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
           <Label>Top phoneme errors</Label>
           {errorReport?.systematic_confusions?.length > 0 && (
-            <span style={{ fontSize: 9, color: C.clay }}>
+            <span style={{ fontSize: 11, color: C.red }}>
               {errorReport.systematic_confusions.length} systematic confusions ≥30%
             </span>
           )}

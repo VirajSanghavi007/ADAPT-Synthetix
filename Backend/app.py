@@ -819,6 +819,71 @@ async def fetch_drive(payload: FetchDriveRequest):
     return Response(content=res.content, media_type=ct)
 
 
+# ── Dataset download + base training ──────────────────────────
+
+class DatasetRequest(BaseModel):
+    dataset: str
+
+class BaseTrainRequest(BaseModel):
+    dataset:     str  = "librispeech-dev-clean"
+    epochs:      int  = 3
+    max_samples: int  = 2000
+
+
+@app.get("/available_datasets")
+async def available_datasets():
+    from dataset_downloader import get_available_datasets
+    return get_available_datasets()
+
+
+@app.get("/download_status")
+async def download_status():
+    from dataset_downloader import get_status
+    return get_status()
+
+
+@app.post("/download_dataset", status_code=202)
+async def download_dataset_endpoint(payload: DatasetRequest, background_tasks: BackgroundTasks):
+    from dataset_downloader import get_status, DATASETS
+    if payload.dataset not in DATASETS:
+        raise HTTPException(400, f"Unknown dataset '{payload.dataset}'")
+    status = get_status()
+    if status["state"] in ("downloading", "extracting", "generating"):
+        raise HTTPException(409, "A download is already in progress")
+    from dataset_downloader import download as _dl
+    background_tasks.add_task(_dl, payload.dataset)
+    return {"ok": True, "dataset": payload.dataset}
+
+
+@app.get("/base_training_status")
+async def base_training_status_endpoint():
+    from base_trainer import get_base_training_status
+    return get_base_training_status()
+
+
+@app.post("/train_base_model", status_code=202)
+async def train_base_model_endpoint(payload: BaseTrainRequest, background_tasks: BackgroundTasks):
+    from base_trainer import get_base_training_status, run_base_training
+    status = get_base_training_status()
+    if status["state"] == "running":
+        raise HTTPException(409, "Base training already in progress")
+    background_tasks.add_task(
+        run_base_training,
+        payload.dataset,
+        payload.epochs,
+        payload.max_samples,
+    )
+    return {"ok": True, "dataset": payload.dataset, "epochs": payload.epochs}
+
+
+@app.post("/reload_asr_model")
+async def reload_asr_model():
+    """Reload ASR model path after training completes."""
+    import asr_module
+    new_path = asr_module.reload_asr_model_path()
+    return {"ok": True, "asr_model_path": new_path}
+
+
 # ── Static files ──────────────────────────────────────────────
 _react_build = PROJECT_DIR / "frontend-react" / "build"
 _vanilla     = Path(FRONTEND_DIR)

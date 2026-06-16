@@ -7,12 +7,12 @@ import { LoadingOverlay } from '@/components/ui/Spinner'
 import { C } from '@/lib/theme'
 
 function Label({ children }) {
-  return <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 14 }}>{children}</div>
+  return <div style={{ fontSize: 11, fontWeight: 600, color: C.textSecondary, marginBottom: 14 }}>{children}</div>
 }
 
 function PriorityBar({ value }) {
   const pct = Math.min(100, (value / 2.5) * 100)
-  const c   = pct > 60 ? C.clay : pct > 30 ? C.amber : C.forest
+  const c   = pct > 60 ? C.red : pct > 30 ? C.amber : C.green
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{ flex: 1, height: 3, background: C.border, borderRadius: 2, maxWidth: 100, overflow: 'hidden' }}>
@@ -53,8 +53,8 @@ export default function PriorityQueue() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 28 }}>
         {[
           { label: 'Pending',     value: stats.pending    ?? 0, accent: C.amber },
-          { label: 'Processing',  value: stats.processing ?? 0, accent: C.teal  },
-          { label: 'Completed',   value: stats.completed  ?? 0, accent: C.forest },
+          { label: 'Processing',  value: stats.processing ?? 0, accent: C.blue  },
+          { label: 'Completed',   value: stats.completed  ?? 0, accent: C.green },
           { label: 'Avg priority', value: stats.avg_priority?.toFixed(3) ?? '—', accent: C.textPrimary },
         ].map((s, i) => (
           <div key={s.label} style={{ padding: '0 28px 0 0', borderRight: i < 3 ? `1px solid ${C.border}` : 'none', marginRight: i < 3 ? 28 : 0 }}>
@@ -121,10 +121,10 @@ export default function PriorityQueue() {
         <Label>Priority formula</Label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
           <div style={{ fontFamily: 'inherit', fontSize: 11, lineHeight: 2.2, color: C.textSecondary }}>
-            <div><span style={{ color: C.teal }}>base</span> = 1 − confidence_score</div>
-            <div><span style={{ color: C.lavender }}>domain</span> = 1 + (0.5 × |vocab_matches|)</div>
+            <div><span style={{ color: C.blue }}>base</span> = 1 − confidence_score</div>
+            <div><span style={{ color: C.purple }}>domain</span> = 1 + (0.5 × |vocab_matches|)</div>
             <div><span style={{ color: C.amber }}>error</span> = noise:1.2× · accent:1.1× · pronun:1.0×</div>
-            <div style={{ color: C.forest, fontWeight: 600 }}>final = base × domain × error</div>
+            <div style={{ color: C.green, fontWeight: 600 }}>final = base × domain × error</div>
           </div>
           <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.8 }}>
             Nonconformity score (1−conf) maps to conformal prediction priority (Ernez et al. PMLR 2023).

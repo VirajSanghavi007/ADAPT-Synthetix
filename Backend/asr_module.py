@@ -25,15 +25,46 @@ logger = logging.getLogger(__name__)
 _LOCAL_WHISPER  = MODELS_DIR / "whisper"
 _LOCAL_WAV2VEC2 = MODELS_DIR / "wav2vec2"
 
-# Prefer a downloaded local copy; fall back to HuggingFace hub
-if ASR_BACKEND == "whisper":
-    ASR_MODEL_PATH = (
-        str(_LOCAL_WHISPER) if (_LOCAL_WHISPER / "config.json").exists() else ASR_MODEL
+# Base fine-tuned adapters (produced by base_trainer.py)
+# Prefer the most recently trained dataset adapter
+def _find_base_finetuned() -> Path | None:
+    base = MODELS_DIR / "base_finetuned"
+    if not base.exists():
+        return None
+    candidates = sorted(
+        [d / "final" for d in base.iterdir() if (d / "final" / "adapter_config.json").exists()],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
     )
-else:
-    ASR_MODEL_PATH = (
-        str(_LOCAL_WAV2VEC2) if (_LOCAL_WAV2VEC2 / "config.json").exists() else WAV2VEC2_MODEL
-    )
+    return candidates[0] if candidates else None
+
+
+def _resolve_asr_model_path(backend: str) -> str:
+    """Resolve model path: local fine-tuned adapter > local weights > HF hub."""
+    if backend == "whisper":
+        fine_tuned = _find_base_finetuned()
+        if fine_tuned:
+            logger.info("Using locally fine-tuned Whisper adapter: %s", fine_tuned)
+            return str(fine_tuned)
+        if (_LOCAL_WHISPER / "config.json").exists():
+            return str(_LOCAL_WHISPER)
+        return ASR_MODEL
+    else:
+        if (_LOCAL_WAV2VEC2 / "config.json").exists():
+            return str(_LOCAL_WAV2VEC2)
+        return WAV2VEC2_MODEL
+
+
+# Resolve once at startup; reloadable via reload_asr_model()
+ASR_MODEL_PATH = _resolve_asr_model_path(ASR_BACKEND)
+
+
+def reload_asr_model_path() -> str:
+    """Re-resolve ASR_MODEL_PATH (call after base_trainer.py completes)."""
+    global ASR_MODEL_PATH
+    ASR_MODEL_PATH = _resolve_asr_model_path(ASR_BACKEND)
+    logger.info("ASR model path reloaded: %s", ASR_MODEL_PATH)
+    return ASR_MODEL_PATH
 
 logger.info("ASR backend: %s  —  model: %s  —  denoising: %s",
             ASR_BACKEND, ASR_MODEL_PATH, ENABLE_DENOISING)

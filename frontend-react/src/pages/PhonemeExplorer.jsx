@@ -8,15 +8,15 @@ import { C } from '@/lib/theme'
 import { motion } from 'framer-motion'
 
 function Label({ children }) {
-  return <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 14 }}>{children}</div>
+  return <div style={{ fontSize: 11, fontWeight: 600, color: C.textSecondary, marginBottom: 14 }}>{children}</div>
 }
 
 const TREND_ICON = {
-  degrading: <TrendingDown size={10} color={C.clay} />,
-  improving: <TrendingUp  size={10} color={C.forest} />,
+  degrading: <TrendingDown size={10} color={C.red} />,
+  improving: <TrendingUp  size={10} color={C.green} />,
   stable:    <Minus       size={10} color={C.textMuted} />,
 }
-const TREND_COLOR = { degrading: C.clay, improving: C.forest, stable: C.textMuted }
+const TREND_COLOR = { degrading: C.red, improving: C.green, stable: C.textMuted }
 
 const PhonemeRow = memo(function PhonemeRow({ p, i }) {
   const c = TREND_COLOR[p.trend] || C.textMuted
@@ -32,7 +32,7 @@ const PhonemeRow = memo(function PhonemeRow({ p, i }) {
       </span>
       <div style={{ flex: 1 }}>
         <div style={{ height: 3, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${(p.avg_confidence * 100).toFixed(0)}%`, background: p.avg_confidence > 0.7 ? C.forest : p.avg_confidence > 0.4 ? C.amber : C.clay, borderRadius: 2 }} />
+          <div style={{ height: '100%', width: `${(p.avg_confidence * 100).toFixed(0)}%`, background: p.avg_confidence > 0.7 ? C.green : p.avg_confidence > 0.4 ? C.amber : C.red, borderRadius: 2 }} />
         </div>
         {p.cusum > 0 && <div style={{ fontSize: 8, color: C.clay, marginTop: 2 }}>CUSUM ∑{p.cusum?.toFixed(3)}</div>}
       </div>
@@ -69,9 +69,9 @@ export default function PhonemeExplorer() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: `1px solid ${C.border}`, paddingBottom: 28 }}>
         {[
           { label: 'Tracked phonemes', value: drift?.total_phonemes_tracked ?? '—', accent: C.textPrimary },
-          { label: 'Degrading',        value: drift?.degrading?.length ?? 0,         accent: C.clay },
-          { label: 'Improving',        value: drift?.improving?.length ?? 0,         accent: C.forest },
-          { label: 'High risk',        value: highRisk.length,                       accent: highRisk.length > 0 ? C.clay : C.textMuted },
+          { label: 'Degrading',        value: drift?.degrading?.length ?? 0,         accent: C.red },
+          { label: 'Improving',        value: drift?.improving?.length ?? 0,         accent: C.green },
+          { label: 'High risk',        value: highRisk.length,                       accent: highRisk.length > 0 ? C.red : C.textMuted },
         ].map((s, i) => (
           <div key={s.label} style={{ padding: '0 28px 0 0', borderRight: i < 3 ? `1px solid ${C.border}` : 'none', marginRight: i < 3 ? 28 : 0 }}>
             <div style={{ fontSize: 9, color: C.textMuted, marginBottom: 6 }}>{s.label}</div>
@@ -82,15 +82,15 @@ export default function PhonemeExplorer() {
 
       {/* Alerts */}
       {highRisk.length >= 5 && (
-        <div style={{ padding: '12px 16px', background: C.clayGlow, borderLeft: `3px solid ${C.clay}`, borderRadius: 4, display: 'flex', gap: 10, fontSize: 11, color: C.textPrimary }}>
-          <AlertTriangle size={14} color={C.clay} style={{ flexShrink: 0, marginTop: 1 }} />
+        <div style={{ padding: '12px 16px', background: C.redDim, borderLeft: `3px solid ${C.red}`, borderRadius: 4, display: 'flex', gap: 10, fontSize: 11, color: C.textPrimary }}>
+          <AlertTriangle size={14} color={C.red} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>
-            <strong style={{ color: C.clay }}>Retraining recommended</strong> — {highRisk.length} high-risk phonemes detected ({highRisk.join(', ')})
+            <strong style={{ color: C.red }}>Retraining recommended</strong> — {highRisk.length} high-risk phonemes detected ({highRisk.join(', ')})
           </span>
         </div>
       )}
       {systematic.length > 0 && (
-        <div style={{ padding: '10px 16px', background: C.amberGlow, borderLeft: `3px solid ${C.amber}`, borderRadius: 4, fontSize: 11, color: C.textPrimary }}>
+        <div style={{ padding: '10px 16px', background: C.amberDim, borderLeft: `3px solid ${C.amber}`, borderRadius: 4, fontSize: 11, color: C.textPrimary }}>
           <strong style={{ color: C.amber }}>Systematic confusions</strong> (≥30%):&nbsp;
           {systematic.slice(0, 4).map((e) => `/${e.reference_phoneme}/→/${e.hypothesis_phoneme}/`).join(' · ')}
         </div>
@@ -104,9 +104,9 @@ export default function PhonemeExplorer() {
             {['all', 'degrading', 'stable', 'improving'].map((f) => (
               <button key={f} onClick={() => setFilter(f)} style={{
                 padding: '3px 10px', borderRadius: 4, fontFamily: 'inherit',
-                border: `1px solid ${filter === f ? C.teal : C.border}`,
-                background: filter === f ? C.tealGlow : 'transparent',
-                color: filter === f ? C.teal : C.textMuted,
+                border: `1px solid ${filter === f ? C.blue : C.border}`,
+                background: filter === f ? C.blueDim : 'transparent',
+                color: filter === f ? C.blue : C.textMuted,
                 fontSize: 9, cursor: 'pointer', letterSpacing: '0.06em',
               }}>{f}</button>
             ))}

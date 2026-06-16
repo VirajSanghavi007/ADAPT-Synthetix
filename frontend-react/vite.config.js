@@ -38,6 +38,12 @@ export default defineConfig({
       '/calibration_metrics': 'http://localhost:5000',
       '/temp': 'http://localhost:5000',
       '/fetch_drive': 'http://localhost:5000',
+      '/available_datasets': 'http://localhost:5000',
+      '/download_status': 'http://localhost:5000',
+      '/download_dataset': 'http://localhost:5000',
+      '/base_training_status': 'http://localhost:5000',
+      '/train_base_model': 'http://localhost:5000',
+      '/reload_asr_model': 'http://localhost:5000',
     },
   },
   build: {
