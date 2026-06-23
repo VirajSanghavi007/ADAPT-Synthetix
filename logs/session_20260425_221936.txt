@@ -1,3 +1,0 @@
-[2026-04-25 22:19:36] SESSION_START: New session logger initialized
-[2026-04-25 22:19:36] SESSION_START: New session logger initialized
-[2026-04-25 22:19:36] SESSION_END: Session logger closed

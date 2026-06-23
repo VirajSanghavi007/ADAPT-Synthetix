@@ -1,0 +1,1 @@
+{"state": "running", "dataset": "librispeech-dev-clean", "progress": 37, "epoch": 2, "epochs": 3, "loss": 0.6883, "message": "Epoch 2/3\u2026", "error": null, "trained_at": null}

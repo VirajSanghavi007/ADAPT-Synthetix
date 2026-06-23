@@ -1,6 +1,0 @@
-[2026-05-31 07:52:09] SESSION_START: New session logger initialized
-[2026-05-31 07:52:09] STARTUP: FastAPI application initialized
-[2026-05-31 07:52:58] API_REQUEST: /transcribe
-[2026-05-31 07:57:05] API_REQUEST: /transcribe
-[2026-05-31 08:01:09] TRANSCRIPTION_ERROR: no such column: cer_score
-[2026-05-31 08:01:09] API_REQUEST: /health
