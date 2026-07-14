@@ -1,4 +1,4 @@
-# Research Basis — ADAPT-Synthetix
+﻿# Research Basis — Hermes
 
 All academic contributions implemented in this codebase, with source citations.
 

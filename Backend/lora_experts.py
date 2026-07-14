@@ -1,4 +1,4 @@
-"""Mixture-of-experts LoRA router: one adapter per error type."""
+﻿"""Mixture-of-experts LoRA router: one adapter per error type."""
 
 import logging
 from pathlib import Path
@@ -60,5 +60,5 @@ class LoRAExpertRouter:
 
 
 if __name__ == "__main__":
-    router = LoRAExpertRouter(db_path="Backend/data/adaptsynthetix.db")
+    router = LoRAExpertRouter(db_path="Backend/data/hermes.db")
     router.train_all(epochs=2)

@@ -1,15 +1,15 @@
-# ADAPT-Synthetix
+﻿# Hermes
 ### Adaptive Closed-Loop ASR Framework with Phoneme-Level Error Diagnosis
 
-ADAPT-Synthetix is a research-grade speech pipeline that links Wav2Vec2 automatic speech recognition with a multi-layer diagnostic engine and TTS-driven remediation. Beyond returning transcripts, it scores confidence, fingerprints acoustic noise, computes CER/phoneme errors against a reference, prioritises errors by domain criticality, detects model drift, and prepares LoRA fine-tuning data — all in a single closed loop. It is designed for iterative academic experimentation in noisy, accented, and domain-specific speech scenarios.
+Hermes is a research-grade speech pipeline that links Wav2Vec2 automatic speech recognition with a multi-layer diagnostic engine and TTS-driven remediation. Beyond returning transcripts, it scores confidence, fingerprints acoustic noise, computes CER/phoneme errors against a reference, prioritises errors by domain criticality, detects model drift, and prepares LoRA fine-tuning data — all in a single closed loop. It is designed for iterative academic experimentation in noisy, accented, and domain-specific speech scenarios.
 
 ---
 
 ## Quick Setup
 
 ```bash
-git clone https://github.com/VirajSanghavi007/ADAPT-Synthetix
-cd ADAPT-Synthetix
+git clone https://github.com/VirajSanghavi007/Hermes
+cd Hermes
 python -m venv venv
 venv\Scripts\activate        # Windows
 pip install -r requirements.txt
@@ -20,7 +20,7 @@ Open `http://localhost:5000` in your browser.
 
 **PostgreSQL (production):**
 ```bash
-USE_POSTGRES=true DATABASE_URL=postgresql://user:pass@localhost:5432/adaptsynthetix uvicorn Backend.app:app --port 5000
+USE_POSTGRES=true DATABASE_URL=postgresql://user:pass@localhost:5432/hermes uvicorn Backend.app:app --port 5000
 ```
 
 ---
@@ -86,7 +86,7 @@ docker-compose up
 
 ## Deployment
 
-ADAPT-Synthetix deploys to [Render](https://render.com) (free tier works for a research demo) with automatic CI/CD via GitHub Actions.
+Hermes deploys to [Render](https://render.com) (free tier works for a research demo) with automatic CI/CD via GitHub Actions.
 
 ### One-time setup
 

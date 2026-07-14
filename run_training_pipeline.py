@@ -1,4 +1,4 @@
-"""
+﻿"""
 Full training pipeline — run this directly with the venv Python.
 
 Steps:
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     p.add_argument("--medical-epochs", type=int, default=5,    help="Medical fine-tuning epochs")
     args = p.parse_args()
 
-    logger.info("ADAPT-Synthetix Training Pipeline starting…")
+    logger.info("Hermes Training Pipeline starting…")
     logger.info("Python: %s", sys.version)
 
     if not args.skip_download:

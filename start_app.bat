@@ -1,11 +1,11 @@
-@echo off
+﻿@echo off
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
-title ADAPT-Synthetix
+title Hermes
 echo.
 echo  =========================================
-echo   ADAPT-Synthetix  ^|  Startup
+echo   Hermes  ^|  Startup
 echo  =========================================
 echo.
 

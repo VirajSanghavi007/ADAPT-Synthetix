@@ -1,6 +1,6 @@
-services:
+﻿services:
   - type: web
-    name: adapt-synthetix
+    name: Hermes
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:

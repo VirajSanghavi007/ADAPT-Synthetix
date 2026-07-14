@@ -1,4 +1,4 @@
-"""
+﻿"""
 config.py — Centralised configuration.
 
 All settings read from environment variables with sensible defaults.
@@ -14,7 +14,7 @@ ROOT_DIR = Path(__file__).parent.parent.absolute()
 
 # ── Database ──────────────────────────────────────────────────
 DB_DIR  = Path(os.environ.get("DB_DIR",  str(ROOT_DIR / "Backend" / "data")))
-DB_PATH = Path(os.environ.get("DB_PATH", str(DB_DIR / "adaptsynthetix.db")))
+DB_PATH = Path(os.environ.get("DB_PATH", str(DB_DIR / "hermes.db")))
 
 # ── Dataset ───────────────────────────────────────────────────
 DATASET_DIR     = Path(os.environ.get("DATASET_DIR",     str(ROOT_DIR / "Dataset")))
@@ -32,7 +32,7 @@ HF_CACHE        = os.environ.get("TRANSFORMERS_CACHE",   str(ROOT_DIR / ".cache"
 
 # ── PostgreSQL ────────────────────────────────────────────────
 USE_POSTGRES    = os.environ.get("USE_POSTGRES", "false").lower() == "true"
-POSTGRES_URL    = os.environ.get("DATABASE_URL",  "postgresql://adapt:adapt@localhost:5432/adaptsynthetix")
+POSTGRES_URL    = os.environ.get("DATABASE_URL",  "postgresql://adapt:adapt@localhost:5432/hermes")
 
 # ── Inference tunables ────────────────────────────────────────
 CONFIDENCE_TEMPERATURE = float(os.environ.get("CONFIDENCE_TEMPERATURE", "1.0"))

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { C } from '@/lib/theme'
 
@@ -25,7 +25,7 @@ export default function PrivacyPolicy() {
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 24 }}>
 
         <h2 style={S.h2}>1. Who we are</h2>
-        <p style={S.p}>ADAPT-Synthetix ("we", "our", "the service") is a research-grade speech processing platform developed as an independent research project. We are not a commercial entity.</p>
+        <p style={S.p}>Hermes ("we", "our", "the service") is a research-grade speech processing platform developed as an independent research project. We are not a commercial entity.</p>
 
         <h2 style={S.h2}>2. What data we collect</h2>
         <p style={S.p}>When you sign in with Google we receive from Google:</p>
@@ -48,7 +48,7 @@ export default function PrivacyPolicy() {
         </ul>
 
         <h2 style={S.h2}>3. Audio data</h2>
-        <p style={S.p}>Audio files you upload or record are processed locally on the server running ADAPT-Synthetix. Audio files are stored temporarily during processing and then moved to a local data directory on the host machine. <strong style={{ color: C.textPrimary }}>Audio data is never transmitted to third parties.</strong></p>
+        <p style={S.p}>Audio files you upload or record are processed locally on the server running Hermes. Audio files are stored temporarily during processing and then moved to a local data directory on the host machine. <strong style={{ color: C.textPrimary }}>Audio data is never transmitted to third parties.</strong></p>
 
         <h2 style={S.h2}>4. How we use your data</h2>
         <p style={S.p}>Your name and email are used solely to:</p>

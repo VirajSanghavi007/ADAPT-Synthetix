@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-start.py — Universal ADAPT-Synthetix launcher (Windows / Linux / macOS).
+start.py — Universal Hermes launcher (Windows / Linux / macOS).
 
 Usage:
     python start.py              # auto-build React if needed, open browser
@@ -134,14 +134,14 @@ def port_free(port: int) -> bool:
 
 # ── Main ──────────────────────────────────────────────────────
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ADAPT-Synthetix launcher")
+    parser = argparse.ArgumentParser(description="Hermes launcher")
     parser.add_argument("--port",         type=int, default=int(os.environ.get("PORT", 5000)))
     parser.add_argument("--no-browser",   action="store_true")
     parser.add_argument("--skip-build",   action="store_true")
     args = parser.parse_args()
 
     print(f"\n  {'='*42}")
-    print( "   ADAPT-Synthetix  |  Startup")
+    print( "   Hermes  |  Startup")
     print(f"  {'='*42}\n")
 
     py_name = find_python()

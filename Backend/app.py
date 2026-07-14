@@ -1,4 +1,4 @@
-"""FastAPI application — routes, lifespan, middleware."""
+﻿"""FastAPI application — routes, lifespan, middleware."""
 from __future__ import annotations
 
 import asyncio
@@ -127,7 +127,7 @@ async def lifespan(app: FastAPI):
 
 
 # ── App ───────────────────────────────────────────────────────
-app = FastAPI(title="ADAPT-Synthetix", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Hermes", version="2.0.0", lifespan=lifespan)
 app.state.limiter = _auth_limiter
 
 # GZip — compresses all JSON responses > 1 KB (~60-80% smaller)

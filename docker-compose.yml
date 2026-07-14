@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
   db:
@@ -6,17 +6,17 @@ services:
     environment:
       POSTGRES_USER: adapt
       POSTGRES_PASSWORD: adapt
-      POSTGRES_DB: adaptsynthetix
+      POSTGRES_DB: hermes
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U adapt -d adaptsynthetix"]
+      test: ["CMD-SHELL", "pg_isready -U adapt -d hermes"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  adapt-synthetix:
+  Hermes:
     build: .
     ports:
       - "5000:5000"
@@ -24,7 +24,7 @@ services:
       - .env
     environment:
       - USE_POSTGRES=true
-      - DATABASE_URL=postgresql://adapt:adapt@db:5432/adaptsynthetix
+      - DATABASE_URL=postgresql://adapt:adapt@db:5432/hermes
       - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:?AUTH_SECRET_KEY is required}
       - BACKDOOR_KEY=${BACKDOOR_KEY:?BACKDOOR_KEY is required}
     volumes:

@@ -1,4 +1,4 @@
-import sys
+﻿import sys
 from pathlib import Path
 
 import numpy as np
@@ -40,7 +40,7 @@ def test_synthesize_creates_wav_file(tmp_path, fake_tts):
 @pytest.mark.slow
 def test_synthesize_returns_valid_path(tmp_path, fake_tts):
     output_path = tmp_path / "valid.wav"
-    result_path, _ = tts_engine.synthesize("adapt synthetix", str(output_path))
+    result_path, _ = tts_engine.synthesize("Hermes", str(output_path))
     assert result_path == str(output_path)
 
 

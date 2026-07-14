@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { C } from '@/lib/theme'
 
@@ -119,7 +119,7 @@ export function LoadingScreen({ onDone }) {
                   letterSpacing: '0.12em', textTransform: 'uppercase',
                   textShadow: `0 0 30px ${C.cyan}88`, marginBottom: 4 }}
               >
-                ADAPT-Synthetix
+                Hermes
               </motion.div>
               <motion.div
                 initial={{ opacity: 0 }}

@@ -1,9 +1,9 @@
-# ADAPT-Synthetix — Developer Reference
+﻿# Hermes — Developer Reference
 
 ## Project Layout
 
 ```
-ADAPT-Synthetix/
+Hermes/
 ├── Backend/                           # FastAPI application (Python 3.11+)
 │   ├── app.py                         # All API routes (lifespan pattern)
 │   ├── config.py                      # Env-var config + directory initialization
@@ -106,7 +106,7 @@ python Backend/seed_demo.py --count 40
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `USE_POSTGRES` | `false` | Use PostgreSQL instead of SQLite |
-| `DATABASE_URL` | `sqlite:///Backend/data/adaptsynthetix.db` | PostgreSQL connection string (ignored if `USE_POSTGRES=false`) |
+| `DATABASE_URL` | `sqlite:///Backend/data/hermes.db` | PostgreSQL connection string (ignored if `USE_POSTGRES=false`) |
 | `ASR_MODEL` | `openai/whisper-small` | ASR model ID (Hugging Face) |
 | `TTS_MODEL` | `suno/bark-small` | TTS model ID |
 | `CONFIDENCE_TEMPERATURE` | `1.0` | CTC confidence calibration scale |
@@ -197,7 +197,7 @@ export LOGLEVEL=DEBUG
 ### Database Issues
 ```bash
 # Reset SQLite database (WARNING: deletes all data)
-rm Backend/data/adaptsynthetix.db
+rm Backend/data/hermes.db
 
 # Start fresh with demo data
 python Backend/seed_demo.py --clear --count 40
@@ -223,7 +223,7 @@ python -c "from transformers import AutoModelForCTC; AutoModelForCTC.from_pretra
 ### Docker
 ```bash
 # Build
-docker build -t adapt-synthetix .
+docker build -t Hermes .
 
 # Run with Docker Compose
 docker-compose up
@@ -235,7 +235,7 @@ docker-compose up
 Copy `.env.example` → `.env.prod` and set:
 ```bash
 USE_POSTGRES=true
-DATABASE_URL=postgresql://user:pass@db:5432/adaptsynthetix
+DATABASE_URL=postgresql://user:pass@db:5432/hermes
 CORS_ORIGINS=https://your-domain.com
 AUTH_ENABLED=true
 ```

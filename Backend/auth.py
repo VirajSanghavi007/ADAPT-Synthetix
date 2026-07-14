@@ -1,4 +1,4 @@
-"""Authentication: Google OAuth 2.0, email sign-in, backdoor."""
+﻿"""Authentication: Google OAuth 2.0, email sign-in, backdoor."""
 from __future__ import annotations
 
 import base64
@@ -214,7 +214,7 @@ def backdoor(request: Request, body: BackdoorPayload, response: Response):
         raise HTTPException(403, "Invalid key")
     _set_cookie(response, {
         "sub":     "owner",
-        "email":   "owner@adapt-synthetix",
+        "email":   "owner@Hermes",
         "name":    "Owner",
         "picture": "",
         "method":  "backdoor",
