@@ -43,3 +43,10 @@ Backend/data/adaptsynthetix.db
 *.log
 .DS_Store
 Thumbs.db
+
+# ── Large datasets / checkpoints (never track, too big for GitHub) ────
+Backend/data/datasets/
+Backend/models/base_finetuned/
+*.tar.gz
+*.flac
+*.safetensors
