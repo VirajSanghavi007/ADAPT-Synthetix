@@ -1,4 +1,4 @@
-﻿# Hermes — Technical Documentation
+﻿# Mercury — Technical Documentation
 
 ## Table of Contents
 1. Project Overview
@@ -14,7 +14,7 @@
 11. Research Contribution
 
 ## 1. Project Overview
-Hermes is a closed-loop speech framework that combines ASR, diagnostics, drift monitoring, and TTS remediation into a single operational pipeline. The backend accepts microphone/file audio, transcribes speech with Wav2Vec2, and returns transcription plus diagnostic metadata.
+Mercury is a closed-loop speech framework that combines ASR, diagnostics, drift monitoring, and TTS remediation into a single operational pipeline. The backend accepts microphone/file audio, transcribes speech with Wav2Vec2, and returns transcription plus diagnostic metadata.
 
 The system extends baseline ASR demos by exposing confidence, acoustic fingerprints, and error categories in real time, then prioritizing remediation based on risk. When a reference transcript is provided, it also computes measured CER and reference-aligned phoneme errors. Without a reference transcript, diagnostic labels are heuristic estimates based on confidence and acoustic context.
 
@@ -56,7 +56,7 @@ v
 
 ## 3. File Structure
 ```text
-Hermes/
+Mercury/
 ├── Backend/
 │   ├── app.py
 │   ├── asr_module.py
@@ -71,7 +71,7 @@ Hermes/
 │   ├── session_logger.py
 │   ├── tts_engine.py
 │   ├── data/
-│   │   ├── hermes.db
+│   │   ├── mercury.db
 │   │   └── audio/
 │   ├── logs/
 │   ├── models/
@@ -212,7 +212,7 @@ curl -X POST http://localhost:5000/transcribe -F "audio=@path/to/audio.wav"
 
 curl -X POST http://localhost:5000/synthesize \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"hello from Hermes\"}" \
+  -d "{\"text\":\"hello from Mercury\"}" \
   -o synth.wav
 
 curl -X GET http://localhost:5000/tts_status
@@ -291,7 +291,7 @@ CREATE TABLE IF NOT EXISTS priority_queue (
 1. Clone repo and move into project:
    ```bash
    git clone <repo-url>
-   cd Hermes
+   cd Mercury
    ```
 2. Create and activate virtual environment:
    ```bash
@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS priority_queue (
 To use PostgreSQL instead of the default SQLite, set the following environment variables before starting the backend:
 ```bash
 USE_POSTGRES=true
-DATABASE_URL=postgresql://user:pass@localhost:5432/hermes
+DATABASE_URL=postgresql://user:pass@localhost:5432/mercury
 uvicorn Backend.app:app --port 5000
 ```
 To migrate existing SQLite data to PostgreSQL:
@@ -464,7 +464,7 @@ At the time of this writing, the dataset manifest is empty and no remedial audio
 
 ## 11. Research Contribution
 **Research Contribution Statement:**  
-> "Hermes explores a closed-loop ASR refinement pipeline that combines confidence scoring, acoustic noise metadata, reference-aligned phoneme error analysis, domain-aware prioritization, and synthetic remedial data for future LoRA adaptation."
+> "Mercury explores a closed-loop ASR refinement pipeline that combines confidence scoring, acoustic noise metadata, reference-aligned phoneme error analysis, domain-aware prioritization, and synthetic remedial data for future LoRA adaptation."
 
 **Five Novel Technical Contributions:**
 
@@ -479,7 +479,7 @@ At the time of this writing, the dataset manifest is empty and no remedial audio
 5. **Domain Vocabulary Injection** — Maintains medical and emergency priority vocabulary. Errors on domain-critical words are flagged at higher remediation priority than filler word errors. Designed for safety-critical applications where specific vocabulary failures have real-world consequences.
 
 **Comparison to Existing Work:**
-| Feature | Generic Self-Refining ASR | Hermes |
+| Feature | Generic Self-Refining ASR | Mercury |
 |---------|--------------------------|-----------------|
 | Failure diagnosis | None — generic retrain | Phoneme-level classification |
 | Synthetic data conditioning | Unconditioned | Noise-type conditioned |

@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env bash
-# start_app.sh — Cross-platform launcher for Hermes (Linux / macOS)
+# start_app.sh — Cross-platform launcher for Mercury (Linux / macOS)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -11,7 +11,7 @@ err()  { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 echo ""
 echo "  ========================================="
-echo "   Hermes  |  Startup"
+echo "   Mercury  |  Startup"
 echo "  ========================================="
 echo ""
 

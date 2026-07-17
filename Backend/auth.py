@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-# Rate limiter — applied only to auth mutation routes to slow credential brute-force.
+# Rate limiter — applied to auth mutation routes to slow credential brute-force.
 _limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID",     "")
 CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 SECRET_KEY    = os.environ.get("AUTH_SECRET_KEY",      "")
 REDIRECT_URI  = os.environ.get("AUTH_REDIRECT_URI",    "http://localhost:5000/auth/callback")
-AUTH_ENABLED  = os.environ.get("AUTH_ENABLED",         "true").lower() != "false"
+AUTH_ENABLED  = os.environ.get("AUTH_ENABLED",         "false").lower() != "false"
 BACKDOOR_KEY  = os.environ.get("BACKDOOR_KEY",         "")
 
 
@@ -52,7 +52,14 @@ def validate_startup_config() -> None:
             "AUTH_ENABLED=true requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to be set. "
             "Set AUTH_ENABLED=false for local dev without Google credentials."
         )
-COOKIE_NAME   = "adapt_session"
+    if AUTH_ENABLED:
+        logger.info("Authentication ENABLED — Google OAuth and email sign-in active")
+    else:
+        logger.warning("Authentication DISABLED — running in dev mode. "
+                       "Set AUTH_ENABLED=true with proper secrets for production!")
+
+
+COOKIE_NAME   = "mercury_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7   # 7 days
 
 GOOGLE_AUTH_URL  = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -98,6 +105,7 @@ def _verify(token: str) -> dict | None:
     except Exception:
         return None
 
+
 def _set_cookie(response: Response, payload: dict) -> None:
     jwt = _sign({**payload, "exp": int(time.time()) + COOKIE_MAX_AGE})
     response.set_cookie(
@@ -112,7 +120,9 @@ def _set_cookie(response: Response, payload: dict) -> None:
 # ── Helpers ───────────────────────────────────────────────────
 def get_current_user(request: Request) -> dict | None:
     if not AUTH_ENABLED:
-        return {"email": "dev@local", "name": "Dev User", "picture": "", "method": "dev"}
+        # In dev mode, return a synthetic user WITHOUT real credentials.
+        # Callers MUST check AUTH_ENABLED before trusting this identity.
+        return {"email": "dev@local", "name": "Dev User", "picture": "", "method": "dev", "dev_mode": True}
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
@@ -210,11 +220,11 @@ class BackdoorPayload(BaseModel):
 @router.post("/backdoor")
 @_limiter.limit("10/minute")  # slow down backdoor key brute-force
 def backdoor(request: Request, body: BackdoorPayload, response: Response):
-    if not body.key or body.key != BACKDOOR_KEY:
+    if not body.key or not hmac.compare_digest(body.key, BACKDOOR_KEY):
         raise HTTPException(403, "Invalid key")
     _set_cookie(response, {
         "sub":     "owner",
-        "email":   "owner@Hermes",
+        "email":   "owner@mercury",
         "name":    "Owner",
         "picture": "",
         "method":  "backdoor",

@@ -26,18 +26,19 @@ COPY . .
 RUN mkdir -p Backend/data/audio Backend/logs Backend/temp Backend/models/lora Dataset .cache/huggingface
 
 # Pre-download NLTK data so g2p_en works at container startup without network access
-RUN python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)"
+RUN python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)" 2>/dev/null || true
 
 ENV PYTHONUNBUFFERED=1
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 ENV HF_HOME=/app/.cache/huggingface
 ENV PYTHONPATH=/app:/app/Backend
+ENV PORT=7860
 
-EXPOSE 5000
+EXPOSE 7860
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/health')" || exit 1
 
 # -w 1: single worker — model loaded once (--preload forks after model load)
 # Async concurrency handles multiple simultaneous requests within one worker.
-CMD ["gunicorn", "-w", "1", "--preload", "-k", "uvicorn.workers.UvicornWorker", "Backend.app:app", "--bind", "0.0.0.0:5000", "--timeout", "120"]
+CMD ["gunicorn", "-w", "1", "--preload", "-k", "uvicorn.workers.UvicornWorker", "Backend.app:app", "--bind", "0.0.0.0:7860", "--timeout", "120"]

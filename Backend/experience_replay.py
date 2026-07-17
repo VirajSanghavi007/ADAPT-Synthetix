@@ -5,9 +5,11 @@ Prevents catastrophic forgetting by mixing previously-seen remedial samples
 into each training run at a 1:1 ratio with new samples.
 """
 
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+
+from config import USE_POSTGRES
+from db_utils import get_connection, ph
 
 
 class ReplayBuffer:
@@ -20,37 +22,48 @@ class ReplayBuffer:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self):
+        return get_connection(self.db_path)
 
     def _ensure_table(self) -> None:
         """Create replay_buffer table if absent; prune oldest rows if over capacity."""
         with self._connect() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS replay_buffer (
-                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                    audio_path   TEXT    NOT NULL,
-                    transcription TEXT   NOT NULL,
-                    error_type   TEXT    NOT NULL,
-                    added_at     TEXT    NOT NULL
-                )
-            """)
+            ph_holder = ph()
+            if USE_POSTGRES:
+                conn.execute(f"""
+                    CREATE TABLE IF NOT EXISTS replay_buffer (
+                        id           SERIAL PRIMARY KEY,
+                        audio_path   TEXT    NOT NULL,
+                        transcription TEXT   NOT NULL,
+                        error_type   TEXT    NOT NULL,
+                        added_at     TEXT    NOT NULL
+                    )
+                """)
+            else:
+                conn.execute(f"""
+                    CREATE TABLE IF NOT EXISTS replay_buffer (
+                        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                        audio_path   TEXT    NOT NULL,
+                        transcription TEXT   NOT NULL,
+                        error_type   TEXT    NOT NULL,
+                        added_at     TEXT    NOT NULL
+                    )
+                """)
             conn.commit()
             self._prune(conn)
 
-    def _prune(self, conn: sqlite3.Connection) -> None:
+    def _prune(self, conn) -> None:
         """Delete oldest entries so total count stays within buffer_size."""
-        row = conn.execute("SELECT COUNT(*) AS cnt FROM replay_buffer").fetchone()
+        ph_holder = ph()
+        row = conn.execute(f"SELECT COUNT(*) AS cnt FROM replay_buffer").fetchone()
         excess = int(row["cnt"]) - self.buffer_size
         if excess > 0:
-            conn.execute("""
+            conn.execute(f"""
                 DELETE FROM replay_buffer
                 WHERE id IN (
                     SELECT id FROM replay_buffer
                     ORDER BY id ASC
-                    LIMIT ?
+                    LIMIT {ph_holder}
                 )
             """, (excess,))
             conn.commit()
@@ -62,9 +75,10 @@ class ReplayBuffer:
     def add(self, audio_path: str, transcription: str, error_type: str) -> None:
         """Insert a new entry and prune if the buffer exceeds capacity."""
         now = datetime.now(timezone.utc).isoformat()
+        ph_holder = ph()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO replay_buffer (audio_path, transcription, error_type, added_at) VALUES (?, ?, ?, ?)",
+                f"INSERT INTO replay_buffer (audio_path, transcription, error_type, added_at) VALUES ({ph_holder}, {ph_holder}, {ph_holder}, {ph_holder})",
                 (str(audio_path), str(transcription), str(error_type), now),
             )
             conn.commit()
@@ -82,11 +96,12 @@ class ReplayBuffer:
         if n == 0:
             return []
 
+        ph_holder = ph()
         with self._connect() as conn:
             # Primary source: transcriptions with collected remedial audio
             try:
                 rows = conn.execute(
-                    """
+                    f"""
                     SELECT
                         remedial_audio_path AS audio_path,
                         COALESCE(NULLIF(TRIM(reference_transcript), ''), transcription) AS transcription,
@@ -95,7 +110,7 @@ class ReplayBuffer:
                     WHERE remedial_audio_path IS NOT NULL
                       AND TRIM(remedial_audio_path) != ''
                     ORDER BY RANDOM()
-                    LIMIT ?
+                    LIMIT {ph_holder}
                     """,
                     (n,),
                 ).fetchall()
@@ -105,7 +120,7 @@ class ReplayBuffer:
             if not rows:
                 # Fallback: stored replay buffer
                 rows = conn.execute(
-                    "SELECT audio_path, transcription, error_type FROM replay_buffer ORDER BY RANDOM() LIMIT ?",
+                    f"SELECT audio_path, transcription, error_type FROM replay_buffer ORDER BY RANDOM() LIMIT {ph_holder}",
                     (n,),
                 ).fetchall()
 

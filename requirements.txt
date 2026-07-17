@@ -13,6 +13,10 @@ g2p_en==2.1.0
 jiwer==4.0.0
 noisereduce>=0.4.0
 
+# ── TTS (Kokoro) ───────────────────────────────────────────────────────────────
+kokoro>=0.9.4
+misaki[en]>=0.9.4
+
 # ── API / web ──────────────────────────────────────────────────────────────────
 fastapi==0.136.3
 uvicorn[standard]==0.48.0
@@ -22,9 +26,8 @@ httpx==0.28.1
 pydantic==2.13.4
 
 # ── Database ───────────────────────────────────────────────────────────────────
-# psycopg2-binary has no py3.14 wheel yet; only needed when USE_POSTGRES=true.
-# Install manually if using PostgreSQL: pip install psycopg2-binary
-# psycopg2-binary==2.9.10
+# psycopg2-binary 2.9.x has wheels up to Python 3.13; pin to 2.9.10 for compatibility
+psycopg2-binary==2.9.10
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────
 slowapi==0.1.9
@@ -34,6 +37,6 @@ pytest==9.0.3
 pytest-mock==3.15.1
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
-numpy==2.4.4
-numba==0.65.0
-llvmlite==0.47.0
+numpy==1.26.4
+numba==0.60.0
+llvmlite==0.43.0

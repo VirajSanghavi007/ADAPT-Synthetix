@@ -200,7 +200,7 @@ export default function Login() {
       }}>
         <div style={{ marginBottom: 40 }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, letterSpacing: '-0.02em', marginBottom: 8 }}>
-            Hermes
+            Mercury
           </div>
           <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
             Adaptive closed-loop ASR · Phoneme diagnostics · Drift detection · LoRA fine-tuning.

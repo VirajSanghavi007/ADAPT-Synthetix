@@ -56,7 +56,7 @@ export function PageLoader() {
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.cyan, letterSpacing: '0.3em', textTransform: 'uppercase' }}>
-          ADAPT
+          MERCURY
         </div>
         <Spinner size={28} />
       </div>

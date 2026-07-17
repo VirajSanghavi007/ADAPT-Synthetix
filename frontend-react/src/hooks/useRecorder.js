@@ -23,40 +23,53 @@ function bestMime() {
  */
 async function blobToWav16k(blob) {
   const arrayBuffer = await blob.arrayBuffer()
-  // Decode to PCM at 16 kHz (browsers resample automatically)
-  const ctx         = new AudioContext({ sampleRate: 16_000 })
+  // Decode to PCM (browser handles resampling)
+  const ctx = new (window.AudioContext || window.webkitAudioContext)()
   const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
   await ctx.close()
 
-  const numSamples = audioBuffer.length
-  const buffer     = new ArrayBuffer(44 + numSamples * 2)
-  const view       = new DataView(buffer)
+  // Resample to 16kHz if needed
+  const targetSampleRate = 16000
+  const sourceRate = audioBuffer.sampleRate
+  const ratio = sourceRate / targetSampleRate
+  const numSamples = Math.round(audioBuffer.length / ratio)
+
+  const buffer = new ArrayBuffer(44 + numSamples * 2)
+  const view = new DataView(buffer)
 
   const writeStr = (off, s) => {
     for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i))
   }
 
-  // RIFF / WAVE / fmt  header
+  // RIFF / WAVE / fmt header
   writeStr(0, 'RIFF')
-  view.setUint32(4,  36 + numSamples * 2, true)
+  view.setUint32(4, 36 + numSamples * 2, true)
   writeStr(8, 'WAVE')
   writeStr(12, 'fmt ')
-  view.setUint32(16, 16,          true)  // chunk size
-  view.setUint16(20, 1,           true)  // PCM
-  view.setUint16(22, 1,           true)  // mono
-  view.setUint32(24, 16_000,      true)  // sample rate
-  view.setUint32(28, 16_000 * 2,  true)  // byte rate
-  view.setUint16(32, 2,           true)  // block align
-  view.setUint16(34, 16,          true)  // bits per sample
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, targetSampleRate, true)
+  view.setUint32(28, targetSampleRate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
   writeStr(36, 'data')
   view.setUint32(40, numSamples * 2, true)
 
-  // Mix down to mono if needed, then write int16 PCM
+  // Simple linear interpolation resampling + mix down to mono
   const ch0 = audioBuffer.getChannelData(0)
   const ch1 = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : null
   let off = 44
   for (let i = 0; i < numSamples; i++) {
-    const sample = ch1 ? (ch0[i] + ch1[i]) / 2 : ch0[i]
+    const srcIdx = Math.min(Math.floor(i * ratio), audioBuffer.length - 1)
+    const nextIdx = Math.min(srcIdx + 1, audioBuffer.length - 1)
+    const frac = i * ratio - srcIdx
+    const sample0 = ch0[srcIdx] * (1 - frac) + ch0[nextIdx] * frac
+    let sample = sample0
+    if (ch1) {
+      const sample1 = ch1[srcIdx] * (1 - frac) + ch1[nextIdx] * frac
+      sample = (sample0 + sample1) / 2
+    }
     const clamped = Math.max(-1, Math.min(1, sample))
     view.setInt16(off, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true)
     off += 2

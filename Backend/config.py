@@ -14,7 +14,7 @@ ROOT_DIR = Path(__file__).parent.parent.absolute()
 
 # ── Database ──────────────────────────────────────────────────
 DB_DIR  = Path(os.environ.get("DB_DIR",  str(ROOT_DIR / "Backend" / "data")))
-DB_PATH = Path(os.environ.get("DB_PATH", str(DB_DIR / "hermes.db")))
+DB_PATH = Path(os.environ.get("DB_PATH", str(DB_DIR / "mercury.db")))
 
 # ── Dataset ───────────────────────────────────────────────────
 DATASET_DIR     = Path(os.environ.get("DATASET_DIR",     str(ROOT_DIR / "Dataset")))
@@ -25,14 +25,14 @@ REMEDIAL_DIR    = Path(os.environ.get("REMEDIAL_DIR",    str(DATASET_DIR / "reme
 LOGS_DIR        = Path(os.environ.get("LOGS_DIR",        str(ROOT_DIR / "Backend" / "logs")))
 MODELS_DIR      = Path(os.environ.get("MODELS_DIR",      str(ROOT_DIR / "Backend" / "models")))
 TEMP_DIR        = Path(os.environ.get("TEMP_DIR",        str(ROOT_DIR / "Backend" / "temp")))
-FRONTEND_DIR    = os.environ.get("FRONTEND_DIR",         str(ROOT_DIR / "Frontend"))
+FRONTEND_DIR    = os.environ.get("FRONTEND_DIR",         str(ROOT_DIR / "frontend-react" / "build"))
 
 # ── HuggingFace cache ─────────────────────────────────────────
 HF_CACHE        = os.environ.get("TRANSFORMERS_CACHE",   str(ROOT_DIR / ".cache" / "huggingface"))
 
 # ── PostgreSQL ────────────────────────────────────────────────
 USE_POSTGRES    = os.environ.get("USE_POSTGRES", "false").lower() == "true"
-POSTGRES_URL    = os.environ.get("DATABASE_URL",  "postgresql://adapt:adapt@localhost:5432/hermes")
+POSTGRES_URL    = os.environ.get("DATABASE_URL",  "postgresql://adapt:adapt@localhost:5432/mercury")
 
 # ── Inference tunables ────────────────────────────────────────
 CONFIDENCE_TEMPERATURE = float(os.environ.get("CONFIDENCE_TEMPERATURE", "1.0"))
@@ -45,11 +45,13 @@ ASR_BACKEND    = os.environ.get("ASR_BACKEND",    "whisper")
 # ASR_MODEL: HuggingFace model ID or local path.
 #   Whisper: "openai/whisper-small" | "openai/whisper-medium" | "openai/whisper-large-v3"
 #   Wav2Vec2: "facebook/wav2vec2-large-robust-ft-swbd-300h" | "facebook/wav2vec2-base-960h"
-ASR_MODEL      = os.environ.get("ASR_MODEL",      "openai/whisper-small")
+ASR_MODEL      = os.environ.get("ASR_MODEL",      "openai/whisper-large-v3-turbo")
 WAV2VEC2_MODEL = os.environ.get("WAV2VEC2_MODEL", "facebook/wav2vec2-large-robust-ft-swbd-300h")
 
-# TTS_MODEL: "suno/bark" (full, best quality) or "suno/bark-small" (faster, lower quality)
-TTS_MODEL      = os.environ.get("TTS_MODEL",      "suno/bark")
+# TTS_MODEL: Kokoro voice pack (fast, CPU-friendly). Override with TTS_MODEL env var.
+TTS_MODEL      = os.environ.get("TTS_MODEL",      "hexgrad/Kokoro-82M")
+TTS_VOICE      = os.environ.get("TTS_VOICE",      "af_heart")
+TTS_LANG_CODE  = os.environ.get("TTS_LANG_CODE",  "a")
 
 # Audio denoising via noisereduce before ASR (spectral subtraction)
 ENABLE_DENOISING = os.environ.get("ENABLE_DENOISING", "true").lower() == "true"

@@ -197,6 +197,7 @@ export default function Transcribe() {
   const [uploadResult,  setUploadResult]  = useState(null)
   const [uploadLoading, setUploadLoading] = useState(false)
   const [dragOver,      setDragOver]      = useState(false)
+  const [resultKey,     setResultKey]     = useState(0)
   const fileRef = useRef(null)
 
   const handleFile = useCallback(async (file) => {
@@ -206,6 +207,7 @@ export default function Transcribe() {
     try {
       const result = await transcribeAudio(file, file.name, referenceTranscript)
       setUploadResult(result)
+      setResultKey(k => k + 1)
       useSessionStore.getState().setLastResult(result)
       toast('File transcribed successfully', 'success')
     } catch (err) {
@@ -349,7 +351,7 @@ export default function Transcribe() {
       <div style={{ minHeight: 400 }}>
         <AnimatePresence mode="wait">
           {result ? (
-            <ResultCard key={`${result.transcription}-${result.confidence}`} result={result} />
+            <ResultCard key={`result-${resultKey}`} result={result} />
           ) : (
             <motion.div
               key="empty"

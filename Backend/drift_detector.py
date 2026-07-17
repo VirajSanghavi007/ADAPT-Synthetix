@@ -32,18 +32,11 @@ class DriftDetector:
     # ── Schema ────────────────────────────────────────────────
 
     def _ensure_tables(self) -> None:
+        """Create drift detector tables if absent (uses dual-mode connection)."""
         ph = self._ph()
         with self._conn() as c:
             cur = c.cursor()
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS phoneme_tracking (
-                    id               SERIAL PRIMARY KEY,
-                    session_id       TEXT,
-                    phoneme          TEXT,
-                    confidence_score REAL,
-                    timestamp        TEXT
-                )
-            """ if USE_POSTGRES else """
+            cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS phoneme_tracking (
                     id               INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id       TEXT,
@@ -51,19 +44,16 @@ class DriftDetector:
                     confidence_score REAL,
                     timestamp        TEXT
                 )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS phoneme_errors (
-                    id                 SERIAL PRIMARY KEY,
-                    session_id         TEXT,
-                    transcription_id   INTEGER,
-                    operation          TEXT,
-                    reference_phoneme  TEXT,
-                    hypothesis_phoneme TEXT,
-                    confidence_score   REAL,
-                    timestamp          TEXT
+            """ if not USE_POSTGRES else f"""
+                CREATE TABLE IF NOT EXISTS phoneme_tracking (
+                    id               SERIAL PRIMARY KEY,
+                    session_id       TEXT,
+                    phoneme          TEXT,
+                    confidence_score REAL,
+                    timestamp        TEXT
                 )
-            """ if USE_POSTGRES else """
+            """)
+            cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS phoneme_errors (
                     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id         TEXT,
@@ -74,29 +64,40 @@ class DriftDetector:
                     confidence_score   REAL,
                     timestamp          TEXT
                 )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS drift_events (
-                    id          SERIAL PRIMARY KEY,
-                    detected_at TEXT,
-                    mmd_score   REAL,
-                    n_high_risk INTEGER,
-                    triggered_retraining BOOLEAN DEFAULT FALSE
+            """ if not USE_POSTGRES else f"""
+                CREATE TABLE IF NOT EXISTS phoneme_errors (
+                    id                 SERIAL PRIMARY KEY,
+                    session_id         TEXT,
+                    transcription_id   INTEGER,
+                    operation          TEXT,
+                    reference_phoneme  TEXT,
+                    hypothesis_phoneme TEXT,
+                    confidence_score   REAL,
+                    timestamp          TEXT
                 )
-            """ if USE_POSTGRES else """
+            """)
+            cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS drift_events (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    detected_at TEXT,
-                    mmd_score   REAL,
-                    n_high_risk INTEGER,
+                    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    detected_at          TEXT,
+                    mmd_score            REAL,
+                    n_high_risk          INTEGER,
                     triggered_retraining INTEGER DEFAULT 0
                 )
+            """ if not USE_POSTGRES else f"""
+                CREATE TABLE IF NOT EXISTS drift_events (
+                    id                   SERIAL PRIMARY KEY,
+                    detected_at          TEXT,
+                    mmd_score            REAL,
+                    n_high_risk          INTEGER,
+                    triggered_retraining BOOLEAN DEFAULT FALSE
+                )
             """)
-            # Indexes for performance
+            # Indexes
             for idx_sql in [
-                "CREATE INDEX IF NOT EXISTS idx_pt_phoneme ON phoneme_tracking(phoneme)",
-                "CREATE INDEX IF NOT EXISTS idx_pt_session ON phoneme_tracking(session_id)",
-                "CREATE INDEX IF NOT EXISTS idx_pe_ops     ON phoneme_errors(operation, reference_phoneme, hypothesis_phoneme)",
+                f"CREATE INDEX IF NOT EXISTS idx_pt_phoneme ON phoneme_tracking(phoneme)",
+                f"CREATE INDEX IF NOT EXISTS idx_pt_session ON phoneme_tracking(session_id)",
+                f"CREATE INDEX IF NOT EXISTS idx_pe_ops ON phoneme_errors(operation, reference_phoneme, hypothesis_phoneme)",
             ]:
                 try:
                     cur.execute(idx_sql)
@@ -156,7 +157,7 @@ class DriftDetector:
         ph = self._ph()
         with self._conn() as c:
             rows = c.execute(
-                f"SELECT confidence_score FROM phoneme_tracking WHERE phoneme={ph} ORDER BY id DESC LIMIT {ph}",
+                f"SELECT confidence_score FROM phoneme_tracking WHERE phoneme={ph} ORDER BY id DESC LIMIT ?",
                 (phoneme, w),
             ).fetchall()
 

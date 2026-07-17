@@ -43,10 +43,10 @@ export function Sidebar() {
           }}>A</div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, letterSpacing: '-0.01em' }}>
-              ADAPT
+              MERCURY
             </div>
             <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>
-              Synthetix
+              Adaptive ASR
             </div>
           </div>
         </div>

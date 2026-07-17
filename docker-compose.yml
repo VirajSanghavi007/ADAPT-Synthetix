@@ -6,17 +6,17 @@ services:
     environment:
       POSTGRES_USER: adapt
       POSTGRES_PASSWORD: adapt
-      POSTGRES_DB: hermes
+      POSTGRES_DB: mercury
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U adapt -d hermes"]
+      test: ["CMD-SHELL", "pg_isready -U adapt -d mercury"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  Hermes:
+  Mercury:
     build: .
     ports:
       - "5000:5000"
@@ -24,7 +24,7 @@ services:
       - .env
     environment:
       - USE_POSTGRES=true
-      - DATABASE_URL=postgresql://adapt:adapt@db:5432/hermes
+      - DATABASE_URL=postgresql://adapt:adapt@db:5432/mercury
       - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:?AUTH_SECRET_KEY is required}
       - BACKDOOR_KEY=${BACKDOOR_KEY:?BACKDOOR_KEY is required}
     volumes:

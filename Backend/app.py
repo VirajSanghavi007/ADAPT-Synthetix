@@ -39,7 +39,7 @@ from database import (
 from drift_detector import DriftDetector
 from dataset_manager import DatasetManager
 import httpx
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -52,7 +52,15 @@ from priority_queue import (
 )
 from session_logger import SessionLogger
 from auth import router as auth_router, get_current_user, AUTH_ENABLED, validate_startup_config, _limiter as _auth_limiter
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
+# Import service container and dependency providers
+from services import container, get_session_logger, get_drift_detector, get_priority_queue, get_dataset_manager, get_lora_router
+
+# Rate limiter for expensive ML operations — stricter than auth limiter
+_ml_limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 _request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 
@@ -89,32 +97,20 @@ _vocab_cache: dict[str, frozenset] = {}
 _vocab_cache_ttl: float = 0.0
 _VOCAB_TTL_SECONDS = 300
 
-# ── Singletons ────────────────────────────────────────────────
-session_logger : SessionLogger
-drift_detector : DriftDetector
-priority_queue : RemediationPriorityQueue
-dataset_manager: DatasetManager
-lora_router    : LoRAExpertRouter
-
 
 # ── Lifespan ──────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global session_logger, drift_detector, priority_queue, dataset_manager, lora_router
-
+    # Ensure required directories exist
     for d in [DATA_AUDIO_DIR, Path(TEMP_DIR),
               BACKEND_DIR / "logs", BACKEND_DIR / "models" / "lora"]:
         d.mkdir(parents=True, exist_ok=True)
 
     validate_startup_config()
 
-    seed_vocabulary_if_empty(MEDICAL_VOCABULARY, EMERGENCY_VOCABULARY)
-
-    session_logger  = SessionLogger()
-    drift_detector  = DriftDetector(DB_PATH)
-    priority_queue  = RemediationPriorityQueue(DB_PATH)
-    dataset_manager = DatasetManager(dataset_dir=str(PROJECT_DIR / "Dataset"))
-    lora_router     = LoRAExpertRouter(db_path=DB_PATH)
+    # Initialize service container
+    dataset_dir = str(PROJECT_DIR / "Dataset")
+    container.initialize(dataset_dir)
 
     logger.info("Session %s started", SESSION_ID)
     _ = tts_engine.TTS_AVAILABLE
@@ -123,12 +119,14 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Session %s ended", SESSION_ID)
-    session_logger.close()
+    container.shutdown()
 
 
 # ── App ───────────────────────────────────────────────────────
-app = FastAPI(title="Hermes", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Mercury", version="2.0.0", lifespan=lifespan)
 app.state.limiter = _auth_limiter
+# Attach ML limiter for expensive routes
+app.state.ml_limiter = _ml_limiter
 
 # GZip — compresses all JSON responses > 1 KB (~60-80% smaller)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -248,7 +246,14 @@ def _cleanup_old_audio() -> None:
 
 
 # ── Background remediation ────────────────────────────────────
-def _remediate(row_id: int, text: str, error_type: str, queue_id: Optional[int]) -> None:
+def _remediate(
+    row_id: int,
+    text: str,
+    error_type: str,
+    queue_id: Optional[int],
+    priority_queue: RemediationPriorityQueue,
+    session_logger: SessionLogger,
+) -> None:
     try:
         out = DATA_AUDIO_DIR / f"remedial_{uuid.uuid4().hex}_{row_id}.wav"
         tts_engine.synthesize(text, str(out))
@@ -256,12 +261,10 @@ def _remediate(row_id: int, text: str, error_type: str, queue_id: Optional[int])
         if queue_id is not None:
             priority_queue.mark_completed(queue_id)
         logger.info("Remediation done: row %d → %s", row_id, out.name)
-        if 'session_logger' in globals() and session_logger is not None:
-            session_logger.log("REMEDIATE", f"row={row_id} status=ok")
+        session_logger.log("REMEDIATE", f"row={row_id} status=ok")
     except Exception as exc:
         logger.error("Remediation failed: row %d: %s", row_id, exc)
-        if 'session_logger' in globals() and session_logger is not None:
-            session_logger.log("REMEDIATE_FAIL", f"row={row_id} err={type(exc).__name__}")
+        session_logger.log("REMEDIATE_FAIL", f"row={row_id} err={type(exc).__name__}")
 
 
 # ── Models ────────────────────────────────────────────────────
@@ -332,7 +335,9 @@ async def model_info():
 
 
 @app.post("/transcribe_compare")
+@app.state.ml_limiter.limit("10/minute")  # Runs two ASR models
 async def transcribe_compare(
+    request: Request,
     audio: Optional[UploadFile] = File(default=None),
 ):
     """
@@ -352,16 +357,9 @@ async def transcribe_compare(
         filepath.write_bytes(data)
 
         results: dict = {}
+        import asr_module as _asr
         for backend in ("whisper", "wav2vec2"):
             try:
-                import importlib, sys, types
-                # Temporarily override config to use the target backend
-                import config as _cfg
-                _orig = _cfg.ASR_BACKEND
-                _cfg.ASR_BACKEND = backend
-
-                # Build a one-off function call using the backend-specific private function
-                import asr_module as _asr
                 if backend == "whisper":
                     fn = _asr._transcribe_whisper
                 else:
@@ -376,7 +374,6 @@ async def transcribe_compare(
                     "confidence":    conf,
                     "noise_type":    noise.get("noise_type", "unknown"),
                 }
-                _cfg.ASR_BACKEND = _orig
             except Exception as exc:
                 results[backend] = {"error": str(exc)}
 
@@ -387,11 +384,16 @@ async def transcribe_compare(
 
 # ── Transcribe ────────────────────────────────────────────────
 @app.post("/transcribe", response_model=TranscriptionResponse)
+@app.state.ml_limiter.limit("20/minute")  # ~1 request per 3 seconds for ASR
 async def transcribe(
+    request: Request,
     background_tasks: BackgroundTasks,
     audio: Optional[UploadFile]  = File(default=None),
     reference_transcript: Optional[str] = Form(default=None),
     session_id: Optional[str]    = Form(default=None),
+    drift_detector: DriftDetector = Depends(get_drift_detector),
+    priority_queue: RemediationPriorityQueue = Depends(get_priority_queue),
+    session_logger: SessionLogger = Depends(get_session_logger),
 ):
     global _tx_count
     if audio is None:
@@ -459,23 +461,28 @@ async def transcribe(
         if drift_detector.should_trigger_retraining():
             drift_detector.log_drift_event()
             logger.warning("Drift threshold exceeded — session %s", active_sid)
-            if 'session_logger' in globals() and session_logger is not None:
-                session_logger.log("DRIFT_ALERT", f"session={active_sid}")
+            session_logger.log("DRIFT_ALERT", f"session={active_sid}")
             if AUTO_TRAIN_THRESHOLD > 0:
                 sample_count = await _run(_count_remedial_samples)
                 if sample_count >= AUTO_TRAIN_THRESHOLD:
                     logger.info("Auto-triggering LoRA training (%d samples available)", sample_count)
                     background_tasks.add_task(_auto_train)
-                    if 'session_logger' in globals() and session_logger is not None:
-                        session_logger.log("AUTO_TRAIN_QUEUED", f"samples={sample_count}")
+                    session_logger.log("AUTO_TRAIN_QUEUED", f"samples={sample_count}")
 
         queue_id = None
         if error_type != "clean":
             queue_id = await _run(priority_queue.enqueue, row_id, transcription, error_type, confidence)
-            background_tasks.add_task(_remediate, row_id, ref or transcription, error_type, queue_id)
+            background_tasks.add_task(
+                _remediate,
+                row_id,
+                ref or transcription,
+                error_type,
+                queue_id,
+                priority_queue,
+                session_logger,
+            )
 
-        if 'session_logger' in globals() and session_logger is not None:
-            session_logger.log("TRANSCRIBE", f"row={row_id} conf={confidence:.3f} type={error_type}")
+        session_logger.log("TRANSCRIBE", f"row={row_id} conf={confidence:.3f} type={error_type}")
 
         async with _tx_lock:
             _tx_count += 1
@@ -511,7 +518,8 @@ async def transcribe(
 
 # ── TTS ───────────────────────────────────────────────────────
 @app.post("/synthesize")
-async def synthesize_route(payload: SynthesisRequest):
+@app.state.ml_limiter.limit("30/minute")  # TTS synthesis
+async def synthesize_route(request: Request, payload: SynthesisRequest):
     tts_engine.load_tts()
     if not tts_engine.TTS_AVAILABLE:
         return JSONResponse({"error": "TTS not available"}, status_code=503)
@@ -555,22 +563,22 @@ async def remediation_status():
     return JSONResponse(data, headers=_cache(10))
 
 @app.get("/drift_report")
-async def drift_report():
+async def drift_report(drift_detector: DriftDetector = Depends(get_drift_detector)):
     data = await _run(drift_detector.get_drift_report)
     return JSONResponse(data, headers=_cache(15))
 
 @app.get("/confidence_histogram")
-async def confidence_histogram(bins: int = 20):
+async def confidence_histogram(bins: int = 20, drift_detector: DriftDetector = Depends(get_drift_detector)):
     data = await _run(drift_detector.get_confidence_histogram, max(5, min(bins, 50)))
     return JSONResponse(data, headers=_cache(20))
 
 @app.get("/phoneme_error_report")
-async def phoneme_error_report():
+async def phoneme_error_report(drift_detector: DriftDetector = Depends(get_drift_detector)):
     data = await _run(drift_detector.get_error_report)
     return JSONResponse(data, headers=_cache(20))
 
 @app.get("/calibration_metrics")
-async def calibration_metrics():
+async def calibration_metrics(drift_detector: DriftDetector = Depends(get_drift_detector)):
     data = await _run(drift_detector.get_calibration_metrics)
     return JSONResponse(data, headers=_cache(30))
 
@@ -612,7 +620,9 @@ def _build_noise_report() -> dict:
 
 # ── Queue ─────────────────────────────────────────────────────
 @app.get("/priority_queue")
-async def priority_queue_report():
+async def priority_queue_report(
+    priority_queue: RemediationPriorityQueue = Depends(get_priority_queue),
+):
     q, s = await asyncio.gather(
         _run(priority_queue.get_queue, 50),
         _run(priority_queue.get_stats),
@@ -655,7 +665,7 @@ async def add_vocabulary(payload: VocabularyAddRequest):
 
 # ── Dataset / LoRA ────────────────────────────────────────────
 @app.get("/dataset_stats")
-async def dataset_stats():
+async def dataset_stats(dataset_manager: DatasetManager = Depends(get_dataset_manager)):
     data = await _run(dataset_manager.get_stats)
     return JSONResponse(data, headers=_cache(60))
 
@@ -677,7 +687,7 @@ def _get_lora_status() -> dict:
     return {"adapter_exists": bool(epoch_dirs), "last_trained": last_trained, "training_logs": logs}
 
 @app.get("/lora_experts_status")
-async def lora_experts_status():
+async def lora_experts_status(lora_router: LoRAExpertRouter = Depends(get_lora_router)):
     data = await _run(lora_router.get_adapter_status)
     return JSONResponse(data, headers=_cache(30))
 
@@ -693,7 +703,8 @@ class TrainRequest(BaseModel):
     epochs:     int = 3
 
 @app.post("/train", status_code=202)
-async def trigger_training(payload: TrainRequest, background_tasks: BackgroundTasks):
+@app.state.ml_limiter.limit("5/minute")  # Expensive training jobs
+async def trigger_training(request: Request, payload: TrainRequest, background_tasks: BackgroundTasks):
     status = await _run(get_training_status)
     if status["state"] == "running":
         raise HTTPException(409, "A training job is already running")
@@ -800,7 +811,8 @@ _DRIVE_HOSTS     = {"drive.google.com", "docs.google.com"}
 _DRIVE_MAX_BYTES = int(os.environ.get("DRIVE_MAX_MB", "50")) * 1024 * 1024
 
 @app.post("/fetch_drive")
-async def fetch_drive(payload: FetchDriveRequest):
+@app.state.ml_limiter.limit("10/minute")  # External fetch + potential large downloads
+async def fetch_drive(request: Request, payload: FetchDriveRequest):
     url    = (payload.url or "").strip()
     parsed = urlparse(url)
     if parsed.netloc not in _DRIVE_HOSTS:
@@ -843,7 +855,8 @@ async def download_status():
 
 
 @app.post("/download_dataset", status_code=202)
-async def download_dataset_endpoint(payload: DatasetRequest, background_tasks: BackgroundTasks):
+@app.state.ml_limiter.limit("5/minute")  # Large downloads
+async def download_dataset_endpoint(request: Request, payload: DatasetRequest, background_tasks: BackgroundTasks):
     from dataset_downloader import get_status, DATASETS
     if payload.dataset not in DATASETS:
         raise HTTPException(400, f"Unknown dataset '{payload.dataset}'")
@@ -862,7 +875,8 @@ async def base_training_status_endpoint():
 
 
 @app.post("/train_base_model", status_code=202)
-async def train_base_model_endpoint(payload: BaseTrainRequest, background_tasks: BackgroundTasks):
+@app.state.ml_limiter.limit("2/minute")  # Very expensive base model training
+async def train_base_model_endpoint(request: Request, payload: BaseTrainRequest, background_tasks: BackgroundTasks):
     from base_trainer import get_base_training_status, run_base_training
     status = get_base_training_status()
     if status["state"] == "running":

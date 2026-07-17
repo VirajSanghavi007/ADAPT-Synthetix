@@ -2,10 +2,10 @@
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
-title Hermes
+title Mercury
 echo.
 echo  =========================================
-echo   Hermes  ^|  Startup
+echo   Mercury  ^|  Startup
 echo  =========================================
 echo.
 

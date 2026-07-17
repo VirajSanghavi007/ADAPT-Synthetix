@@ -218,6 +218,21 @@ def _init_postgres(conn) -> None:
                 finished_at TEXT
             )
         """)
+
+        # Migrate older Postgres DBs — add missing columns
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'transcriptions'
+        """)
+        existing = {row[0] for row in cur.fetchall()}
+        for col, defn in [
+            ("wer_score",           "REAL DEFAULT NULL"),
+            ("per_score",           "REAL DEFAULT NULL"),
+            ("snr_db",              "REAL DEFAULT NULL"),
+            ("nonconformity_score", "REAL DEFAULT NULL"),
+        ]:
+            if col not in existing:
+                cur.execute(f"ALTER TABLE transcriptions ADD COLUMN {col} {defn}")
     conn.commit()
 
 
@@ -286,6 +301,8 @@ def update_remedial_path(row_id: int, path: str) -> None:
 def get_recent_sessions(limit: int = 100, offset: int = 0) -> list[dict]:
     """Return most-recent transcriptions across all dates, newest first."""
     ph = _ph()
+    lim = min(limit, 500)
+    off = max(offset, 0)
     with _get_conn() as conn:
         rows = conn.execute(
             f"""SELECT id, session_id, timestamp, audio_filename, transcription,
@@ -295,8 +312,7 @@ def get_recent_sessions(limit: int = 100, offset: int = 0) -> list[dict]:
                        remedial_audio_path, nonconformity_score
                 FROM transcriptions
                 ORDER BY id DESC
-                LIMIT {ph} OFFSET {ph}""",
-            (min(limit, 500), max(offset, 0)),
+                LIMIT {lim} OFFSET {off}""",
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -334,9 +350,10 @@ def get_session_by_id(row_id: int) -> dict | None:
 
 def get_vocabulary_terms(domain: str) -> list[str]:
     """Return all terms for a given domain (e.g. 'medical', 'emergency')."""
+    ph = _ph()
     with _get_conn() as conn:
         rows = conn.execute(
-            f"SELECT term FROM vocabulary_terms WHERE domain={_ph()} ORDER BY term",
+            f"SELECT term FROM vocabulary_terms WHERE domain={ph} ORDER BY term",
             (domain,),
         ).fetchall()
     return [r["term"] for r in rows]

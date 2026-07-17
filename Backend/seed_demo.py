@@ -135,7 +135,7 @@ def seed(count: int = 40, clear: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed demo data into the Hermes database")
+    parser = argparse.ArgumentParser(description="Seed demo data into the Mercury database")
     parser.add_argument("--count", type=int, default=40, help="Number of transcription rows to insert")
     parser.add_argument("--clear", action="store_true", help="Truncate all tables before seeding")
     args = parser.parse_args()

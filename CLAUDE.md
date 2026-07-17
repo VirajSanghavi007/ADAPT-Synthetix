@@ -1,9 +1,9 @@
-﻿# Hermes — Developer Reference
+﻿# Mercury — Developer Reference
 
 ## Project Layout
 
 ```
-Hermes/
+Mercury/
 ├── Backend/                           # FastAPI application (Python 3.11+)
 │   ├── app.py                         # All API routes (lifespan pattern)
 │   ├── config.py                      # Env-var config + directory initialization
@@ -106,7 +106,7 @@ python Backend/seed_demo.py --count 40
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `USE_POSTGRES` | `false` | Use PostgreSQL instead of SQLite |
-| `DATABASE_URL` | `sqlite:///Backend/data/hermes.db` | PostgreSQL connection string (ignored if `USE_POSTGRES=false`) |
+| `DATABASE_URL` | `sqlite:///Backend/data/mercury.db` | PostgreSQL connection string (ignored if `USE_POSTGRES=false`) |
 | `ASR_MODEL` | `openai/whisper-small` | ASR model ID (Hugging Face) |
 | `TTS_MODEL` | `suno/bark-small` | TTS model ID |
 | `CONFIDENCE_TEMPERATURE` | `1.0` | CTC confidence calibration scale |
@@ -197,7 +197,7 @@ export LOGLEVEL=DEBUG
 ### Database Issues
 ```bash
 # Reset SQLite database (WARNING: deletes all data)
-rm Backend/data/hermes.db
+rm Backend/data/mercury.db
 
 # Start fresh with demo data
 python Backend/seed_demo.py --clear --count 40
@@ -223,7 +223,7 @@ python -c "from transformers import AutoModelForCTC; AutoModelForCTC.from_pretra
 ### Docker
 ```bash
 # Build
-docker build -t Hermes .
+docker build -t Mercury .
 
 # Run with Docker Compose
 docker-compose up
@@ -235,7 +235,7 @@ docker-compose up
 Copy `.env.example` → `.env.prod` and set:
 ```bash
 USE_POSTGRES=true
-DATABASE_URL=postgresql://user:pass@db:5432/hermes
+DATABASE_URL=postgresql://user:pass@db:5432/mercury
 CORS_ORIGINS=https://your-domain.com
 AUTH_ENABLED=true
 ```

@@ -1,4 +1,12 @@
-﻿"""Mixture-of-experts LoRA router: one adapter per error type."""
+﻿"""Per-error-type LoRA adapter manager.
+
+This module manages separate LoRA adapters for each error type (noise, accent,
+pronunciation). It is NOT a dynamic Mixture-of-Experts (MoE) router — there is
+no learned gating network or runtime routing. Each adapter is trained independently
+and selected explicitly by error_type at inference time (to be implemented).
+
+For a true MoE with dynamic routing, see research on HDMoLE / LoRA-MoE routing.
+"""
 
 import logging
 from pathlib import Path
@@ -9,6 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class LoRAExpertRouter:
+    """
+    Static adapter manager: one LoRA adapter per error type.
+
+    This is NOT a dynamic Mixture-of-Experts router — there is no learned gating.
+    Adapters are trained per error_type and must be selected explicitly by the
+    caller. The name "router" is kept for API compatibility but reflects a
+    static filesystem-based lookup, not dynamic gating.
+
+    See docs/RESEARCH.md for notes on future HDMoLE-style dynamic routing.
+    """
     ERROR_TYPES = ["noise", "accent", "pronunciation"]
 
     def __init__(
@@ -47,6 +65,8 @@ class LoRAExpertRouter:
         Return a dict mapping each error_type to its adapter status.
         An adapter is considered to exist when at least one epoch_N
         subdirectory is present in the expert's output dir.
+
+        Note: This reflects static adapter availability, not dynamic routing state.
         """
         status = {}
         for error_type in self.ERROR_TYPES:
@@ -60,5 +80,6 @@ class LoRAExpertRouter:
 
 
 if __name__ == "__main__":
-    router = LoRAExpertRouter(db_path="Backend/data/hermes.db")
+    from config import DB_PATH
+    router = LoRAExpertRouter(db_path=DB_PATH)
     router.train_all(epochs=2)

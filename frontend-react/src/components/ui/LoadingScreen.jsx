@@ -119,7 +119,7 @@ export function LoadingScreen({ onDone }) {
                   letterSpacing: '0.12em', textTransform: 'uppercase',
                   textShadow: `0 0 30px ${C.cyan}88`, marginBottom: 4 }}
               >
-                Hermes
+                Mercury
               </motion.div>
               <motion.div
                 initial={{ opacity: 0 }}

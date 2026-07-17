@@ -63,7 +63,7 @@ export const useSessionStore = create(
       regenerateSession: () => set({ sessionId: crypto.randomUUID() }),
     }),
     {
-      name:    'adapt-session-v2',
+      name:    'mercury-session-v2',
       storage: createJSONStorage(() => localStorage),
       // Only persist these specific keys — don't bloat storage
       partialize: (s) => ({

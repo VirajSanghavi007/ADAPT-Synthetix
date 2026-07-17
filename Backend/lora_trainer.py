@@ -92,23 +92,26 @@ class LoRATrainer:
 
     # ── Model prep ────────────────────────────────────────────
 
-    def prepare_model(self):
+    def prepare_model(self, total_steps: int | None = None):
         processor = Wav2Vec2Processor.from_pretrained(self.model_name)
         model     = Wav2Vec2ForCTC.from_pretrained(self.model_name)
 
         if self.use_adalora:
+            # Estimate total steps for AdaLoRA (will be refined in train())
+            total_steps = 1000
             config = AdaLoraConfig(
                 init_r=12,
                 target_r=8,
                 beta1=0.85,
                 beta2=0.85,
-                tinit=200,
-                tfinal=1000,
+                tinit=100,
+                tfinal=500,
                 deltaT=10,
                 lora_alpha=16,
                 lora_dropout=0.05,
                 target_modules=["q_proj", "v_proj", "k_proj", "out_proj"],
                 orth_reg_weight=0.5,
+                total_step=total_steps,
             )
             logger.info("Using AdaLoRA (adaptive rank per layer)")
         else:
@@ -145,7 +148,10 @@ class LoRATrainer:
         n_replay = max(1, len(samples) // 10)
         replay   = self.load_replay_samples(n_replay)
 
-        model, processor = self.prepare_model()
+        # Compute total steps for AdaLoRA scheduler
+        total_steps = epochs * (len(samples) + len(replay))
+
+        model, processor = self.prepare_model(total_steps=total_steps)
         model.train()
         model.gradient_checkpointing_enable()
         optimizer = torch.optim.AdamW(
@@ -154,7 +160,6 @@ class LoRATrainer:
             weight_decay=0.01,
         )
         # Cosine LR scheduler
-        total_steps = epochs * (len(samples) + len(replay))
         scheduler   = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
 
         final_loss = None

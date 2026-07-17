@@ -40,7 +40,8 @@ def app_client(monkeypatch):
     import app as backend_app
 
     module = importlib.reload(backend_app)
-    return TestClient(module.app)
+    with TestClient(module.app) as client:
+        yield client
 
 
 def test_health_endpoint_returns_200(app_client):

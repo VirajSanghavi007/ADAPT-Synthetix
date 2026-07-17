@@ -1,4 +1,4 @@
-﻿# Research Basis — Hermes
+﻿# Research Basis — Mercury
 
 All academic contributions implemented in this codebase, with source citations.
 
@@ -93,10 +93,11 @@ This automatically assigns higher rank to layers that need it (early encoder for
 
 **Paper:** Mu et al., "HDMoLE: Mixture of LoRA Experts with Hierarchical Routing and Dynamic Thresholds," *ICASSP 2025* (arXiv:2409.19878).
 
-**Implementation:** `Backend/lora_experts.py` — architecture ready for HDMoLE-style routing.
+**Implementation:** `Backend/lora_experts.py` — **static per-error-type adapter manager** (NOT dynamic MoE routing yet).
 
 Three domain experts (noise / accent / pronunciation), each a separate LoRA/AdaLoRA adapter.  
-Router: expert `e` activated when `g_e(x) > θ_e` (dynamic per-expert threshold).
+Current: static selection by error_type.  
+Future: router `g_e(x) > θ_e` (dynamic per-expert threshold) for true HDMoLE-style routing.
 
 ---
 

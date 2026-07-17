@@ -1,6 +1,6 @@
 ﻿services:
   - type: web
-    name: Hermes
+    name: Mercury
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
