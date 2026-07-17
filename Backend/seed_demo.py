@@ -1,4 +1,4 @@
-﻿"""Standalone script to populate the database with realistic synthetic demo data."""
+"""Standalone script to populate the database with realistic synthetic demo data."""
 from __future__ import annotations
 
 import argparse

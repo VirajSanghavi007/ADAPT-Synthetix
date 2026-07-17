@@ -1,4 +1,4 @@
-﻿"""FastAPI application — routes, lifespan, middleware."""
+"""FastAPI application — routes, lifespan, middleware."""
 from __future__ import annotations
 
 import asyncio

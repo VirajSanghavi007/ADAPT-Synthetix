@@ -1,4 +1,4 @@
-﻿"""
+"""
 config.py — Centralised configuration.
 
 All settings read from environment variables with sensible defaults.

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # start_app.sh — Cross-platform launcher for Mercury (Linux / macOS)
 set -euo pipefail
 cd "$(dirname "$0")"

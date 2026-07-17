@@ -1,4 +1,4 @@
-﻿"""Authentication: Google OAuth 2.0, email sign-in, backdoor."""
+"""Authentication: Google OAuth 2.0, email sign-in, backdoor."""
 from __future__ import annotations
 
 import base64

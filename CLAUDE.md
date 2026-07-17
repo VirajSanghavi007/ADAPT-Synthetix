@@ -1,4 +1,4 @@
-﻿# Mercury — Developer Reference
+# Mercury — Developer Reference
 
 ## Project Layout
 

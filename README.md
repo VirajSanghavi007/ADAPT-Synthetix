@@ -1,4 +1,4 @@
-﻿---
+---
 title: Mercury
 emoji: 🎙️
 colorFrom: blue

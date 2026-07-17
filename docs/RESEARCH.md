@@ -1,4 +1,4 @@
-﻿# Research Basis — Mercury
+# Research Basis — Mercury
 
 All academic contributions implemented in this codebase, with source citations.
 

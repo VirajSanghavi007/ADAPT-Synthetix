@@ -1,4 +1,4 @@
-﻿"""
+"""
 Full training pipeline — run this directly with the venv Python.
 
 Steps:
