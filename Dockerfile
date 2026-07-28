@@ -1,44 +1,29 @@
-# ── Stage 1: build dependencies ───────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM node:20-slim AS frontend-build
 
-WORKDIR /build
+WORKDIR /frontend
+COPY frontend-next/package*.json ./
+RUN npm ci
+COPY frontend-next .
+RUN npm run build
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# ── Stage 2: runtime ──────────────────────────────────────────────────────────
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
+    espeak-ng \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /install /usr/local
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY Backend ./Backend
+COPY --from=frontend-build /frontend/out ./frontend-next/out
 
-RUN mkdir -p Backend/data/audio Backend/logs Backend/temp Backend/models/lora Dataset .cache/huggingface
-
-# Pre-download NLTK data so g2p_en works at container startup without network access
-RUN python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)" 2>/dev/null || true
+RUN mkdir -p Backend/data && useradd -m mercury && chown -R mercury:mercury /app
+USER mercury
 
 ENV PYTHONUNBUFFERED=1
-ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
-ENV HF_HOME=/app/.cache/huggingface
-ENV PYTHONPATH=/app:/app/Backend
-ENV PORT=7860
-
 EXPOSE 7860
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/health')" || exit 1
-
-# -w 1: single worker — model loaded once (--preload forks after model load)
-# Async concurrency handles multiple simultaneous requests within one worker.
-CMD ["gunicorn", "-w", "1", "--preload", "-k", "uvicorn.workers.UvicornWorker", "Backend.app:app", "--bind", "0.0.0.0:7860", "--timeout", "120"]
+CMD ["uvicorn", "Backend.main:app", "--host", "0.0.0.0", "--port", "7860"]

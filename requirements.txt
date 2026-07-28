@@ -1,42 +1,15 @@
-# ── PyTorch CPU-only ──────────────────────────────────────────────────────────
-# PyTorch WHL CPU index has 2.9.0+cpu → 2.12.0+cpu; 2.11.0+cpu matches venv.
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.11.0+cpu
-
-# ── Core ML / audio ───────────────────────────────────────────────────────────
-transformers==5.5.4
-peft==0.19.1
-librosa==0.11.0
-scipy==1.17.1
-soundfile==0.13.1
-g2p_en==2.1.0
-jiwer==4.0.0
-noisereduce>=0.4.0
-
-# ── TTS (Kokoro) ───────────────────────────────────────────────────────────────
-kokoro>=0.9.4
-misaki[en]>=0.9.4
-
-# ── API / web ──────────────────────────────────────────────────────────────────
-fastapi==0.136.3
-uvicorn[standard]==0.48.0
-gunicorn==23.0.0
-python-multipart==0.0.29
-httpx==0.28.1
-pydantic==2.13.4
-
-# ── Database ───────────────────────────────────────────────────────────────────
-# psycopg2-binary 2.9.x has wheels up to Python 3.13; pin to 2.9.10 for compatibility
+fastapi==0.139.2
+uvicorn[standard]==0.32.1
+python-multipart==0.0.31
+faster-whisper==1.1.0
+kokoro==0.7.16
+soundfile==0.12.1
+numpy<2
+sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
-
-# ── Rate limiting ─────────────────────────────────────────────────────────────
+python-dotenv==1.2.2
 slowapi==0.1.9
-
-# ── Testing ────────────────────────────────────────────────────────────────────
-pytest==9.0.3
-pytest-mock==3.15.1
-
-# ── Utilities ──────────────────────────────────────────────────────────────────
-numpy==1.26.4
-numba==0.60.0
-llvmlite==0.43.0
+pyjwt[crypto]==2.13.0
+supabase==2.10.0
+email-validator==2.2.0
+redis==5.2.1

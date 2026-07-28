@@ -2,32 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "react-frontend",
+      "name": "frontend-next",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "${workspaceFolder}/frontend-react",
+      "cwd": "${workspaceFolder}/frontend-next",
       "port": 3000
     },
     {
       "name": "backend",
-      "runtimeExecutable": "C:/Users/viraj/Downloads/Projects/Mercury/venv/Scripts/python.exe",
+      "runtimeExecutable": "${workspaceFolder}/venv/Scripts/python.exe",
       "runtimeArgs": [
-        "-m", "uvicorn", "Backend.app:app",
-        "--host", "0.0.0.0", "--port", "5000", "--reload"
+        "-m", "uvicorn", "Backend.main:app",
+        "--host", "0.0.0.0", "--port", "8000", "--reload"
       ],
       "cwd": "${workspaceFolder}",
-      "port": 5000,
-      "env": {
-        "PYTHONPATH": "C:/Users/viraj/Downloads/Projects/Mercury;C:/Users/viraj/Downloads/Projects/Mercury/Backend",
-        "AUTH_SECRET_KEY": "72d3356d8c5c4379a8f10e9f3c0cffff5434c7fbc17cbb87fb5022a13ffbd108",
-        "BACKDOOR_KEY": "10e18a956f14587df2d7e70383b9a455306bb9924c2dbe78b0b9cc04383634ce",
-        "AUTH_ENABLED": "false",
-        "ASR_BACKEND": "whisper",
-        "ASR_MODEL": "openai/whisper-small",
-        "TTS_MODEL": "suno/bark-small",
-        "ENABLE_DENOISING": "true",
-        "AUTO_TRAIN_THRESHOLD": "50"
-      }
+      "port": 8000
     }
   ]
 }

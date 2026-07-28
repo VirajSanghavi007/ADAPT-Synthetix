@@ -1,52 +1,10 @@
-# ── Python ────────────────────────────────────────────────────
+.env
 venv/
-.venv/
 vir_env/
 __pycache__/
 *.pyc
-*.pyo
-.coverage
-.pytest_cache/
-
-# ── Models (large, downloaded at runtime) ─────────────────────
-Backend/models/wav2vec2/
-Backend/models/bark-small/
-*.pt
-*.bin
-
-# ── Data / audio files ────────────────────────────────────────
-Backend/data/audio/*
-!Backend/data/audio/.gitkeep
-Backend/temp/
-Backend/logs/*
-!Backend/logs/.gitkeep
-*.wav
-!Model/tts_output.wav
-
-# ── Dataset ───────────────────────────────────────────────────
+Backend/data/
 Dataset/
-test-clean/
-
-# ── Env secrets ───────────────────────────────────────────────
-.env
-
-# ── Node ──────────────────────────────────────────────────────
-frontend-react/node_modules/
-
-# ── React build (generated — keep for deployment) ─────────────
-# frontend-react/build/   ← intentionally tracked so Render can serve it
-
-# ── DB (dev only) ─────────────────────────────────────────────
-Backend/data/adaptsynthetix.db
-
-# ── Misc ──────────────────────────────────────────────────────
+.pytest_cache/
 *.log
-.DS_Store
-Thumbs.db
-
-# ── Large datasets / checkpoints (never track, too big for GitHub) ────
-Backend/data/datasets/
-Backend/models/base_finetuned/
-*.tar.gz
-*.flac
-*.safetensors
+node_modules/

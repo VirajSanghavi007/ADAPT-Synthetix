@@ -11,7 +11,70 @@
 
 ## Version History
 
-### v2.0.0 — "Semester 5+6 Integration" (Current Development)
+### v3.0.0 — "Clean Rebuild" (Current Development)
+**Date**: July 2026
+**Status**: In progress — rebuilt from scratch after v2.0.0 was archived (tag `v2.0-legacy`) for being largely vibe-coded via Antigravity with no clear mental model of its own architecture. Goal: a stable, demo-ready product, ASR/TTS on modern pretrained models, real auth, deployable to HF Spaces + a real host.
+
+#### Decision: full restart, not incremental cleanup
+Old codebase kept in git history only (`git checkout v2.0-legacy` recovers it in full). Working directory wiped to `.git/`, `.claude/`, `HISTORY.md` before rebuilding, so v3 has no inherited cruft.
+
+#### Model research (for future fine-tuning, not yet trained)
+- **ASR fine-tuning targets** — NVIDIA Canary-Qwen 2.5B (best accuracy, #1 Open ASR Leaderboard, CC-BY-4.0, needs NeMo nightly/trunk) vs. **Parakeet-TDT-0.6B-v2** (chosen — CC-BY-4.0, stable NeMo release, faster, proven to load on Kaggle CPU already)
+- **TTS fine-tuning targets** — CosyVoice2 (Alibaba, Apache 2.0, official fine-tune recipes, voice cloning) chosen over F5-TTS (better quality but CC-BY-NC, blocks commercial use) and XTTS-v2 (CPML license, GPU-heavy)
+- **Demo-pair (zero training, ships today)**: faster-whisper (`small`, int8, CPU) + Kokoro TTS (82M params, Apache 2.0, 54 voices) — chosen over Bark (old project's choice — slow, unstable, hallucinates) for the always-on interactive demo, separate from the fine-tuning track above
+- Reference/competitor research: medical ASR (Nuance Dragon Medical One, Suki AI, Abridge, DeepScribe, Nabla, Ambience Healthcare), lecture transcription (Otter.ai, Sonix, Notta, Panopto), and — closest to Mercury's original phoneme-diagnosis angle — ASR confidence/drift monitoring is a genuinely under-served niche (Hamming AI is the closest commercial analog; academic refs: arXiv 2503.15124, arXiv 2107.00099)
+
+#### Fine-tuning datasets identified (not yet integrated into training)
+- **Real**: PriMock57 (57 real clinician consultations, free, cloned locally to `Dataset/primock57`, 3.8GB) — manifest-building parser for its actual file layout still TODO in the Kaggle notebook
+- **Synthetic**: MedDialog-Audio (HF, 147,476 TTS-synthesized files, ~165GB full size — notebook streams a bounded 5,000-sample subset instead of the full set, which exceeds Kaggle's disk quota), CC BY-NC 4.0
+
+#### Kaggle fine-tuning notebook (`notebooks/mercury_finetune.ipynb`)
+Installs NeMo (Parakeet) + CosyVoice2 deps, downloads both pretrained models (confirmed working: Parakeet loaded successfully, 617M params — but on CPU, since the Kaggle session wasn't running with a GPU accelerator enabled), streams PriMock57 + bounded MedDialog-Audio, builds NeMo-format train/val manifests, leaves fine-tune training cells as scaffolded-but-inert until manifests are populated for real.
+
+#### v1 backend/frontend (superseded within this same session)
+First pass: FastAPI + faster-whisper + Kokoro, custom WebAuthn passkey auth (own `users`/`credentials` Postgres tables, signed cookie sessions), vanilla HTML/JS/CSS frontend with light/dark/system theme toggle. Fully working (verified via curl + browser) before being replaced.
+
+#### Pivot: Supabase as the auth/DB backend
+Decision driven by a pasted task-queue spec assuming Supabase Auth (Google OAuth, RLS-based admin panel) — confirmed as the real direction via user Q&A: keep Supabase (not custom WebAuthn-only), real patient data is eventually planned (**HIPAA implications flagged**: Supabase's Free/Pro tiers are not HIPAA-eligible: a signed BAA requires the Team plan, ~$599/mo — fine for dev now, blocking before any real patient data lands), frontend moves to Next.js (needed for the admin panel).
+
+**Supabase project**: `ojqxzojribpmknxxjije`, region `ap-southeast-1`. Google OAuth provider configured via Google Cloud Console client. DB access via the session pooler (`aws-0-ap-southeast-1.pooler.supabase.com:5432`) — the direct `db.<ref>.supabase.co` hostname doesn't resolve on the free tier without the paid IPv4 add-on.
+
+**DB migration** (`Backend/migrations/001_supabase_auth.sql`): `profiles` table (auto-created via `on_auth_user_created` trigger on `auth.users` insert), `is_admin()` SECURITY DEFINER helper (avoids RLS self-recursion), RLS-enabled `asr_logs`/`tts_logs`/`admin_audit_log`, all FK'd to `auth.users.id` (uuid). Verified live against the real Supabase Postgres instance (5 tables, RLS on 4, FK constraints confirmed by a real failed insert test).
+
+**Auth rewrite** — old WebAuthn/cookie-session code fully removed:
+- `Backend/jwks.py` — verifies Supabase-issued JWTs against the public JWKS endpoint (ES256, no shared secret needed)
+- `Backend/auth.py` — passkey WebAuthn re-implemented as a *bridge* into real Supabase sessions: verify the WebAuthn assertion server-side, then use the Supabase Admin API's `generate_link` (magiclink) to mint a token, which the client exchanges via `verifyOtp()` for a real session — the pattern needed because Supabase has no native passkey primitive
+- `Backend/admin.py` — server-side role-gated admin routes (`/api/admin/users`, `/api/admin/audit-log`), every access logged to `admin_audit_log`
+- `Backend/supabase_admin.py` — service_role admin client wrapper
+
+**Final auth model** (per explicit user spec): Google OAuth2, email+password (Supabase-native bcrypt — user asked for Argon2, but Supabase's hosted GoTrue only supports bcrypt; user chose to accept bcrypt over building a custom Argon2 bridge), passkey-primary-with-fallback, forgot-password → email reset link → dedicated `/reset-password` page. Email confirmation-before-login is a Supabase dashboard toggle (Authentication → Providers → Email → "Confirm email") — Google sign-ins are exempt since Google already verifies the address.
+
+**TOTP 2FA**: `MFAEnroll`/`MFAChallenge` components using Supabase's native `auth.mfa` API (enroll → QR code → verify; sign-in gated on `getAuthenticatorAssuranceLevel()` — if a TOTP factor exists but the session hasn't stepped up to aal2, the main app page shows a challenge screen before rendering anything).
+
+**CAPTCHA**: identified as available (Supabase supports hCaptcha/Turnstile natively) but not wired — needs a sitekey from an external provider the user has to sign up for first.
+
+#### Frontend rewrite: vanilla JS → Next.js
+`frontend-next/` — Next.js 16.2.10 (App Router, static export via `output: 'export'` + `trailingSlash: true` so FastAPI's `StaticFiles(html=True)` can serve nested routes), Tailwind. Routes: `/` (main app, mic/TTS/theme, gated on session + 2FA), `/login` (all 4 auth methods + passkey/2FA enrollment), `/admin` (role-gated user list + audit log, PII redacted-by-default with a reveal toggle), `/reset-password`. Old vanilla `frontend/` deleted entirely. `Backend/main.py` and the `Dockerfile` both updated to serve/build `frontend-next/out` instead.
+
+Response-time timers added to the transcribe and speak actions (`performance.now()` around the fetch, shown next to the status line in seconds).
+
+#### Infra: Redis + Docker
+- **Redis** integrated for the passkey WebAuthn challenge store and slowapi rate-limiting — both were single-process in-memory dicts before (would silently break on restart or multi-worker). `Backend/redis_client.py` pings before use and gracefully falls back to in-memory if Redis is unreachable, so local dev without Docker running still works.
+- **Docker**: `docker-compose.yml` rewritten — dropped the dead local-Postgres service (DB is Supabase now, not local Postgres), added `redis` + a real `app` service that builds the `Dockerfile`. `Dockerfile` rewritten as a multi-stage build (Node stage builds `frontend-next`, copies the static export into the Python image) — the old one referenced the deleted vanilla `frontend/` dir and was broken. Neither has been build-tested yet — Docker Desktop's daemon wasn't running on this machine during the session.
+
+#### Security: red-team pass on the Supabase Auth rewrite
+Found and fixed one **critical** and one **medium** vulnerability, both self-discovered and self-fixed within the same session (no external pentest):
+
+- **Critical — privilege self-escalation**: the `profiles_update_own` RLS policy (`using (auth.uid() = id)`, no `with check`) restricted which *row* a user could update but not which *columns* — meaning any signed-in user could `PATCH` their own `profiles.role` to `'admin'` directly via Supabase's public REST API (using only the public anon key + their own JWT) and gain full admin panel access. **Fixed** via `Backend/migrations/002_fix_role_escalation.sql`: revoked `UPDATE` on `profiles` from the `authenticated` Postgres role entirely, re-granted it only on `display_name` — a Postgres column-level grant, enforced beneath RLS, verified against `information_schema.column_privileges` after applying.
+- **Medium — user enumeration via passkey login**: `/api/auth/passkey/login/begin` returned a distinguishing 401 for emails with no registered passkey, letting an attacker script account-existence checks against a list of emails. **Fixed**: restored the same-shape-response trick the pre-Supabase custom auth code originally had (a deterministic fake credential ID when no real one exists), so the endpoint always returns 200 with WebAuthn options regardless of whether the account exists.
+- Clarified for the record: Supabase does **not** manage RLS policy content automatically — `ENABLE ROW LEVEL SECURITY` only turns the gate on, and whatever policies exist are exactly what's enforced (including the gap above). RLS also only applies to connections using the `anon`/`authenticated` Postgres roles (i.e. calls through PostgREST/supabase-js) — the FastAPI backend connects via `DATABASE_URL` as the `postgres` superuser/table-owner role, which bypasses RLS entirely regardless of policy content unless `FORCE ROW LEVEL SECURITY` is explicitly set (it isn't). Backend endpoints are protected by their own app-level `require_user`/`require_admin` checks, not by RLS.
+
+#### Operational note: repeated credential exposure in chat
+Across this session the user pasted several live secrets directly into chat (Supabase service_role key, DB password, legacy JWT secret) despite repeated warnings to put them in `.env`/the dashboard instead. Each was flagged in the moment and the service_role key + DB password were rotated. Recorded as a standing behavioral note for future sessions — not a code fix, a process one.
+
+---
+
+### v2.0.0 — "Semester 5+6 Integration" (Archived — see `v2.0-legacy` git tag)
 **Date**: July 2025  
 **Status**: In progress — training pipeline, MoE LoRA, React frontend
 
