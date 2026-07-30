@@ -23,6 +23,8 @@ from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
 from Backend.ingest import router as ingest_router
 from Backend.limiter import limiter
 from Backend.mcp_server import mcp
+from Backend.mlops import record_eval_metric
+from Backend.mlops import router as mlops_router
 from Backend.password import router as password_router
 from Backend.profile import router as profile_router
 from Backend.phoneme_diagnostics import align_phoneme_errors, build_error_report
@@ -57,6 +59,7 @@ app.include_router(ingest_router)
 app.include_router(profile_router)
 app.include_router(account_router)
 app.include_router(enterprise_router)
+app.include_router(mlops_router)
 app.mount("/mcp", mcp.streamable_http_app())
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
@@ -135,6 +138,9 @@ async def transcribe(
             db.commit()
     finally:
         db.close()
+
+    if reference_text and reference_text.strip():
+        record_eval_metric(log.id, resolved_model, reference_text, text)
 
     return {"text": text}
 

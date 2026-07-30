@@ -88,6 +88,35 @@ class AccountDeletionRequest(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
+class EvalMetric(Base):
+    """WER/CER for one transcription against its reference_text — the basis for the
+    per-model accuracy trend in the MLOps dashboard."""
+    __tablename__ = "eval_metrics"
+
+    id = Column(Integer, primary_key=True)
+    asr_log_id = Column(Integer, nullable=True, index=True)
+    model_id = Column(String(80), nullable=False, index=True)
+    wer = Column(Float, nullable=False)
+    cer = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ModelRegistry(Base):
+    """Which checkpoint is 'live' per tier/kind. All entries currently point at base
+    HF Hub model ids (no fine-tuned checkpoints exist yet) — this table is the seam
+    fine-tuning promotion will write to later."""
+    __tablename__ = "model_registry"
+
+    id = Column(Integer, primary_key=True)
+    kind = Column(String(8), nullable=False)   # "asr" | "tts"
+    tier = Column(String(16), nullable=False)  # "free" | "pro" | "max" | "enterprise"
+    model_id = Column(String(120), nullable=False)
+    version_tag = Column(String(40), nullable=False, default="base")  # "base" until a fine-tune is promoted
+    is_live = Column(Integer, nullable=False, default=1)
+    notes = Column(Text, nullable=True)
+    promoted_at = Column(DateTime(timezone=True), default=utcnow)
+
+
 class TrainingMarker(Base):
     """Key/value timestamps the n8n retrain-check workflow reads and updates
     (e.g. 'last_trained_at', 'last_notified_at')."""

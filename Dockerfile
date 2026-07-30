@@ -23,8 +23,10 @@ COPY --from=frontend-build /frontend/out ./frontend-next/out
 
 # Bakes all 6 catalog models' weights into the image at build time, so containers
 # start with no runtime download / cold-start. Adds significant build time + image
-# size (GB-scale) — set PREFETCH_MODELS=false to skip for faster iterative builds.
-ARG PREFETCH_MODELS=true
+# size (10-15GB) — risks timing out Render's build step, never verified end to end.
+# Defaults to false: get a working deploy first (lazy runtime download per model),
+# then flip to true (--build-arg PREFETCH_MODELS=true) once that's confirmed working.
+ARG PREFETCH_MODELS=false
 RUN --mount=type=secret,id=hf_token \
     if [ "$PREFETCH_MODELS" = "true" ]; then \
       HF_TOKEN=$(cat /run/secrets/hf_token 2>/dev/null || echo "") \

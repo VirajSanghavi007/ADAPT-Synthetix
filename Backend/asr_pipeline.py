@@ -96,23 +96,28 @@ _ASR_ENGINES = {
 }
 
 
-def get_asr_model(model_id: str):
-    if model_id not in ASR_CATALOG:
-        raise ValueError(f"unknown ASR model: {model_id}")
+def get_asr_model(model_id: str, engine: str | None = None):
+    """engine defaults to the catalog's registered engine; pass it explicitly to load
+    a not-yet-catalogued candidate checkpoint (e.g. a fine-tuned model under eval,
+    see Backend/scripts/eval_harness.py) that shares a base model's engine family."""
+    if engine is None:
+        if model_id not in ASR_CATALOG:
+            raise ValueError(f"unknown ASR model: {model_id} (pass engine= explicitly for uncatalogued candidates)")
+        engine = ASR_CATALOG[model_id]["engine"]
     if model_id not in _models:
         with _lock_for(model_id):
             if model_id not in _models:
-                engine = ASR_CATALOG[model_id]["engine"]
                 loader, _ = _ASR_ENGINES[engine]
                 _models[model_id] = loader(model_id)
     return _models[model_id]
 
 
-def transcribe_audio(audio: np.ndarray, sr: int, model_id: str) -> str:
+def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | None = None) -> str:
     """Synchronous — call via run_in_threadpool from async routes."""
-    engine = ASR_CATALOG[model_id]["engine"]
+    if engine is None:
+        engine = ASR_CATALOG[model_id]["engine"]
     _, runner = _ASR_ENGINES[engine]
-    model = get_asr_model(model_id)
+    model = get_asr_model(model_id, engine=engine)
     return runner(model, audio, sr)
 
 

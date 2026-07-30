@@ -20,10 +20,32 @@ type AuditRow = {
   created_at: string;
 };
 
+type MetricRow = { model_id: string; day: string; avg_wer: number; avg_cer: number; n: number };
+type RegistryRow = {
+  id: number;
+  kind: string;
+  tier: string;
+  model_id: string;
+  version_tag: string;
+  is_live: boolean;
+  promoted_at: string;
+};
+type DriftSignal = {
+  since_last_training: string;
+  new_asr_samples: number;
+  new_tts_samples: number;
+  recent_avg_wer: number | null;
+  baseline_avg_wer: number | null;
+  note: string;
+};
+
 export default function AdminPage() {
   const { session, loading } = useSession();
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
+  const [metrics, setMetrics] = useState<MetricRow[] | null>(null);
+  const [registry, setRegistry] = useState<RegistryRow[] | null>(null);
+  const [drift, setDrift] = useState<DriftSignal | null>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
 
@@ -33,12 +55,18 @@ export default function AdminPage() {
     Promise.all([
       fetch(`${API_URL}/api/admin/users`, { headers }),
       fetch(`${API_URL}/api/admin/audit-log`, { headers }),
+      fetch(`${API_URL}/api/mlops/metrics`, { headers }),
+      fetch(`${API_URL}/api/mlops/registry`, { headers }),
+      fetch(`${API_URL}/api/mlops/drift-signal`, { headers }),
     ])
-      .then(async ([uRes, aRes]) => {
+      .then(async ([uRes, aRes, mRes, rRes, dRes]) => {
         if (!uRes.ok) throw new Error(await uRes.text());
         if (!aRes.ok) throw new Error(await aRes.text());
         setUsers(await uRes.json());
         setAudit(await aRes.json());
+        if (mRes.ok) setMetrics(await mRes.json());
+        if (rRes.ok) setRegistry(await rRes.json());
+        if (dRes.ok) setDrift(await dRes.json());
       })
       .catch((err) => setError(err.message));
   }, [session]);
@@ -140,6 +168,97 @@ export default function AdminPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">MLOps — drift signal</h2>
+        {drift ? (
+          <div className="grid grid-cols-2 gap-4 rounded-xl border border-border p-4 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-muted">New ASR samples</p>
+              <p className="text-lg font-semibold">{drift.new_asr_samples}</p>
+            </div>
+            <div>
+              <p className="text-muted">New TTS samples</p>
+              <p className="text-lg font-semibold">{drift.new_tts_samples}</p>
+            </div>
+            <div>
+              <p className="text-muted">Recent avg WER</p>
+              <p className="text-lg font-semibold">{drift.recent_avg_wer ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted">Baseline avg WER</p>
+              <p className="text-lg font-semibold">{drift.baseline_avg_wer ?? "—"}</p>
+            </div>
+            <p className="col-span-2 text-xs text-muted sm:col-span-4">{drift.note}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No drift signal available.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">MLOps — model registry</h2>
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-left">
+              <tr>
+                <th className="p-3">Kind</th>
+                <th className="p-3">Tier</th>
+                <th className="p-3">Model</th>
+                <th className="p-3">Version</th>
+                <th className="p-3">Live</th>
+                <th className="p-3">Promoted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registry?.map((r) => (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="p-3">{r.kind}</td>
+                  <td className="p-3">{r.tier}</td>
+                  <td className="p-3 font-mono text-xs">{r.model_id}</td>
+                  <td className="p-3">{r.version_tag}</td>
+                  <td className="p-3">{r.is_live ? "✓" : "—"}</td>
+                  <td className="p-3">{new Date(r.promoted_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">MLOps — WER/CER trend</h2>
+        {metrics && metrics.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary text-left">
+                <tr>
+                  <th className="p-3">Model</th>
+                  <th className="p-3">Day</th>
+                  <th className="p-3">Avg WER</th>
+                  <th className="p-3">Avg CER</th>
+                  <th className="p-3">Samples</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.map((m, i) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="p-3 font-mono text-xs">{m.model_id}</td>
+                    <td className="p-3">{new Date(m.day).toLocaleDateString()}</td>
+                    <td className="p-3">{m.avg_wer}</td>
+                    <td className="p-3">{m.avg_cer}</td>
+                    <td className="p-3">{m.n}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">
+            No eval data yet — populated when /api/transcribe is called with a reference_text.
+          </p>
+        )}
       </section>
     </main>
   );
