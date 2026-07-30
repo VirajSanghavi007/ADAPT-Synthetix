@@ -5,14 +5,11 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     envVars:
-      - key: HF_HOME
-        value: /app/.cache/huggingface
       - key: ENV
         value: production
       # Set these in the Render dashboard, not here — never commit real secrets:
-      # DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN,
-      # REDIS_URL, CORS_ORIGINS, ASR_MODEL_ID, TTS_MODEL_ID
-    disk:
-      name: model-cache
-      mountPath: /app/.cache
-      sizeGB: 20
+      # DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, REDIS_URL, CORS_ORIGINS
+      # SPACE_FREE_URL, SPACE_PRO_URL, SPACE_MAX_URL — the 3 HF Space URLs (see spaces/)
+      # SPACE_SECRET — shared secret this backend and all 3 Spaces authenticate with
+    # No disk needed — this image doesn't cache any model weights anymore; all ML
+    # inference is proxied to the 3 HF Spaces in spaces/space-{free,pro,max}/.

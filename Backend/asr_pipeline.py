@@ -1,11 +1,15 @@
-"""Multi-model ASR/TTS integration. Each model is lazy-loaded once and cached by id,
-dispatched by engine type (see Backend/tiers.py for the tier -> model catalog).
+"""Router to the 3 HF Space model servers (see spaces/space-{free,pro,max}/), one per
+tier. The main backend no longer loads any ML model itself — every transcribe/synthesize
+call is proxied over HTTP to whichever Space owns that model_id.
+
+Function signatures are unchanged from the old local-loading version on purpose —
+Backend/main.py, Backend/ingest.py, and Backend/mcp_server.py call these exactly as
+before and don't need to change.
 """
 import io
 import os
-import tempfile
-import threading
 
+import httpx
 import numpy as np
 import soundfile as sf
 
@@ -30,24 +34,43 @@ ALLOWED_AUDIO_TYPES = {
     "video/mp4",        # some recorders (iOS Safari) wrap audio-only capture in an mp4 container
 }
 
-_hf_token = os.environ.get("HF_TOKEN")
-if _hf_token:
-    from huggingface_hub import login
-    login(token=_hf_token)
+SPACE_SECRET = os.environ.get("SPACE_SECRET", "")
+SPACE_URLS = {
+    "free": os.environ.get("SPACE_FREE_URL", ""),
+    "pro": os.environ.get("SPACE_PRO_URL", ""),
+    "max": os.environ.get("SPACE_MAX_URL", ""),
+}
 
-_models: dict[str, object] = {}
-_locks: dict[str, threading.Lock] = {}
+MODEL_TO_SPACE = {}
+for _model_id in ASR_CATALOG:
+    if _model_id in ("distil-whisper/distil-large-v3",):
+        MODEL_TO_SPACE[_model_id] = "free"
+    elif _model_id in ("openai/whisper-large-v3-turbo",):
+        MODEL_TO_SPACE[_model_id] = "pro"
+    elif _model_id in ("nvidia/parakeet-tdt-0.6b-v2",):
+        MODEL_TO_SPACE[_model_id] = "max"
+for _model_id in TTS_CATALOG:
+    if _model_id in ("kokoro",):
+        MODEL_TO_SPACE[_model_id] = "free"
+    elif _model_id in ("suno/bark",):
+        MODEL_TO_SPACE[_model_id] = "pro"
+    elif _model_id in ("FunAudioLLM/CosyVoice2-0.5B",):
+        MODEL_TO_SPACE[_model_id] = "max"
 
 
-def _lock_for(key: str) -> threading.Lock:
-    if key not in _locks:
-        _locks[key] = threading.Lock()
-    return _locks[key]
+def _space_url_for(model_id: str) -> str:
+    space = MODEL_TO_SPACE.get(model_id)
+    if space is None:
+        raise ValueError(f"unknown model: {model_id}")
+    url = SPACE_URLS.get(space)
+    if not url:
+        raise RuntimeError(f"SPACE_{space.upper()}_URL is not configured")
+    return url.rstrip("/")
 
 
 def decode_audio(raw: bytes) -> tuple[np.ndarray, int]:
-    """soundfile (libsndfile) handles wav/flac/ogg natively but can't decode
-    compressed containers like mp3/mp4/aac — those fall back to ffmpeg via pydub."""
+    """Only used locally for duration calculation before forwarding — the Space does
+    its own decode independently."""
     try:
         audio, sr = sf.read(io.BytesIO(raw), dtype="float32", always_2d=False)
     except Exception:
@@ -66,136 +89,36 @@ def decode_audio(raw: bytes) -> tuple[np.ndarray, int]:
     return audio, sr
 
 
-# ── ASR engines ──────────────────────────────────────────────────────────────
-
-def _load_nemo(model_id: str):
-    import nemo.collections.asr as nemo_asr
-    return nemo_asr.models.ASRModel.from_pretrained(model_name=model_id)
-
-
-def _run_nemo(model, audio: np.ndarray, sr: int) -> str:
-    with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-        sf.write(tmp.name, audio, sr, format="WAV")
-        (hyp,) = model.transcribe([tmp.name])
-    return (hyp.text if hasattr(hyp, "text") else str(hyp)).strip()
-
-
-def _load_hf_asr_pipeline(model_id: str):
-    from transformers import pipeline
-    return pipeline("automatic-speech-recognition", model=model_id, device="cpu")
-
-
-def _run_hf_asr_pipeline(pipe, audio: np.ndarray, sr: int) -> str:
-    result = pipe({"array": audio, "sampling_rate": sr})
-    return result["text"].strip()
-
-
-_ASR_ENGINES = {
-    "nemo": (_load_nemo, _run_nemo),
-    "hf_asr_pipeline": (_load_hf_asr_pipeline, _run_hf_asr_pipeline),
-}
-
-
-def get_asr_model(model_id: str, engine: str | None = None):
-    """engine defaults to the catalog's registered engine; pass it explicitly to load
-    a not-yet-catalogued candidate checkpoint (e.g. a fine-tuned model under eval,
-    see Backend/scripts/eval_harness.py) that shares a base model's engine family."""
-    if engine is None:
-        if model_id not in ASR_CATALOG:
-            raise ValueError(f"unknown ASR model: {model_id} (pass engine= explicitly for uncatalogued candidates)")
-        engine = ASR_CATALOG[model_id]["engine"]
-    if model_id not in _models:
-        with _lock_for(model_id):
-            if model_id not in _models:
-                loader, _ = _ASR_ENGINES[engine]
-                _models[model_id] = loader(model_id)
-    return _models[model_id]
-
-
 def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | None = None) -> str:
-    """Synchronous — call via run_in_threadpool from async routes."""
-    if engine is None:
-        engine = ASR_CATALOG[model_id]["engine"]
-    _, runner = _ASR_ENGINES[engine]
-    model = get_asr_model(model_id, engine=engine)
-    return runner(model, audio, sr)
-
-
-# ── TTS engines ──────────────────────────────────────────────────────────────
-
-def _load_kokoro(_model_id: str):
-    from kokoro import KPipeline
-    return KPipeline(lang_code="a")
-
-
-def _run_kokoro(pipeline, text: str, voice: str) -> tuple[np.ndarray, int]:
-    chunks = [audio for _g, _p, audio in pipeline(text, voice=voice or "af_heart")]
-    if not chunks:
-        return None, 24000
-    return np.concatenate(chunks), 24000
-
-
-def _load_bark(model_id: str):
-    from transformers import pipeline
-    return pipeline("text-to-speech", model=model_id, device="cpu")
-
-
-def _run_bark(pipe, text: str, _voice: str) -> tuple[np.ndarray, int]:
-    out = pipe(text)
-    return np.asarray(out["audio"]).squeeze(), out["sampling_rate"]
-
-
-def _load_cosyvoice2(model_id: str):
-    from cosyvoice.cli.cosyvoice import CosyVoice2
-    return CosyVoice2(model_id)
-
-
-def _run_cosyvoice2(pipeline, text: str, voice: str) -> tuple[np.ndarray, int]:
-    # spk_id must match one of pipeline.list_available_spks() — confirm exact set once
-    # the model is pulled in Docker.
-    chunks = [out["tts_speech"].numpy() for out in pipeline.inference_sft(text, voice or "default")]
-    if not chunks:
-        return None, pipeline.sample_rate
-    return np.concatenate(chunks), pipeline.sample_rate
-
-
-_TTS_ENGINES = {
-    "kokoro": (_load_kokoro, _run_kokoro),
-    "bark": (_load_bark, _run_bark),
-    "cosyvoice2": (_load_cosyvoice2, _run_cosyvoice2),
-}
-
-
-def get_tts_pipeline(model_id: str):
-    if model_id not in TTS_CATALOG:
-        raise ValueError(f"unknown TTS model: {model_id}")
-    if model_id not in _models:
-        with _lock_for(model_id):
-            if model_id not in _models:
-                engine = TTS_CATALOG[model_id]["engine"]
-                loader, _ = _TTS_ENGINES[engine]
-                _models[model_id] = loader(model_id)
-    return _models[model_id]
-
-
-def synthesize_speech(text: str, voice: str, model_id: str) -> bytes | None:
-    """Synchronous — call via run_in_threadpool from async routes. Returns MP3 bytes
-    (not WAV) — generated speech is stored/transferred a lot more than it's decoded,
-    and MP3 is a fraction of the size for a negligible quality loss at this bitrate."""
-    engine = TTS_CATALOG[model_id]["engine"]
-    _, runner = _TTS_ENGINES[engine]
-    pipeline = get_tts_pipeline(model_id)
-    audio, sr = runner(pipeline, text, voice)
-    if audio is None:
-        return None
-
-    from pydub import AudioSegment
-
+    """Synchronous — call via run_in_threadpool from async routes. `engine` is accepted
+    for signature compatibility with the old local-loading version (e.g. the eval
+    harness) but ignored here — routing is purely by model_id -> Space."""
+    url = _space_url_for(model_id)
     wav_buf = io.BytesIO()
     sf.write(wav_buf, audio, sr, format="WAV")
     wav_buf.seek(0)
-    segment = AudioSegment.from_wav(wav_buf)
-    mp3_buf = io.BytesIO()
-    segment.export(mp3_buf, format="mp3", bitrate="128k")
-    mp3_buf.seek(0)
-    return mp3_buf.read()
+
+    resp = httpx.post(
+        f"{url}/transcribe",
+        headers={"X-Internal-Secret": SPACE_SECRET},
+        files={"file": ("audio.wav", wav_buf, "audio/wav")},
+        data={"model_id": model_id},
+        timeout=120.0,
+    )
+    resp.raise_for_status()
+    return resp.json()["text"]
+
+
+def synthesize_speech(text: str, voice: str, model_id: str) -> bytes | None:
+    """Synchronous — call via run_in_threadpool from async routes. Returns MP3 bytes."""
+    url = _space_url_for(model_id)
+    resp = httpx.post(
+        f"{url}/synthesize",
+        headers={"X-Internal-Secret": SPACE_SECRET},
+        data={"text": text, "voice": voice or "", "model_id": model_id},
+        timeout=120.0,
+    )
+    if resp.status_code == 500:
+        return None
+    resp.raise_for_status()
+    return resp.content

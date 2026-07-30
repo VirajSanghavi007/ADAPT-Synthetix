@@ -10,8 +10,9 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# ffmpeg is only needed for pydub's decode fallback (mp3/mp4/aac) when computing audio
+# duration before forwarding to a model Space — no ML model runs in this image anymore.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    espeak-ng \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,19 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY Backend ./Backend
 COPY --from=frontend-build /frontend/out ./frontend-next/out
-
-# Bakes all 6 catalog models' weights into the image at build time, so containers
-# start with no runtime download / cold-start. Adds significant build time + image
-# size (10-15GB) — risks timing out Render's build step, never verified end to end.
-# Defaults to false: get a working deploy first (lazy runtime download per model),
-# then flip to true (--build-arg PREFETCH_MODELS=true) once that's confirmed working.
-ARG PREFETCH_MODELS=false
-RUN --mount=type=secret,id=hf_token \
-    if [ "$PREFETCH_MODELS" = "true" ]; then \
-      HF_TOKEN=$(cat /run/secrets/hf_token 2>/dev/null || echo "") \
-      HF_HOME=/app/.cache/huggingface \
-      python -m Backend.scripts.prefetch_models; \
-    fi
 
 RUN mkdir -p Backend/data && useradd -m mercury && chown -R mercury:mercury /app
 USER mercury

@@ -1,6 +1,14 @@
 """Eval harness: compare a candidate model against the currently-live one on a held-out
 set, before promoting via POST /api/mlops/registry/promote.
 
+IMPORTANT — since inference moved behind the 3 HF Spaces (spaces/space-{free,pro,max}/),
+this script calls Backend.asr_pipeline.transcribe_audio, which routes by model_id to
+whichever Space serves it. A newly fine-tuned candidate checkpoint won't be in any
+Space's MODELS set yet — you must temporarily add its model_id to the relevant Space's
+`MODELS` set (and make sure its loader can resolve that model_id, e.g. it's pushed to
+the HF Hub under that id) before running this script against it. There's no hot-swap
+mechanism for arbitrary uncatalogued candidates yet.
+
 Usage:
     python -m Backend.scripts.eval_harness --kind asr --tier pro \\
         --candidate openai/whisper-large-v3-turbo-medical-lora \\
