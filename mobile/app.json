@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Mercury",
+    "slug": "mercury-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mercury.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Mercury needs microphone access to transcribe your speech."
+      }
+    },
+    "android": {
+      "package": "com.mercury.app",
+      "permissions": ["RECORD_AUDIO"]
+    }
+  }
+}

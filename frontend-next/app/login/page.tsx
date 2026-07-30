@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
+import { useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import MFAEnroll from "@/components/MFAEnroll";
@@ -10,8 +10,6 @@ import Logo from "@/components/Logo";
 
 type Mode = "passkey" | "password" | "forgot";
 
-const HCAPTCHA_SITEKEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY!;
-
 export default function LoginPage() {
   const { session } = useSession();
   const [mode, setMode] = useState<Mode>("passkey");
@@ -19,8 +17,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [status, setStatus] = useState("");
-  const [captchaToken, setCaptchaToken] = useState("");
-  const captchaRef = useRef<HCaptcha>(null);
 
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
@@ -44,20 +40,14 @@ export default function LoginPage() {
 
   async function submitPassword() {
     if (!email || !password) return;
-    if (!captchaToken) {
-      setStatus("Complete the captcha first.");
-      return;
-    }
     setStatus(isSignUp ? "Creating account..." : "Signing in...");
     const { data, error } = isSignUp
       ? await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin, captchaToken },
+          options: { emailRedirectTo: window.location.origin },
         })
-      : await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
-    captchaRef.current?.resetCaptcha();
-    setCaptchaToken("");
+      : await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setStatus("Error: " + error.message);
       return;
@@ -74,17 +64,10 @@ export default function LoginPage() {
       setStatus("Enter your email first.");
       return;
     }
-    if (!captchaToken) {
-      setStatus("Complete the captcha first.");
-      return;
-    }
     setStatus("Sending reset link...");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password/`,
-      captchaToken,
     });
-    captchaRef.current?.resetCaptcha();
-    setCaptchaToken("");
     if (error) {
       setStatus("Error: " + error.message);
       return;
@@ -170,12 +153,6 @@ export default function LoginPage() {
             autoComplete={isSignUp ? "new-password" : "current-password"}
             className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <HCaptcha
-            ref={captchaRef}
-            sitekey={HCAPTCHA_SITEKEY}
-            onVerify={setCaptchaToken}
-            onExpire={() => setCaptchaToken("")}
-          />
           <Button onClick={submitPassword} variant="accent" size="lg" className="w-full px-4">
             {isSignUp ? "Create account" : "Sign in"}
           </Button>
@@ -204,12 +181,6 @@ export default function LoginPage() {
 
       {mode === "forgot" && (
         <div className="space-y-2">
-          <HCaptcha
-            ref={captchaRef}
-            sitekey={HCAPTCHA_SITEKEY}
-            onVerify={setCaptchaToken}
-            onExpire={() => setCaptchaToken("")}
-          />
           <Button onClick={sendPasswordReset} variant="accent" size="lg" className="w-full px-4">
             Send password reset link
           </Button>
@@ -232,6 +203,13 @@ export default function LoginPage() {
       )}
 
       {status && <p className="text-sm text-muted" role="status" aria-live="polite">{status}</p>}
+
+      <p className="text-center text-sm text-muted">
+        Signing up for a hospital or organization?{" "}
+        <Link href="/enterprise-signup" className="underline underline-offset-2 hover:text-foreground">
+          Create an enterprise account
+        </Link>
+      </p>
       </div>
     </main>
   );

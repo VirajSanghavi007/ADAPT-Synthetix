@@ -1,14 +1,10 @@
-import io
 import os
-import threading
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-import numpy as np
-import soundfile as sf
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -17,11 +13,27 @@ from pydantic import BaseModel, Field
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from Backend.account import router as account_router
 from Backend.admin import router as admin_router
-from Backend.db import ASRLog, TTSLog, get_session, init_db
-from Backend.jwks import require_user_id
+from Backend.api_keys import require_user_or_api_key
+from Backend.enterprise import router as enterprise_router
+from Backend.api_keys import router as api_keys_router
+from Backend.asr_pipeline import ALLOWED_AUDIO_TYPES, decode_audio, synthesize_speech, transcribe_audio
+from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
+from Backend.ingest import router as ingest_router
 from Backend.limiter import limiter
+from Backend.mcp_server import mcp
 from Backend.password import router as password_router
+from Backend.profile import router as profile_router
+from Backend.phoneme_diagnostics import align_phoneme_errors, build_error_report
+from Backend.tiers import (
+    ASR_CATALOG,
+    TIER_MODELS,
+    TTS_CATALOG,
+    check_tier_rate_limit,
+    get_user_tier,
+    resolve_model,
+)
 
 app = FastAPI(title="Mercury v3")
 
@@ -34,45 +46,25 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 init_db()
 app.include_router(admin_router)
 app.include_router(password_router)
-
-_asr_model = None
-_asr_lock = threading.Lock()
-_tts_pipeline = None
-_tts_lock = threading.Lock()
+app.include_router(api_keys_router)
+app.include_router(ingest_router)
+app.include_router(profile_router)
+app.include_router(account_router)
+app.include_router(enterprise_router)
+app.mount("/mcp", mcp.streamable_http_app())
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
 MAX_TTS_CHARS = 2000
-ALLOWED_AUDIO_TYPES = {"audio/webm", "audio/wav", "audio/x-wav", "audio/mpeg", "audio/ogg"}
-KOKORO_VOICES = {
-    "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky",
-    "am_adam", "am_michael", "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
-}
 
 
-def get_asr_model():
-    global _asr_model
-    if _asr_model is None:
-        with _asr_lock:
-            if _asr_model is None:
-                from faster_whisper import WhisperModel
-                _asr_model = WhisperModel("small", device="cpu", compute_type="int8")
-    return _asr_model
-
-
-def get_tts_pipeline():
-    global _tts_pipeline
-    if _tts_pipeline is None:
-        with _tts_lock:
-            if _tts_pipeline is None:
-                from kokoro import KPipeline
-                _tts_pipeline = KPipeline(lang_code="a")
-    return _tts_pipeline
+def _require_user_id(auth: dict = Depends(require_user_or_api_key)) -> str:
+    return auth["id"]
 
 
 @app.get("/api/health")
@@ -80,9 +72,27 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/models")
+def list_models(user_id: str = Depends(_require_user_id)):
+    """Models available to the current user's tier, for the frontend model picker."""
+    tier = get_user_tier(user_id)
+    allowed = TIER_MODELS.get(tier, TIER_MODELS["free"])
+    return {
+        "tier": tier,
+        "asr": [{"id": m, "label": ASR_CATALOG[m]["label"]} for m in allowed["asr"]],
+        "tts": [{"id": m, "label": TTS_CATALOG[m]["label"]} for m in allowed["tts"]],
+    }
+
+
 @app.post("/api/transcribe")
 @limiter.limit("10/minute")
-async def transcribe(request: Request, file: UploadFile = File(...), user_id: str = Depends(require_user_id)):
+async def transcribe(
+    request: Request,
+    file: UploadFile = File(...),
+    reference_text: str | None = Form(None),
+    model_id: str | None = Form(None),
+    user_id: str = Depends(_require_user_id),
+):
     if file.content_type not in ALLOWED_AUDIO_TYPES:
         raise HTTPException(415, f"unsupported content type: {file.content_type}")
 
@@ -92,64 +102,101 @@ async def transcribe(request: Request, file: UploadFile = File(...), user_id: st
     if len(raw) > MAX_AUDIO_BYTES:
         raise HTTPException(413, "audio file too large (max 25MB)")
 
+    tier = get_user_tier(user_id)
+    check_tier_rate_limit(user_id, tier)
+    resolved_model = resolve_model(tier, "asr", model_id)
+
     try:
-        audio, sr = sf.read(io.BytesIO(raw), dtype="float32", always_2d=False)
+        audio, sr = decode_audio(raw)
     except Exception:
         raise HTTPException(400, "could not decode audio file")
 
-    if audio.ndim > 1:
-        audio = audio.mean(axis=1)
-
-    def _run_transcribe():
-        model = get_asr_model()
-        segments, _info = model.transcribe(audio, language="en")
-        return " ".join(seg.text.strip() for seg in segments).strip()
-
-    text = await run_in_threadpool(_run_transcribe)
+    text = await run_in_threadpool(transcribe_audio, audio, sr, resolved_model)
 
     duration_sec = len(audio) / sr if sr else None
     db = get_session()
     try:
-        db.add(ASRLog(user_id=user_id, transcript=text, duration_sec=duration_sec))
+        log = ASRLog(user_id=user_id, transcript=text, duration_sec=duration_sec, model_id=resolved_model)
+        db.add(log)
         db.commit()
+        db.refresh(log)
+
+        if reference_text and reference_text.strip():
+            alignment = align_phoneme_errors(reference_text, text)
+            db.add_all(
+                PhonemeError(
+                    transcription_id=log.id,
+                    operation=e["operation"],
+                    reference_phoneme=e["reference"] or None,
+                    hypothesis_phoneme=e["hypothesis"] or None,
+                )
+                for e in alignment["errors"]
+            )
+            db.commit()
     finally:
         db.close()
 
     return {"text": text}
 
 
+@app.get("/api/errors/report")
+@limiter.limit("30/minute")
+def errors_report(request: Request, user_id: str = Depends(_require_user_id)):
+    """Confusion-matrix view over logged phoneme errors, for the Error Analysis dashboard."""
+    db = get_session()
+    try:
+        rows = (
+            db.query(
+                PhonemeError.operation,
+                PhonemeError.reference_phoneme,
+                PhonemeError.hypothesis_phoneme,
+            )
+            .all()
+        )
+    finally:
+        db.close()
+
+    counts: dict[tuple, int] = {}
+    for operation, ref, hyp in rows:
+        key = (operation, ref, hyp)
+        counts[key] = counts.get(key, 0) + 1
+
+    grouped = sorted(
+        (
+            {"operation": op, "reference_phoneme": ref, "hypothesis_phoneme": hyp, "count": n}
+            for (op, ref, hyp), n in counts.items()
+        ),
+        key=lambda r: (-r["count"], r["operation"]),
+    )
+    return build_error_report(grouped)
+
+
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
-    voice: str = "af_heart"
+    voice: str = "english_female"
+    model_id: str | None = None
 
 
 @app.post("/api/tts")
 @limiter.limit("10/minute")
-async def tts(request: Request, req: TTSRequest, user_id: str = Depends(require_user_id)):
+async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require_user_id)):
     text = req.text.strip()
     if not text:
         raise HTTPException(400, "empty text")
-    if req.voice not in KOKORO_VOICES:
-        raise HTTPException(400, f"unknown voice: {req.voice}")
 
-    def _run_tts():
-        pipeline = get_tts_pipeline()
-        chunks = [audio for _g, _p, audio in pipeline(text, voice=req.voice)]
-        if not chunks:
-            return None
-        full_audio = np.concatenate(chunks)
-        buf = io.BytesIO()
-        sf.write(buf, full_audio, 24000, format="WAV")
-        buf.seek(0)
-        return buf.read()
+    tier = get_user_tier(user_id)
+    check_tier_rate_limit(user_id, tier)
+    resolved_model = resolve_model(tier, "tts", req.model_id)
 
-    wav_bytes = await run_in_threadpool(_run_tts)
+    # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks()
+    # TODO: confirm exact spk_id set once the model is pulled in Docker
+    wav_bytes = await run_in_threadpool(synthesize_speech, text, req.voice, resolved_model)
     if wav_bytes is None:
         raise HTTPException(500, "no audio generated")
 
     db = get_session()
     try:
-        db.add(TTSLog(user_id=user_id, input_text=text, voice=req.voice))
+        db.add(TTSLog(user_id=user_id, input_text=text, voice=req.voice, model_id=resolved_model))
         db.commit()
     finally:
         db.close()

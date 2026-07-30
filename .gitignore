@@ -8,3 +8,4 @@ Dataset/
 .pytest_cache/
 *.log
 node_modules/
+VERSION.md

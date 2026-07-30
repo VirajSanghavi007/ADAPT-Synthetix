@@ -1,0 +1,73 @@
+// ISO 3166-1 alpha-2 codes + E.164 calling codes. Flag rendered from the ISO code via
+// regional indicator symbols (no image assets needed).
+export type Country = { iso: string; name: string; dial: string };
+
+export const COUNTRIES: Country[] = [
+  { iso: "IN", name: "India", dial: "+91" },
+  { iso: "US", name: "United States", dial: "+1" },
+  { iso: "GB", name: "United Kingdom", dial: "+44" },
+  { iso: "CA", name: "Canada", dial: "+1" },
+  { iso: "AU", name: "Australia", dial: "+61" },
+  { iso: "AE", name: "United Arab Emirates", dial: "+971" },
+  { iso: "SG", name: "Singapore", dial: "+65" },
+  { iso: "DE", name: "Germany", dial: "+49" },
+  { iso: "FR", name: "France", dial: "+33" },
+  { iso: "IT", name: "Italy", dial: "+39" },
+  { iso: "ES", name: "Spain", dial: "+34" },
+  { iso: "NL", name: "Netherlands", dial: "+31" },
+  { iso: "CH", name: "Switzerland", dial: "+41" },
+  { iso: "SE", name: "Sweden", dial: "+46" },
+  { iso: "NO", name: "Norway", dial: "+47" },
+  { iso: "DK", name: "Denmark", dial: "+45" },
+  { iso: "FI", name: "Finland", dial: "+358" },
+  { iso: "IE", name: "Ireland", dial: "+353" },
+  { iso: "PT", name: "Portugal", dial: "+351" },
+  { iso: "PL", name: "Poland", dial: "+48" },
+  { iso: "AT", name: "Austria", dial: "+43" },
+  { iso: "BE", name: "Belgium", dial: "+32" },
+  { iso: "GR", name: "Greece", dial: "+30" },
+  { iso: "CZ", name: "Czechia", dial: "+420" },
+  { iso: "RO", name: "Romania", dial: "+40" },
+  { iso: "HU", name: "Hungary", dial: "+36" },
+  { iso: "RU", name: "Russia", dial: "+7" },
+  { iso: "TR", name: "Turkey", dial: "+90" },
+  { iso: "IL", name: "Israel", dial: "+972" },
+  { iso: "SA", name: "Saudi Arabia", dial: "+966" },
+  { iso: "QA", name: "Qatar", dial: "+974" },
+  { iso: "KW", name: "Kuwait", dial: "+965" },
+  { iso: "EG", name: "Egypt", dial: "+20" },
+  { iso: "ZA", name: "South Africa", dial: "+27" },
+  { iso: "NG", name: "Nigeria", dial: "+234" },
+  { iso: "KE", name: "Kenya", dial: "+254" },
+  { iso: "GH", name: "Ghana", dial: "+233" },
+  { iso: "PK", name: "Pakistan", dial: "+92" },
+  { iso: "BD", name: "Bangladesh", dial: "+880" },
+  { iso: "LK", name: "Sri Lanka", dial: "+94" },
+  { iso: "NP", name: "Nepal", dial: "+977" },
+  { iso: "CN", name: "China", dial: "+86" },
+  { iso: "JP", name: "Japan", dial: "+81" },
+  { iso: "KR", name: "South Korea", dial: "+82" },
+  { iso: "HK", name: "Hong Kong", dial: "+852" },
+  { iso: "TW", name: "Taiwan", dial: "+886" },
+  { iso: "TH", name: "Thailand", dial: "+66" },
+  { iso: "VN", name: "Vietnam", dial: "+84" },
+  { iso: "PH", name: "Philippines", dial: "+63" },
+  { iso: "MY", name: "Malaysia", dial: "+60" },
+  { iso: "ID", name: "Indonesia", dial: "+62" },
+  { iso: "NZ", name: "New Zealand", dial: "+64" },
+  { iso: "MX", name: "Mexico", dial: "+52" },
+  { iso: "BR", name: "Brazil", dial: "+55" },
+  { iso: "AR", name: "Argentina", dial: "+54" },
+  { iso: "CL", name: "Chile", dial: "+56" },
+  { iso: "CO", name: "Colombia", dial: "+57" },
+  { iso: "PE", name: "Peru", dial: "+51" },
+  { iso: "UA", name: "Ukraine", dial: "+380" },
+];
+
+export function flagEmoji(iso: string): string {
+  return iso
+    .toUpperCase()
+    .replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
+}
+
+export const DEFAULT_COUNTRY = COUNTRIES[0]; // India

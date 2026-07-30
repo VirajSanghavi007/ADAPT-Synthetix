@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: mercury
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: HF_HOME
+        value: /app/.cache/huggingface
+      - key: ENV
+        value: production
+      # Set these in the Render dashboard, not here — never commit real secrets:
+      # DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, HF_TOKEN,
+      # REDIS_URL, CORS_ORIGINS, ASR_MODEL_ID, TTS_MODEL_ID
+    disk:
+      name: model-cache
+      mountPath: /app/.cache
+      sizeGB: 20

@@ -6,66 +6,66 @@
 
 :root {
   --bg: #ffffff;
-  --fg: #0f172a;
-  --card: #f8fafc;
-  --primary: #1e293b;
+  --fg: #164e63;
+  --card: #ecfeff;
+  --primary: #0891b2;
   --on-primary: #ffffff;
-  --secondary: #e2e8f0;
-  --accent: #16a34a;
+  --secondary: #22d3ee;
+  --accent: #059669;
   --on-accent: #ffffff;
   --muted: #64748b;
-  --border: #e2e8f0;
+  --border: #a5f3fc;
   --destructive: #dc2626;
-  --ring: #16a34a;
+  --ring: #0891b2;
   --radius: 0.625rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f172a;
-    --fg: #f8fafc;
-    --card: #1e293b;
-    --primary: #f8fafc;
-    --on-primary: #0f172a;
-    --secondary: #334155;
-    --accent: #22c55e;
-    --on-accent: #0f172a;
+    --bg: #0b1f26;
+    --fg: #ecfeff;
+    --card: #12313b;
+    --primary: #22d3ee;
+    --on-primary: #0b1f26;
+    --secondary: #0e7490;
+    --accent: #34d399;
+    --on-accent: #0b1f26;
     --muted: #94a3b8;
-    --border: #334155;
+    --border: #164e63;
     --destructive: #f87171;
-    --ring: #22c55e;
+    --ring: #22d3ee;
   }
 }
 
 :root[data-theme="dark"],
 .dark {
-  --bg: #0f172a;
-  --fg: #f8fafc;
-  --card: #1e293b;
-  --primary: #f8fafc;
-  --on-primary: #0f172a;
-  --secondary: #334155;
-  --accent: #22c55e;
-  --on-accent: #0f172a;
+  --bg: #0b1f26;
+  --fg: #ecfeff;
+  --card: #12313b;
+  --primary: #22d3ee;
+  --on-primary: #0b1f26;
+  --secondary: #0e7490;
+  --accent: #34d399;
+  --on-accent: #0b1f26;
   --muted: #94a3b8;
-  --border: #334155;
+  --border: #164e63;
   --destructive: #f87171;
-  --ring: #22c55e;
+  --ring: #22d3ee;
 }
 
 :root[data-theme="light"] {
   --bg: #ffffff;
-  --fg: #0f172a;
-  --card: #f8fafc;
-  --primary: #1e293b;
+  --fg: #164e63;
+  --card: #ecfeff;
+  --primary: #0891b2;
   --on-primary: #ffffff;
-  --secondary: #e2e8f0;
-  --accent: #16a34a;
+  --secondary: #22d3ee;
+  --accent: #059669;
   --on-accent: #ffffff;
   --muted: #64748b;
-  --border: #e2e8f0;
+  --border: #a5f3fc;
   --destructive: #dc2626;
-  --ring: #16a34a;
+  --ring: #0891b2;
 }
 
 @theme inline {
@@ -120,6 +120,16 @@ body {
   font-family: var(--font-body), Arial, Helvetica, sans-serif;
   position: relative;
   min-height: 100vh;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 body::before {

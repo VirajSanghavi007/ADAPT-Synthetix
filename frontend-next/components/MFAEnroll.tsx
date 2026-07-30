@@ -14,7 +14,19 @@ export default function MFAEnroll() {
 
   async function startEnroll() {
     setStatus("Generating QR code...");
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+
+    // A previous, never-confirmed enroll attempt leaves a stale "unverified" factor
+    // behind under the same default friendly name — clear it first or re-enrolling fails.
+    const { data: existing } = await supabase.auth.mfa.listFactors();
+    const stale = existing?.all.find((f) => f.factor_type === "totp" && f.status === "unverified");
+    if (stale) {
+      await supabase.auth.mfa.unenroll({ factorId: stale.id });
+    }
+
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: `authenticator-${Date.now()}`,
+    });
     if (error) {
       setStatus("Error: " + error.message);
       return;

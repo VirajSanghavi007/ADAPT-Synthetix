@@ -1,7 +1,11 @@
 fastapi==0.139.2
 uvicorn[standard]==0.32.1
 python-multipart==0.0.31
-faster-whisper==1.1.0
+huggingface_hub==0.27.1
+nemo_toolkit[asr]==2.0.0
+git+https://github.com/FunAudioLLM/CosyVoice.git@main
+transformers==4.47.1
+torch==2.5.1
 kokoro==0.7.16
 soundfile==0.12.1
 numpy<2
@@ -13,3 +17,8 @@ pyjwt[crypto]==2.13.0
 supabase==2.10.0
 email-validator==2.2.0
 redis==5.2.1
+g2p-en==2.1.0
+nltk==3.9.1
+httpx==0.28.1
+mcp==1.2.0
+pydub==0.25.1

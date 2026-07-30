@@ -49,7 +49,7 @@ const OPTIONS = [
   { mode: "dark", label: "Dark", icon: MoonIcon },
 ];
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ variant = "fixed" }: { variant?: "fixed" | "inline" }) {
   const [open, setOpen] = useState(false);
   const [theme, setThemeState] = useState("system");
 
@@ -69,7 +69,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <div className="fixed top-5 right-5 z-10">
+    <div className={variant === "fixed" ? "fixed top-5 right-5 z-10" : "relative z-10"}>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Theme settings"

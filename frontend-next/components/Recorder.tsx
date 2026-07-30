@@ -1,18 +1,59 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Download, HardDriveUpload } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
+import { useModels } from "@/lib/useModels";
+import { uploadToDrive } from "@/lib/googleDrive";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const TRANSCRIPT_CACHE_KEY = "mercury-last-transcript";
+const ASR_MODEL_KEY = "mercury-asr-model";
 
 export default function Recorder() {
   const { session } = useSession();
+  const { models } = useModels();
   const [recording, setRecording] = useState(false);
   const [status, setStatus] = useState("");
   const [transcript, setTranscript] = useState("");
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [modelId, setModelId] = useState<string>("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Restore last transcript + model choice so returning users don't lose their place.
+  useEffect(() => {
+    setTranscript(localStorage.getItem(TRANSCRIPT_CACHE_KEY) || "");
+    setModelId(localStorage.getItem(ASR_MODEL_KEY) || "");
+  }, []);
+
+  function selectModel(id: string | null) {
+    if (!id) return;
+    setModelId(id);
+    localStorage.setItem(ASR_MODEL_KEY, id);
+  }
+
+  function downloadTranscript() {
+    const blob = new Blob([transcript], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mercury-transcript-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function saveTranscriptToDrive() {
+    setStatus("Saving to Google Drive...");
+    try {
+      await uploadToDrive(`mercury-transcript-${Date.now()}.txt`, new Blob([transcript], { type: "text/plain" }), "text/plain");
+      setStatus("Saved to Google Drive.");
+    } catch (err) {
+      setStatus("Drive error: " + (err as Error).message);
+    }
+  }
 
   async function toggleRecording() {
     if (!recording) {
@@ -43,6 +84,7 @@ export default function Recorder() {
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
     const form = new FormData();
     form.append("file", blob, "recording.webm");
+    if (modelId) form.append("model_id", modelId);
 
     const start = performance.now();
     try {
@@ -54,7 +96,9 @@ export default function Recorder() {
       const ms = performance.now() - start;
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setTranscript(data.text || "(no speech detected)");
+      const text = data.text || "(no speech detected)";
+      setTranscript(text);
+      localStorage.setItem(TRANSCRIPT_CACHE_KEY, text);
       setElapsedMs(ms);
       setStatus("Done.");
     } catch (err) {
@@ -72,6 +116,20 @@ export default function Recorder() {
         </svg>
         <h2 className="text-lg font-medium">Speech → Text</h2>
       </div>
+      {models && models.asr.length > 0 && (
+        <Select value={modelId || models.asr[0].id} onValueChange={selectModel}>
+          <SelectTrigger className="w-full" aria-label="ASR model">
+            <SelectValue placeholder="Select a model" />
+          </SelectTrigger>
+          <SelectContent>
+            {models.asr.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <Button
         onClick={toggleRecording}
         aria-pressed={recording}
@@ -95,9 +153,19 @@ export default function Recorder() {
         {status}
         {elapsedMs !== null && ` (${(elapsedMs / 1000).toFixed(2)}s)`}
       </p>
-      <div className="min-h-10 whitespace-pre-wrap rounded-lg border border-border bg-background/40 p-3 text-foreground">
+      <div className="selectable min-h-10 whitespace-pre-wrap rounded-lg border border-border bg-background/40 p-3 text-foreground">
         {transcript || <span className="text-muted">Your transcript will appear here.</span>}
       </div>
+      {transcript && (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={downloadTranscript} className="cursor-pointer gap-1.5">
+            <Download className="h-3.5 w-3.5" /> Download
+          </Button>
+          <Button variant="outline" size="sm" onClick={saveTranscriptToDrive} className="cursor-pointer gap-1.5">
+            <HardDriveUpload className="h-3.5 w-3.5" /> Save to Drive
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
