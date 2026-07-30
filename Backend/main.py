@@ -190,8 +190,8 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
 
     # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks()
     # TODO: confirm exact spk_id set once the model is pulled in Docker
-    wav_bytes = await run_in_threadpool(synthesize_speech, text, req.voice, resolved_model)
-    if wav_bytes is None:
+    mp3_bytes = await run_in_threadpool(synthesize_speech, text, req.voice, resolved_model)
+    if mp3_bytes is None:
         raise HTTPException(500, "no audio generated")
 
     db = get_session()
@@ -201,7 +201,7 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
     finally:
         db.close()
 
-    return Response(content=wav_bytes, media_type="audio/wav")
+    return Response(content=mp3_bytes, media_type="audio/mpeg")
 
 
 app.mount("/", StaticFiles(directory="frontend-next/out", html=True), name="frontend")

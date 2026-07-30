@@ -49,13 +49,13 @@ export function resetTour() {
   localStorage.removeItem(TOUR_KEY);
 }
 
-export default function GuidedTour() {
+export default function GuidedTour({ delayUntilReady = false }: { delayUntilReady?: boolean }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    if (!localStorage.getItem(TOUR_KEY)) setOpen(true);
-  }, []);
+    if (!delayUntilReady && !localStorage.getItem(TOUR_KEY)) setOpen(true);
+  }, [delayUntilReady]);
 
   function finish() {
     markTourSeen();

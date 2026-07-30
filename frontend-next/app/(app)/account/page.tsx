@@ -152,16 +152,18 @@ export default function AccountPage() {
 
       <UsageStatsCard />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" /> Two-factor authentication
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MFAEnroll />
-        </CardContent>
-      </Card>
+      {!profile?.is_enterprise && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Two-factor authentication
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MFAEnroll />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

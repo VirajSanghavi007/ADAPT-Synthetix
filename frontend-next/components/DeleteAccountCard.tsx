@@ -6,6 +6,8 @@ import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -19,10 +21,13 @@ import {
 export default function DeleteAccountCard({ tier }: { tier?: string }) {
   const { session } = useSession();
   const [open, setOpen] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const needsCancelFirst = tier && tier !== "free" && tier !== "enterprise";
+  const email = session?.user.email ?? "";
+  const emailMatches = confirmEmail.trim().toLowerCase() === email.toLowerCase() && email !== "";
 
   async function requestDeletion() {
     setBusy(true);
@@ -64,7 +69,13 @@ export default function DeleteAccountCard({ tier }: { tier?: string }) {
             plan can't be deleted directly.
           </p>
         ) : (
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next);
+              if (!next) setConfirmEmail("");
+            }}
+          >
             <DialogTrigger render={<Button variant="destructive" className="cursor-pointer" />}>
               Delete my account
             </DialogTrigger>
@@ -72,16 +83,32 @@ export default function DeleteAccountCard({ tier }: { tier?: string }) {
               <DialogHeader>
                 <DialogTitle>Delete your account?</DialogTitle>
                 <DialogDescription>
-                  We'll email you a confirmation link. Clicking it schedules deletion 24 hours out
-                  — a last window to change your mind. After that, everything tied to your account
-                  is permanently deleted and cannot be recovered.
+                  This will permanently erase your account, transcripts, TTS history, and API keys.
+                  We'll email a confirmation link that schedules deletion 24 hours out — a last
+                  window to change your mind. After that, it's irreversible.
                 </DialogDescription>
               </DialogHeader>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-email">
+                  Type <span className="font-medium text-foreground">{email}</span> to confirm
+                </Label>
+                <Input
+                  id="confirm-email"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)} className="cursor-pointer">
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={requestDeletion} disabled={busy} className="cursor-pointer">
+                <Button
+                  variant="destructive"
+                  onClick={requestDeletion}
+                  disabled={busy || !emailMatches}
+                  className="cursor-pointer"
+                >
                   Send confirmation email
                 </Button>
               </DialogFooter>

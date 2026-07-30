@@ -15,6 +15,8 @@ import MFAChallenge from "@/components/MFAChallenge";
 import EnterpriseChallenge from "@/components/EnterpriseChallenge";
 import ThemeToggle from "@/components/ThemeToggle";
 import GuidedTour from "@/components/GuidedTour";
+import WhatsNewModal from "@/components/WhatsNewModal";
+import { CURRENT_VERSION } from "@/lib/changelog";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Sidebar,
@@ -36,8 +38,13 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   const { loading: aalLoading, needsChallenge } = useAAL();
   const { profile, loading: profileLoading } = useProfile();
   const [verified, setVerified] = useState(false);
+  const [whatsNewSeen, setWhatsNewSeen] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
+
+  useEffect(() => {
+    setWhatsNewSeen(localStorage.getItem("mercury-last-seen-version") === CURRENT_VERSION);
+  }, []);
 
   useEffect(() => {
     if (session && !profileLoading && profile && !profile.username && pathname !== "/onboarding") {
@@ -128,7 +135,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
         </header>
         <div className="flex-1 space-y-6 p-6">{children}</div>
       </SidebarInset>
-      {profile?.username && <GuidedTour />}
+      {profile?.username && (
+        <>
+          <WhatsNewModal onDismiss={() => setWhatsNewSeen(true)} />
+          <GuidedTour delayUntilReady={!whatsNewSeen} />
+        </>
+      )}
     </SidebarProvider>
   );
 }

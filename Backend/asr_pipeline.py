@@ -174,14 +174,23 @@ def get_tts_pipeline(model_id: str):
 
 
 def synthesize_speech(text: str, voice: str, model_id: str) -> bytes | None:
-    """Synchronous — call via run_in_threadpool from async routes."""
+    """Synchronous — call via run_in_threadpool from async routes. Returns MP3 bytes
+    (not WAV) — generated speech is stored/transferred a lot more than it's decoded,
+    and MP3 is a fraction of the size for a negligible quality loss at this bitrate."""
     engine = TTS_CATALOG[model_id]["engine"]
     _, runner = _TTS_ENGINES[engine]
     pipeline = get_tts_pipeline(model_id)
     audio, sr = runner(pipeline, text, voice)
     if audio is None:
         return None
-    buf = io.BytesIO()
-    sf.write(buf, audio, sr, format="WAV")
-    buf.seek(0)
-    return buf.read()
+
+    from pydub import AudioSegment
+
+    wav_buf = io.BytesIO()
+    sf.write(wav_buf, audio, sr, format="WAV")
+    wav_buf.seek(0)
+    segment = AudioSegment.from_wav(wav_buf)
+    mp3_buf = io.BytesIO()
+    segment.export(mp3_buf, format="mp3", bitrate="128k")
+    mp3_buf.seek(0)
+    return mp3_buf.read()

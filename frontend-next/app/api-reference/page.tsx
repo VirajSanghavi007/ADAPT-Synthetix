@@ -48,8 +48,8 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         curl: `curl -X POST https://api.mercury.app/api/tts \\
   -H "X-API-Key: mk_live_..." \\
   -H "Content-Type: application/json" \\
-  -d '{"text": "hello world"}' --output speech.wav`,
-        response: `audio/wav binary`,
+  -d '{"text": "hello world"}' --output speech.mp3`,
+        response: `audio/mpeg binary`,
       },
       {
         method: "GET",

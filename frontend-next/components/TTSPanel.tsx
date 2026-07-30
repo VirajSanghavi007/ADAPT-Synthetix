@@ -53,7 +53,7 @@ export default function TTSPanel() {
       const ms = performance.now() - start;
       if (!res.ok) throw new Error(await res.text());
       const buffer = await res.arrayBuffer();
-      const blob = new Blob([buffer], { type: "audio/wav" });
+      const blob = new Blob([buffer], { type: "audio/mpeg" });
       setAudioBlob(blob);
       setAudioUrl(URL.createObjectURL(blob));
       setElapsedMs(ms);
@@ -70,7 +70,7 @@ export default function TTSPanel() {
     if (!audioUrl) return;
     const a = document.createElement("a");
     a.href = audioUrl;
-    a.download = `mercury-speech-${Date.now()}.wav`;
+    a.download = `mercury-speech-${Date.now()}.mp3`;
     a.click();
   }
 
@@ -78,7 +78,7 @@ export default function TTSPanel() {
     if (!audioBlob) return;
     setStatus("Saving to Google Drive...");
     try {
-      await uploadToDrive(`mercury-speech-${Date.now()}.wav`, audioBlob, "audio/wav");
+      await uploadToDrive(`mercury-speech-${Date.now()}.mp3`, audioBlob, "audio/mpeg");
       setStatus("Saved to Google Drive.");
     } catch (err) {
       setStatus("Drive error: " + (err as Error).message);

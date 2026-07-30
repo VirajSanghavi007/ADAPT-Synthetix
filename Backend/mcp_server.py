@@ -59,14 +59,14 @@ def transcribe(ctx: Context, audio_base64: str, model_id: str | None = None) -> 
 
 @mcp.tool()
 def synthesize(ctx: Context, text: str, voice: str = "english_female", model_id: str | None = None) -> dict:
-    """Synthesize speech from text using Mercury's TTS pipeline. Returns base64-encoded WAV audio."""
+    """Synthesize speech from text using Mercury's TTS pipeline. Returns base64-encoded MP3 audio."""
     auth = _authed_user(ctx)
     tier = get_user_tier(auth["id"])
     check_tier_rate_limit(auth["id"], tier)
     resolved_model = resolve_model(tier, "tts", model_id)
 
-    wav_bytes = synthesize_speech(text, voice, resolved_model)
-    if wav_bytes is None:
+    mp3_bytes = synthesize_speech(text, voice, resolved_model)
+    if mp3_bytes is None:
         return {"error": "no audio generated"}
 
     db = get_session()
@@ -76,7 +76,7 @@ def synthesize(ctx: Context, text: str, voice: str = "english_female", model_id:
     finally:
         db.close()
 
-    return {"audio_base64": base64.b64encode(wav_bytes).decode(), "model_id": resolved_model}
+    return {"audio_base64": base64.b64encode(mp3_bytes).decode(), "model_id": resolved_model}
 
 
 @mcp.tool()

@@ -64,7 +64,7 @@ export default function DashboardScreen({ session }: { session: Session }) {
       const buffer = await res.arrayBuffer();
       const base64 = arrayBufferToBase64(buffer);
       const sound = new Audio.Sound();
-      await sound.loadAsync({ uri: `data:audio/wav;base64,${base64}` });
+      await sound.loadAsync({ uri: `data:audio/mpeg;base64,${base64}` });
       await sound.playAsync();
       setStatus("Playing.");
     } catch (err) {
