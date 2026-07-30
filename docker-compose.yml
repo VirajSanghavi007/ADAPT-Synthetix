@@ -1,4 +1,31 @@
 services:
+  space-free:
+    build: ./spaces/space-free
+    restart: unless-stopped
+    environment:
+      SPACE_SECRET: ${SPACE_SECRET}
+    ports:
+      - "7861:7860"
+
+  space-pro:
+    build: ./spaces/space-pro
+    restart: unless-stopped
+    environment:
+      SPACE_SECRET: ${SPACE_SECRET}
+    ports:
+      - "7862:7860"
+
+  # Heaviest models (Parakeet + CosyVoice2) — left out of local dev by default since
+  # they're the ones actually blocked on a real hosting decision. Uncomment once
+  # you're ready to run them (needs real RAM/CPU headroom).
+  # space-max:
+  #   build: ./spaces/space-max
+  #   restart: unless-stopped
+  #   environment:
+  #     SPACE_SECRET: ${SPACE_SECRET}
+  #   ports:
+  #     - "7863:7860"
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -19,11 +46,18 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      SPACE_FREE_URL: http://space-free:7860
+      SPACE_PRO_URL: http://space-pro:7860
+      SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7860:7860"
     depends_on:
       redis:
         condition: service_healthy
+      space-free:
+        condition: service_started
+      space-pro:
+        condition: service_started
 
 volumes:
   mercury_redisdata:
