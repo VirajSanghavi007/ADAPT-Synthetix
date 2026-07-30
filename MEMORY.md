@@ -1,17 +1,44 @@
-# HISTORY.md — Mercury Project Changelog & Version History
+# MEMORY.md — Mercury Project Changelog & Version History
+
+(Renamed from HISTORY.md on 2026-07-30 — same purpose: persistent project memory.)
 
 ## Project Overview
 **Mercury** — Adaptive Closed-Loop ASR Framework with Phoneme-Level Error Diagnosis
 - **Original Repo**: https://github.com/VirajSanghavi007/Mercury
-- **Current Branch**: main
-- **Language**: Python 3.11+ (Backend), React 18 + Vite (Frontend)
-- **Architecture**: FastAPI + SQLite/PostgreSQL + Transformers (Whisper / Wav2Vec2)
+- **Current Branch**: Test (work happens here — see CLAUDE.md branch policy: Test → Stage by Claude, Stage → main only by Viraj)
+- **Language**: Python 3.11+ (Backend), Next.js 16 + React 19 (Frontend)
+- **Architecture**: FastAPI + Supabase (Auth + Postgres) + Redis + multi-engine ASR/TTS (NeMo/HF transformers/Kokoro/Bark/CosyVoice2)
 
 ---
 
 ## Version History
 
-### v3.0.0 — "Clean Rebuild" (Current Development)
+### v5.4.0 — "Platform Buildout" (2026-07-30)
+**Status**: Backend/frontend feature-complete for a single large session; nothing deployed or end-to-end tested yet. See VERSION.md (gitignored, local) for the terse changelog going forward.
+
+Major additions in one continuous session, on top of the v3.0.0 rebuild below:
+- **Data layer**: switched from local Docker Postgres back to Supabase Postgres (session pooler) for logging. Added `PhonemeError`, `ApiKey`, `TrainingMarker`, `AccountDeletionRequest` tables plus `profiles` columns for tier/username/avatar/enterprise/company/role.
+- **Phoneme-error tracking** ported from v2's `drift_detector.py`/`diagnostics.py`: `Backend/phoneme_diagnostics.py` (g2p + Levenshtein alignment), `/api/errors/report` confusion-matrix endpoint, Error Analysis dashboard page. CUSUM confidence-drift detection NOT ported (needs per-phoneme confidence the new ASR pipeline doesn't expose yet).
+- **Model catalog** (`Backend/tiers.py`, `Backend/asr_pipeline.py`): 6 models total — ASR: Parakeet-TDT-0.6B (Max), Whisper-Large-v3-Turbo (Pro), Distil-Whisper-Large-v3 (Free); TTS: CosyVoice2-0.5B (Max), Bark (Pro), Kokoro-82M (Free). Multi-engine dispatch (NeMo / HF transformers pipeline / Kokoro / Bark / CosyVoice2), lazy-loaded and cached per model. Tier-based rate limiting via Redis (free 30/hr, pro 300/hr, max/enterprise 5000/hr). None of the 6 fine-tuned yet — deliberately deferred.
+- **Audio format handling**: `soundfile` (wav/flac/ogg) with `pydub`+ffmpeg fallback for mp3/mp4/aac/3gpp/amr; explicit 415 for anything else.
+- **API key service** (`Backend/api_keys.py`): third-party keys, tiered rate limits, `X-API-Key` auth alternative to Supabase session bearer.
+- **MCP server** (`Backend/mcp_server.py`, mounted at `/mcp`): exposes transcribe/synthesize/list_models/error_report as MCP tools, same API-key auth. Header passthrough to MCP tool context is UNVERIFIED (no real install tested).
+- **Bulk ingestion** (`Backend/ingest.py`): multi-file computer upload, Google Drive import (client-side OAuth token via `lib/googleDrive.ts`, never persisted server-side).
+- **Frontend rebuild**: full shadcn (base-nova/@base-ui) + custom design system (cyan/health-green, Figtree+Noto Sans, generated via ui-ux-pro-max skill, `design-system/mercury/MASTER.md`). App shell with sidebar nav, Dashboard, Error Analysis, Profile (separate from Account), Account (security-only: email/phone-with-country-picker/password/2FA/Google link/delete), Settings (theme+notifs+guided-tour replay), Subscription (mock Stripe-style checkout UI, no real payment gateway), onboarding (username+10 built-in avatars), guided tour (skippable, replayable), cookie consent, Privacy Policy (India DPDP Act 2023), API reference docs page (`/api-reference`), right-click/copy guard (cosmetic only, not real protection).
+- **Enterprise accounts**: separate signup (`/enterprise-signup`), free at Max-tier model access, no Subscription tab, collects company name + role, and a **custom employee-ID auth factor replacing TOTP entirely** (`Backend/enterprise.py`, `EnterpriseChallenge.tsx`) — Supabase MFA only supports totp/phone/webauthn natively, so this is fully custom, backend-checked against a hashed ID on the profile.
+- **Account deletion**: email-verified (`Backend/account.py`), confirming schedules deletion **24 hours out** (not immediate) — full purge of `asr_logs`/`tts_logs`/`phoneme_errors`/`api_keys` plus the Supabase auth user, executed by a cron-secret-protected endpoint (`/api/account/delete/execute-pending`) triggered hourly via `n8n/account_deletion_cron.json`. Irreversible once executed. SMTP not configured by default — falls back to returning the confirm link directly in dev.
+- **Mobile app** (`mobile/`): Expo/React Native scaffold — login (email/password only), record→transcribe, TTS. No enterprise mode (deliberately excluded). `npm install` never run, unverified.
+- **Deployment**: `render.yaml` (Docker runtime, `/api/health` healthcheck, 20GB model-cache disk). Dockerfile can bake all 6 models' weights in at build time (`Backend/scripts/prefetch_models.py`, `PREFETCH_MODELS` build arg, HF token via BuildKit secret) to avoid runtime cold-start downloads — unverified, no real build run.
+- **n8n workflows**: `retrain_trigger.json` (threshold-check + notify, not auto-retrain), `account_deletion_cron.json`.
+- **Git workflow**: `Test` (day-to-day work) → `Stage` (Claude may push) → `main` (human-only from now on). Branch policy recorded in root `CLAUDE.md`.
+- **Real bugs found and fixed along the way**: Next 16 base-ui `render` prop misuse (Button-as-Link anti-pattern, several places), a hydration mismatch from the theme-init script (needed `suppressHydrationWarning`), Supabase MFA duplicate-unverified-factor 422 (needed unenroll-stale + unique friendly_name), shadcn CLI silently overwriting the custom `accent` button variant twice.
+- **Repeated secret exposure in chat** (again, same pattern as v3.0.0): Supabase service_role/secret keys, DB password, all pasted in plaintext during this session. Flagged each time; rotation recommended for the service_role/secret keys (anon key is public-safe by design, no rotation needed).
+
+**Explicitly deferred to later** (per Viraj's direction, not forgotten): fine-tuning all 6 models (LoRA/PEFT recommended, Kaggle GPU), enterprise bring-your-own-database (dropped — no raw audio is persisted server-side, so the original concern doesn't apply), MLOps (eval harness, experiment tracking, drift detection — planned after first deploy + bugfix pass, "over the basic very very small models"), real payment gateway wiring, hCaptcha → Cloudflare Turnstile switch, Cloudflare Tunnel/WAF for the public deployment.
+
+---
+
+### v3.0.0 — "Clean Rebuild"
 **Date**: July 2026
 **Status**: In progress — rebuilt from scratch after v2.0.0 was archived (tag `v2.0-legacy`) for being largely vibe-coded via Antigravity with no clear mental model of its own architecture. Goal: a stable, demo-ready product, ASR/TTS on modern pretrained models, real auth, deployable to HF Spaces + a real host.
 
@@ -131,7 +158,7 @@ Across this session the user pasted several live secrets directly into chat (Sup
 | **README.md** | Quick start, architecture overview, Docker, deployment | Current |
 | **DOCUMENTATION.md** | Full technical reference (API, schema, modules, testing, roadmap) | Current |
 | **CLAUDE.md** | Developer reference for AI assistants (project layout, env vars, API, debugging) | Current |
-| **HISTORY.md** | This file — version history, changelog, documentation index | **New** |
+| **MEMORY.md** | This file — version history, changelog, documentation index (renamed from HISTORY.md) | **New** |
 | **docs/RESEARCH.md** | Academic paper draft — algorithm references, research contributions | Current |
 | **.env.example** | All environment variables with descriptions | Current |
 | **requirements.txt** | Python dependencies (pinned versions) | Current |
@@ -355,4 +382,4 @@ rm Backend/data/mercury.db
 1. Fork → feature branch → PR against `main`
 2. All tests must pass (`pytest -m "not slow"`)
 3. Follow existing code style (type hints, no redundant comments)
-4. Update `DOCUMENTATION.md` and `HISTORY.md` for significant changes
+4. Update `DOCUMENTATION.md` and `MEMORY.md` for significant changes

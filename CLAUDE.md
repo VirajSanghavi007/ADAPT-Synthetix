@@ -1,6 +1,6 @@
 # Mercury — Developer Reference for AI Assistants
 
-See `HISTORY.md` for the full version history and architecture narrative.
+See `MEMORY.md` for the full version history and architecture narrative.
 
 ## Git branch policy (binding — set 2026-07-30)
 
