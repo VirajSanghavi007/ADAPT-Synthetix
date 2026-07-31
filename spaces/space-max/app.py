@@ -7,6 +7,7 @@ import tempfile
 import numpy as np
 import soundfile as sf
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from pydub import AudioSegment
 
@@ -35,6 +36,9 @@ def get_asr_model():
 def get_tts_pipeline():
     global _tts_pipeline
     if _tts_pipeline is None:
+        import sys
+        sys.path.insert(0, "/app/CosyVoice")
+        sys.path.insert(0, "/app/CosyVoice/third_party/Matcha-TTS")
         from cosyvoice.cli.cosyvoice import CosyVoice2
         _tts_pipeline = CosyVoice2("FunAudioLLM/CosyVoice2-0.5B")
     return _tts_pipeline
@@ -71,11 +75,15 @@ async def transcribe(
         raise HTTPException(400, f"model {model_id} not served by this space")
     raw = await file.read()
     audio, sr = decode_audio(raw)
-    model = get_asr_model()
-    with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-        sf.write(tmp.name, audio, sr, format="WAV")
-        (hyp,) = model.transcribe([tmp.name])
-    text = (hyp.text if hasattr(hyp, "text") else str(hyp)).strip()
+
+    def _run():
+        model = get_asr_model()
+        with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
+            sf.write(tmp.name, audio, sr, format="WAV")
+            (hyp,) = model.transcribe([tmp.name])
+        return (hyp.text if hasattr(hyp, "text") else str(hyp)).strip()
+
+    text = await run_in_threadpool(_run)
     return {"text": text}
 
 
@@ -88,18 +96,24 @@ async def synthesize(
 ):
     if model_id not in MODELS:
         raise HTTPException(400, f"model {model_id} not served by this space")
-    pipeline = get_tts_pipeline()
-    # spk_id must match one of pipeline.list_available_spks() — confirm exact set once deployed.
-    chunks = [out["tts_speech"].numpy() for out in pipeline.inference_sft(text, voice or "default")]
-    if not chunks:
-        raise HTTPException(500, "no audio generated")
-    full_audio = np.concatenate(chunks)
 
-    wav_buf = io.BytesIO()
-    sf.write(wav_buf, full_audio, pipeline.sample_rate, format="WAV")
-    wav_buf.seek(0)
-    segment = AudioSegment.from_wav(wav_buf)
-    mp3_buf = io.BytesIO()
-    segment.export(mp3_buf, format="mp3", bitrate="128k")
-    mp3_buf.seek(0)
+    def _run():
+        pipeline = get_tts_pipeline()
+        # spk_id must match one of pipeline.list_available_spks() — confirm exact set once deployed.
+        chunks = [out["tts_speech"].numpy() for out in pipeline.inference_sft(text, voice or "default")]
+        if not chunks:
+            return None
+        full_audio = np.concatenate(chunks)
+        wav_buf = io.BytesIO()
+        sf.write(wav_buf, full_audio, pipeline.sample_rate, format="WAV")
+        wav_buf.seek(0)
+        segment = AudioSegment.from_wav(wav_buf)
+        mp3_buf = io.BytesIO()
+        segment.export(mp3_buf, format="mp3", bitrate="128k")
+        mp3_buf.seek(0)
+        return mp3_buf
+
+    mp3_buf = await run_in_threadpool(_run)
+    if mp3_buf is None:
+        raise HTTPException(500, "no audio generated")
     return Response(content=mp3_buf.read(), media_type="audio/mpeg")

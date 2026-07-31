@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Kokoro's G2P backend (misaki) needs spaCy's English model — not pulled in by pip.
+RUN python -m spacy download en_core_web_sm
 
 COPY app.py .
 

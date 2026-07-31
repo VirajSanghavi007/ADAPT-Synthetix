@@ -11,6 +11,7 @@ import os
 import numpy as np
 import soundfile as sf
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from pydub import AudioSegment
 
@@ -75,9 +76,13 @@ async def transcribe(
         raise HTTPException(400, f"model {model_id} not served by this space")
     raw = await file.read()
     audio, sr = decode_audio(raw)
-    pipe = get_asr_pipe()
-    result = pipe({"array": audio, "sampling_rate": sr})
-    return {"text": result["text"].strip()}
+
+    def _run():
+        pipe = get_asr_pipe()
+        return pipe({"array": audio, "sampling_rate": sr})["text"].strip()
+
+    text = await run_in_threadpool(_run)
+    return {"text": text}
 
 
 @app.post("/synthesize")
@@ -89,17 +94,23 @@ async def synthesize(
 ):
     if model_id not in MODELS:
         raise HTTPException(400, f"model {model_id} not served by this space")
-    pipeline = get_tts_pipeline()
-    chunks = [audio for _g, _p, audio in pipeline(text, voice=voice or "af_heart")]
-    if not chunks:
-        raise HTTPException(500, "no audio generated")
-    full_audio = np.concatenate(chunks)
 
-    wav_buf = io.BytesIO()
-    sf.write(wav_buf, full_audio, 24000, format="WAV")
-    wav_buf.seek(0)
-    segment = AudioSegment.from_wav(wav_buf)
-    mp3_buf = io.BytesIO()
-    segment.export(mp3_buf, format="mp3", bitrate="128k")
-    mp3_buf.seek(0)
+    def _run():
+        pipeline = get_tts_pipeline()
+        chunks = [audio for _g, _p, audio in pipeline(text, voice=voice or "af_heart")]
+        if not chunks:
+            return None
+        full_audio = np.concatenate(chunks)
+        wav_buf = io.BytesIO()
+        sf.write(wav_buf, full_audio, 24000, format="WAV")
+        wav_buf.seek(0)
+        segment = AudioSegment.from_wav(wav_buf)
+        mp3_buf = io.BytesIO()
+        segment.export(mp3_buf, format="mp3", bitrate="128k")
+        mp3_buf.seek(0)
+        return mp3_buf
+
+    mp3_buf = await run_in_threadpool(_run)
+    if mp3_buf is None:
+        raise HTTPException(500, "no audio generated")
     return Response(content=mp3_buf.read(), media_type="audio/mpeg")
