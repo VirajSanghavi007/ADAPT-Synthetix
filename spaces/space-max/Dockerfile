@@ -22,7 +22,10 @@ RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
 # instead of an isolated one that would just re-fetch latest setuptools anyway.
 RUN pip install --no-cache-dir "setuptools<81" wheel \
     && git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git /app/CosyVoice \
-    && pip install --no-cache-dir --no-build-isolation --retries 10 --timeout 120 -r /app/CosyVoice/requirements.txt
+    && grep -vE "^--extra-index-url|tensorrt|deepspeed|onnxruntime-gpu|^torch==|^torchaudio==" \
+        /app/CosyVoice/requirements.txt > /app/CosyVoice/requirements.cpu.txt \
+    && echo "onnxruntime==1.18.0" >> /app/CosyVoice/requirements.cpu.txt \
+    && pip install --no-cache-dir --no-build-isolation --retries 10 --timeout 120 -r /app/CosyVoice/requirements.cpu.txt
 
 COPY app.py .
 
