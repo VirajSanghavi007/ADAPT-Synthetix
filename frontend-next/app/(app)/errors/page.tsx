@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
+import { friendlyApiError } from "@/lib/apiError";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export default function ErrorAnalysisPage() {
       const res = await fetch(`${API_URL}/api/errors/report`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res));
       setReport(await res.json());
     } catch (err) {
       setError((err as Error).message);

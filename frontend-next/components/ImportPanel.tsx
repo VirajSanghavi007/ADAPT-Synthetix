@@ -5,6 +5,7 @@ import { FolderUp, HardDrive } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { listDriveAudioFiles, type DriveAudioFile } from "@/lib/googleDrive";
+import { friendlyApiError } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,7 +43,7 @@ export default function ImportPanel() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
         body: form,
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res));
       const data = await res.json();
       setResults(data.results);
       setStatus(`Done — ${data.results.length} file(s) processed.`);
@@ -93,7 +94,7 @@ export default function ImportPanel() {
         },
         body: JSON.stringify({ access_token: driveToken, file_ids: Array.from(selectedIds) }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res));
       const data = await res.json();
       setResults(data.results);
       setStatus(`Done — ${data.results.length} file(s) processed.`);

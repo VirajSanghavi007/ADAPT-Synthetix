@@ -6,6 +6,7 @@ import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { useModels } from "@/lib/useModels";
 import { uploadToDrive } from "@/lib/googleDrive";
+import { friendlyApiError } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -51,7 +52,7 @@ export default function TTSPanel() {
         body: JSON.stringify({ text: trimmed, model_id: modelId || undefined }),
       });
       const ms = performance.now() - start;
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res));
       const buffer = await res.arrayBuffer();
       const blob = new Blob([buffer], { type: "audio/mpeg" });
       setAudioBlob(blob);

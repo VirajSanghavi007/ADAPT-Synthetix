@@ -6,6 +6,7 @@ import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { useModels } from "@/lib/useModels";
 import { uploadToDrive } from "@/lib/googleDrive";
+import { friendlyApiError } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -94,7 +95,7 @@ export default function Recorder() {
         body: form,
       });
       const ms = performance.now() - start;
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res));
       const data = await res.json();
       const text = data.text || "(no speech detected)";
       setTranscript(text);
