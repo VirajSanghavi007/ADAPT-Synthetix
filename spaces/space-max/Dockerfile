@@ -13,12 +13,16 @@ RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
 # CosyVoice2 isn't pip-installable (no setup.py/pyproject.toml at repo root) — clone
 # it and its Matcha-TTS submodule, install its own requirements, use via sys.path
 # (see app.py). --recursive pulls third_party/Matcha-TTS, which CosyVoice2 imports from.
-# setuptools must be installed explicitly first: some of CosyVoice's own deps use a
-# legacy setup.py that imports pkg_resources at build time, which newer setuptools
-# doesn't ship by default unless pulled in ahead of the build.
-RUN pip install --no-cache-dir --upgrade setuptools wheel \
+#
+# Some of CosyVoice's own deps use a legacy setup.py that imports pkg_resources at
+# build time. setuptools >=81 dropped pkg_resources entirely, and pip's build
+# isolation resolves a *fresh* setuptools per-package regardless of what's installed
+# globally — so pinning setuptools<81 alone isn't enough. --no-build-isolation makes
+# these packages build against the outer (pinned, pkg_resources-having) environment
+# instead of an isolated one that would just re-fetch latest setuptools anyway.
+RUN pip install --no-cache-dir "setuptools<81" wheel \
     && git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git /app/CosyVoice \
-    && pip install --no-cache-dir --retries 10 --timeout 120 -r /app/CosyVoice/requirements.txt
+    && pip install --no-cache-dir --no-build-isolation --retries 10 --timeout 120 -r /app/CosyVoice/requirements.txt
 
 COPY app.py .
 
