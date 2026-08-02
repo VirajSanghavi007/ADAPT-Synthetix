@@ -38,6 +38,22 @@ type DriftSignal = {
   baseline_avg_wer: number | null;
   note: string;
 };
+type LatencyRow = {
+  model_id: string;
+  kind: string;
+  tier: string;
+  n: number;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  error_rate: number | null;
+};
+type SpaceStatus = {
+  name: string;
+  url: string | null;
+  online: boolean;
+  models: string[];
+  error: string | null;
+};
 
 export default function AdminPage() {
   const { session, loading } = useSession();
@@ -46,10 +62,12 @@ export default function AdminPage() {
   const [metrics, setMetrics] = useState<MetricRow[] | null>(null);
   const [registry, setRegistry] = useState<RegistryRow[] | null>(null);
   const [drift, setDrift] = useState<DriftSignal | null>(null);
+  const [latency, setLatency] = useState<LatencyRow[] | null>(null);
+  const [spaces, setSpaces] = useState<SpaceStatus[] | null>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  function loadAll() {
     if (!session) return;
     const headers = { Authorization: `Bearer ${session.access_token}` };
     Promise.all([
@@ -58,8 +76,10 @@ export default function AdminPage() {
       fetch(`${API_URL}/api/mlops/metrics`, { headers }),
       fetch(`${API_URL}/api/mlops/registry`, { headers }),
       fetch(`${API_URL}/api/mlops/drift-signal`, { headers }),
+      fetch(`${API_URL}/api/mlops/latency`, { headers }),
+      fetch(`${API_URL}/api/spaces/status`, { headers }),
     ])
-      .then(async ([uRes, aRes, mRes, rRes, dRes]) => {
+      .then(async ([uRes, aRes, mRes, rRes, dRes, lRes, sRes]) => {
         if (!uRes.ok) throw new Error(await uRes.text());
         if (!aRes.ok) throw new Error(await aRes.text());
         setUsers(await uRes.json());
@@ -67,8 +87,17 @@ export default function AdminPage() {
         if (mRes.ok) setMetrics(await mRes.json());
         if (rRes.ok) setRegistry(await rRes.json());
         if (dRes.ok) setDrift(await dRes.json());
+        if (lRes.ok) setLatency(await lRes.json());
+        if (sRes.ok) setSpaces(await sRes.json());
       })
       .catch((err) => setError(err.message));
+  }
+
+  useEffect(() => {
+    loadAll();
+    const interval = setInterval(loadAll, 15000); // refresh space status every 15s
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   if (loading) return null;
@@ -107,6 +136,40 @@ export default function AdminPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-8 p-8">
       <h1 className="text-2xl font-semibold">Admin</h1>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Model Spaces</h2>
+          <button
+            onClick={loadAll}
+            className="cursor-pointer text-sm text-accent underline hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Refresh
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {spaces?.map((s) => (
+            <div key={s.name} className="rounded-xl border border-border p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium capitalize">{s.name}</span>
+                <span
+                  className={`flex items-center gap-1.5 text-sm ${s.online ? "text-accent" : "text-destructive"}`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${s.online ? "bg-accent" : "bg-destructive"}`} />
+                  {s.online ? "Online" : "Offline"}
+                </span>
+              </div>
+              {s.online ? (
+                <p className="mt-1 text-xs text-muted">{s.models.join(", ")}</p>
+              ) : (
+                <p className="mt-1 text-xs text-destructive">{s.error}</p>
+              )}
+            </div>
+          ))}
+          {!spaces && <p className="text-sm text-muted">Loading...</p>}
+        </div>
+        <p className="text-xs text-muted">Auto-refreshes every 15s.</p>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Users</h2>
@@ -194,6 +257,42 @@ export default function AdminPage() {
           </div>
         ) : (
           <p className="text-sm text-muted">No drift signal available.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">MLOps — latency (p50/p95, last 7 days)</h2>
+        {latency && latency.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary text-left">
+                <tr>
+                  <th className="p-3">Model</th>
+                  <th className="p-3">Kind</th>
+                  <th className="p-3">Tier</th>
+                  <th className="p-3">p50 (ms)</th>
+                  <th className="p-3">p95 (ms)</th>
+                  <th className="p-3">Error rate</th>
+                  <th className="p-3">Requests</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latency.map((l, i) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="p-3 font-mono text-xs">{l.model_id}</td>
+                    <td className="p-3">{l.kind}</td>
+                    <td className="p-3">{l.tier}</td>
+                    <td className="p-3">{l.p50_ms ?? "—"}</td>
+                    <td className="p-3">{l.p95_ms ?? "—"}</td>
+                    <td className="p-3">{l.error_rate !== null ? `${(l.error_rate * 100).toFixed(1)}%` : "—"}</td>
+                    <td className="p-3">{l.n}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No requests logged in the last 7 days.</p>
         )}
       </section>
 

@@ -6,6 +6,12 @@ services:
       SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7861:7860"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
 
   space-pro:
     build: ./spaces/space-pro
@@ -14,17 +20,30 @@ services:
       SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7862:7860"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
 
-  # Heaviest models (Parakeet + CosyVoice2) — left out of local dev by default since
-  # they're the ones actually blocked on a real hosting decision. Uncomment once
-  # you're ready to run them (needs real RAM/CPU headroom).
-  # space-max:
-  #   build: ./spaces/space-max
-  #   restart: unless-stopped
-  #   environment:
-  #     SPACE_SECRET: ${SPACE_SECRET}
-  #   ports:
-  #     - "7863:7860"
+  # Heaviest models (Parakeet + CosyVoice2) — real RAM/CPU headroom needed. Included
+  # in `docker compose up` now so one command builds+starts everything, but the main
+  # app only soft-depends on it (service_started, not service_healthy) so a slow or
+  # failed space-max doesn't block the rest of the stack from coming up.
+  space-max:
+    build: ./spaces/space-max
+    restart: unless-stopped
+    environment:
+      SPACE_SECRET: ${SPACE_SECRET}
+    ports:
+      - "7863:7860"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 120s
+      retries: 8
 
   redis:
     image: redis:7-alpine
@@ -48,6 +67,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SPACE_FREE_URL: http://space-free:7860
       SPACE_PRO_URL: http://space-pro:7860
+      SPACE_MAX_URL: http://space-max:7860
       SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7860:7860"
@@ -55,8 +75,10 @@ services:
       redis:
         condition: service_healthy
       space-free:
-        condition: service_started
+        condition: service_healthy
       space-pro:
+        condition: service_healthy
+      space-max:
         condition: service_started
 
 volumes:

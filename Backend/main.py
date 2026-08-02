@@ -1,4 +1,5 @@
 import os
+import time
 
 from dotenv import load_dotenv
 
@@ -23,11 +24,12 @@ from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
 from Backend.ingest import router as ingest_router
 from Backend.limiter import limiter
 from Backend.mcp_server import mcp
-from Backend.mlops import record_eval_metric
+from Backend.mlops import record_eval_metric, record_latency
 from Backend.mlops import router as mlops_router
 from Backend.password import router as password_router
 from Backend.profile import router as profile_router
 from Backend.phoneme_diagnostics import align_phoneme_errors, build_error_report
+from Backend.spaces_status import router as spaces_status_router
 from Backend.tiers import (
     ASR_CATALOG,
     TIER_MODELS,
@@ -60,6 +62,7 @@ app.include_router(profile_router)
 app.include_router(account_router)
 app.include_router(enterprise_router)
 app.include_router(mlops_router)
+app.include_router(spaces_status_router)
 app.mount("/mcp", mcp.streamable_http_app())
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
@@ -114,7 +117,13 @@ async def transcribe(
     except Exception:
         raise HTTPException(400, "could not decode audio file")
 
-    text = await run_in_threadpool(transcribe_audio, audio, sr, resolved_model)
+    start = time.monotonic()
+    try:
+        text = await run_in_threadpool(transcribe_audio, audio, sr, resolved_model)
+    except Exception:
+        record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=False)
+        raise
+    record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=True)
 
     duration_sec = len(audio) / sr if sr else None
     db = get_session()
@@ -196,7 +205,13 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
 
     # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks()
     # TODO: confirm exact spk_id set once the model is pulled in Docker
-    mp3_bytes = await run_in_threadpool(synthesize_speech, text, req.voice, resolved_model)
+    start = time.monotonic()
+    try:
+        mp3_bytes = await run_in_threadpool(synthesize_speech, text, req.voice, resolved_model)
+    except Exception:
+        record_latency("tts", resolved_model, tier, (time.monotonic() - start) * 1000, success=False)
+        raise
+    record_latency("tts", resolved_model, tier, (time.monotonic() - start) * 1000, success=(mp3_bytes is not None))
     if mp3_bytes is None:
         raise HTTPException(500, "no audio generated")
 

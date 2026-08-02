@@ -28,4 +28,7 @@ USER spaceuser
 ENV PYTHONUNBUFFERED=1
 EXPOSE 7860
 
+HEALTHCHECK --interval=15s --timeout=5s --start-period=120s --retries=8 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)" || exit 1
+
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]

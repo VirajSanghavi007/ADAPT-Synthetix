@@ -117,6 +117,22 @@ class ModelRegistry(Base):
     promoted_at = Column(DateTime(timezone=True), default=utcnow)
 
 
+class RequestLatency(Base):
+    """Per-request inference latency, per model — the other half of "is this model
+    good" alongside WER/CER (eval_metrics). Powers p50/p95 latency trend and lets you
+    catch a model silently getting slower (e.g. a Space under memory pressure) even
+    when accuracy hasn't moved."""
+    __tablename__ = "request_latency"
+
+    id = Column(Integer, primary_key=True)
+    kind = Column(String(8), nullable=False)   # "asr" | "tts"
+    model_id = Column(String(120), nullable=False, index=True)
+    tier = Column(String(16), nullable=False)
+    latency_ms = Column(Float, nullable=False)
+    success = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
 class TrainingMarker(Base):
     """Key/value timestamps the n8n retrain-check workflow reads and updates
     (e.g. 'last_trained_at', 'last_notified_at')."""

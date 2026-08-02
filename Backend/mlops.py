@@ -14,9 +14,20 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, text
 
 from Backend.admin import require_admin
-from Backend.db import ASRLog, EvalMetric, ModelRegistry, TTSLog, get_session
+from Backend.db import ASRLog, EvalMetric, ModelRegistry, RequestLatency, TTSLog, get_session
 
 router = APIRouter(prefix="/api/mlops", tags=["mlops"])
+
+
+def record_latency(kind: str, model_id: str, tier: str, latency_ms: float, success: bool = True) -> None:
+    """Called from /api/transcribe and /api/tts around the inference call, regardless
+    of whether a reference_text was given — unlike eval_metrics, this doesn't need one."""
+    db = get_session()
+    try:
+        db.add(RequestLatency(kind=kind, model_id=model_id, tier=tier, latency_ms=latency_ms, success=int(success)))
+        db.commit()
+    finally:
+        db.close()
 
 
 def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypothesis_text: str) -> None:
@@ -160,3 +171,44 @@ def get_drift_signal(admin: dict = Depends(require_admin)):
         "baseline_avg_wer": round(baseline_wer, 4) if baseline_wer is not None else None,
         "note": "volume-based proxy, not real drift detection — see docstring",
     }
+
+
+@router.get("/latency")
+def get_latency(admin: dict = Depends(require_admin)):
+    """p50/p95 latency per model, plus error rate — catches a model quietly getting
+    slower or flakier without needing a reference_text (unlike WER/CER)."""
+    db = get_session()
+    try:
+        rows = db.execute(
+            text(
+                """
+                select
+                    model_id,
+                    kind,
+                    tier,
+                    count(*) as n,
+                    percentile_cont(0.5) within group (order by latency_ms) as p50_ms,
+                    percentile_cont(0.95) within group (order by latency_ms) as p95_ms,
+                    avg(case when success then 0.0 else 1.0 end) as error_rate
+                from request_latency
+                where created_at > now() - interval '7 days'
+                group by model_id, kind, tier
+                order by model_id
+                """
+            )
+        ).all()
+    finally:
+        db.close()
+
+    return [
+        {
+            "model_id": r[0],
+            "kind": r[1],
+            "tier": r[2],
+            "n": r[3],
+            "p50_ms": round(r[4], 1) if r[4] is not None else None,
+            "p95_ms": round(r[5], 1) if r[5] is not None else None,
+            "error_rate": round(r[6], 4) if r[6] is not None else None,
+        }
+        for r in rows
+    ]
