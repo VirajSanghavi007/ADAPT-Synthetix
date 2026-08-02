@@ -15,8 +15,10 @@ import MFAEnroll from "@/components/MFAEnroll";
 import PhoneInput from "@/components/PhoneInput";
 import DeleteAccountCard from "@/components/DeleteAccountCard";
 import UsageStatsCard from "@/components/UsageStatsCard";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function AccountPage() {
+  usePageTitle("Account");
   const { session } = useSession();
   const { profile } = useProfile();
   const email = session?.user.email ?? "";

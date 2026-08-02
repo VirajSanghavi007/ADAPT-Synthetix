@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 type HistoryItem = {
   id: number;
@@ -22,6 +23,7 @@ type HistoryItem = {
 const PAGE_SIZE = 20;
 
 export default function HistoryPage() {
+  usePageTitle("History");
   const { session } = useSession();
   const [kind, setKind] = useState<"asr" | "tts">("asr");
   const [search, setSearch] = useState("");

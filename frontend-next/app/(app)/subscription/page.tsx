@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 type Plan = {
   id: string;
@@ -76,6 +77,7 @@ const RATE_LIMITS: Record<string, number> = { free: 30, pro: 300, max: 5000, ent
 type Usage = { total_word_count: number; audio_hours: number; transcription_count: number; synthesis_count: number };
 
 export default function SubscriptionPage() {
+  usePageTitle("Subscription");
   const { profile, loading } = useProfile();
   const { session } = useSession();
   const router = useRouter();

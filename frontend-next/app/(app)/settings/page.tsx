@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { resetTour } from "@/components/GuidedTour";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const THEME_KEY = "mercury-theme";
 const THEME_OPTIONS = [
@@ -16,6 +17,7 @@ const THEME_OPTIONS = [
 ];
 
 export default function SettingsPage() {
+  usePageTitle("Settings");
   const [theme, setThemeState] = useState("system");
   const [emailNotifs, setEmailNotifs] = useState(true);
 

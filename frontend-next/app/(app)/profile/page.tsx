@@ -11,8 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function ProfilePage() {
+  usePageTitle("Profile");
   const { session } = useSession();
   const { profile, loading } = useProfile();
   const [username, setUsername] = useState("");

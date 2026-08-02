@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 type ApiKeyRow = {
   id: number;
@@ -38,6 +39,7 @@ type ApiKeyRow = {
 };
 
 export default function ApiKeysPage() {
+  usePageTitle("API Keys");
   const { session } = useSession();
   const [keys, setKeys] = useState<ApiKeyRow[]>([]);
   const [loading, setLoading] = useState(true);

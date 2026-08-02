@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 type UserRow = {
   id: string;
@@ -56,6 +57,7 @@ type SpaceStatus = {
 };
 
 export default function AdminPage() {
+  usePageTitle("Admin");
   const { session, loading } = useSession();
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [audit, setAudit] = useState<AuditRow[] | null>(null);

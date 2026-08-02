@@ -5,6 +5,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { friendlyApiError } from "@/lib/apiError";
+import { usePageTitle } from "@/lib/usePageTitle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ type ErrorReport = {
 };
 
 export default function ErrorAnalysisPage() {
+  usePageTitle("Error Analysis");
   const { session } = useSession();
   const [report, setReport] = useState<ErrorReport | null>(null);
   const [loading, setLoading] = useState(true);

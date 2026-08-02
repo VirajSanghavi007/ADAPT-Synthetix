@@ -7,6 +7,7 @@ import { useSession } from "@/lib/useSession";
 import MFAEnroll from "@/components/MFAEnroll";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 type Mode = "passkey" | "password" | "forgot";
 

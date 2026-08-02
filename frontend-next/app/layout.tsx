@@ -17,9 +17,22 @@ const headingFont = Figtree({
   subsets: ["latin"],
 });
 
+const DESCRIPTION =
+  "Adaptive speech-to-text and text-to-speech for lecture and medical transcription, with phoneme-level error diagnostics.";
+
 export const metadata: Metadata = {
-  title: "Mercury",
-  description: "ASR / TTS demo",
+  title: { default: "Mercury", template: "%s — Mercury" },
+  description: DESCRIPTION,
+  openGraph: {
+    title: "Mercury",
+    description: DESCRIPTION,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Mercury",
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

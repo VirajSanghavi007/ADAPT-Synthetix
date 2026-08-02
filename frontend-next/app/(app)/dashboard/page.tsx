@@ -8,6 +8,7 @@ import { useModels } from "@/lib/useModels";
 import Recorder from "@/components/Recorder";
 import TTSPanel from "@/components/TTSPanel";
 import ImportPanel from "@/components/ImportPanel";
+import { usePageTitle } from "@/lib/usePageTitle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function StatCard({
@@ -38,6 +39,7 @@ function StatCard({
 }
 
 export default function DashboardPage() {
+  usePageTitle("Dashboard");
   const { session } = useSession();
   const { models } = useModels();
   const [usage, setUsage] = useState<{ transcription_count: number; synthesis_count: number } | null>(null);
