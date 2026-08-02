@@ -7,6 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+# PyPI's default `torch` wheel bundles full CUDA (~2GB of nvidia-cublas/cudnn/nccl
+# packages) even though we only ever run on CPU here — pulling from PyTorch's own
+# CPU-only wheel index first cuts this down to ~200MB and avoids re-resolving a CUDA
+# build later (torch is deliberately not pinned in requirements.txt, so later installs
+# see it already satisfied and leave it alone).
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 # Kokoro's G2P backend (misaki) needs spaCy's English model — not pulled in by pip.
