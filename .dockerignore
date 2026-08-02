@@ -8,3 +8,7 @@ Backend/data
 __pycache__
 *.pyc
 .claude
+node_modules
+frontend-next/node_modules
+frontend-next/.next
+frontend-next/out
