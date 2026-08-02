@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CreditCard, Lock } from "lucide-react";
+import { Check, CreditCard, Lock, Gauge } from "lucide-react";
 import { useProfile } from "@/lib/useProfile";
+import { useSession } from "@/lib/useSession";
+import { API_URL } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,15 +70,34 @@ const PLANS: Plan[] = [
   },
 ];
 
+// Mirrors Backend/tiers.py TIER_RATE_LIMITS — requests/hour per tier.
+const RATE_LIMITS: Record<string, number> = { free: 30, pro: 300, max: 5000, enterprise: 5000 };
+
+type Usage = { total_word_count: number; audio_hours: number; transcription_count: number; synthesis_count: number };
+
 export default function SubscriptionPage() {
   const { profile, loading } = useProfile();
+  const { session } = useSession();
   const router = useRouter();
+  const [usage, setUsage] = useState<Usage | null>(null);
 
   useEffect(() => {
     if (!loading && profile?.is_enterprise) router.replace("/dashboard");
   }, [loading, profile, router]);
 
+  useEffect(() => {
+    if (!session?.access_token) return;
+    fetch(`${API_URL}/api/account/usage`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUsage);
+  }, [session?.access_token]);
+
   if (loading || profile?.is_enterprise) return null;
+
+  const currentTier = profile?.tier ?? "free";
+  const rateLimit = RATE_LIMITS[currentTier] ?? RATE_LIMITS.free;
 
   return (
     <div className="animate-fade-up space-y-6">
@@ -84,6 +105,35 @@ export default function SubscriptionPage() {
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Subscription</h1>
         <p className="text-sm text-muted">Choose the plan that fits your usage.</p>
       </div>
+
+      {usage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-accent" /> Your usage on the{" "}
+              <span className="capitalize">{currentTier}</span> plan
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <p className="font-heading text-xl font-semibold tabular-nums">{usage.transcription_count}</p>
+              <p className="text-xs text-muted">Transcriptions (lifetime)</p>
+            </div>
+            <div>
+              <p className="font-heading text-xl font-semibold tabular-nums">{usage.synthesis_count}</p>
+              <p className="text-xs text-muted">Speech generations (lifetime)</p>
+            </div>
+            <div>
+              <p className="font-heading text-xl font-semibold tabular-nums">{usage.audio_hours}</p>
+              <p className="text-xs text-muted">Audio hours processed</p>
+            </div>
+            <div>
+              <p className="font-heading text-xl font-semibold tabular-nums">{rateLimit}/hr</p>
+              <p className="text-xs text-muted">Your rate limit</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {PLANS.map((plan) => (
@@ -108,7 +158,7 @@ export default function SubscriptionPage() {
                   </li>
                 ))}
               </ul>
-              {plan.id === "free" ? (
+              {plan.id === currentTier ? (
                 <Button className="w-full cursor-pointer" variant="outline" disabled>
                   Current plan
                 </Button>
