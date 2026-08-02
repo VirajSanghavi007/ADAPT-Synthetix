@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_URL, supabase } from "@/lib/supabase";
@@ -8,6 +8,14 @@ import { buttonVariants } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 
 export default function ConfirmDeletePage() {
+  return (
+    <Suspense fallback={null}>
+      <ConfirmDeleteInner />
+    </Suspense>
+  );
+}
+
+function ConfirmDeleteInner() {
   const params = useSearchParams();
   const token = params.get("token");
   const [status, setStatus] = useState<"pending" | "done" | "error">("pending");
