@@ -19,6 +19,7 @@ from Backend.admin import router as admin_router
 from Backend.api_keys import require_user_or_api_key
 from Backend.enterprise import router as enterprise_router
 from Backend.api_keys import router as api_keys_router
+from Backend.history import router as history_router
 from Backend.asr_pipeline import ALLOWED_AUDIO_TYPES, decode_audio, synthesize_speech, transcribe_audio
 from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
 from Backend.ingest import router as ingest_router
@@ -63,6 +64,7 @@ app.include_router(account_router)
 app.include_router(enterprise_router)
 app.include_router(mlops_router)
 app.include_router(spaces_status_router)
+app.include_router(history_router)
 app.mount("/mcp", mcp.streamable_http_app())
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024

@@ -8,6 +8,7 @@ import {
   CreditCard,
   BookOpen,
   KeyRound,
+  History,
 } from "lucide-react";
 
 export type NavItem = {
@@ -19,6 +20,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "History", href: "/history", icon: History },
   { title: "Error Analysis", href: "/errors", icon: ActivitySquare },
   { title: "Profile", href: "/profile", icon: UserCircle },
   { title: "Account", href: "/account", icon: ShieldCheck },
