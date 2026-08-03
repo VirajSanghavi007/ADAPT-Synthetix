@@ -61,6 +61,7 @@ TIER_RATE_LIMITS = {
 
 def get_user_tier(user_id: str) -> str:
     from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
 
     db = get_session()
     try:
@@ -68,6 +69,10 @@ def get_user_tier(user_id: str) -> str:
             text("select tier from profiles where id = :uid"), {"uid": user_id}
         ).first()
         return row[0] if row and row[0] else "free"
+    except OperationalError:
+        # DB unreachable (network outage, pooler down) — degrade to free rather
+        # than taking down transcribe/TTS entirely.
+        return "free"
     finally:
         db.close()
 

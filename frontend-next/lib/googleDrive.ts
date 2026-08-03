@@ -87,7 +87,8 @@ export async function listDriveAudioFiles(): Promise<{ files: DriveAudioFile[]; 
   const res = await fetch(
     "https://www.googleapis.com/drive/v3/files?q=" +
       encodeURIComponent("mimeType contains 'audio/' and trashed = false") +
-      "&fields=files(id,name,mimeType)&pageSize=50",
+      "&fields=files(id,name,mimeType)&pageSize=50" +
+      "&corpora=allDrives&includeItemsFromAllDrives=true&supportsAllDrives=true",
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!res.ok) throw new Error(`Drive list failed: ${await res.text()}`);
