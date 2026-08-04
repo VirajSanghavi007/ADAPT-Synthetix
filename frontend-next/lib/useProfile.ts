@@ -8,6 +8,7 @@ type Profile = {
   username: string | null;
   display_name: string | null;
   avatar_id: number | null;
+  avatar_url: string | null;
   tier: string;
   is_enterprise: boolean;
 };

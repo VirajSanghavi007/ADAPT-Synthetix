@@ -35,17 +35,18 @@ RUN pip install --no-cache-dir "setuptools<81" wheel \
     && pip install --no-cache-dir --no-build-isolation --retries 10 --timeout 120 -r /app/CosyVoice/requirements.cpu.txt
 
 # CosyVoice's own requirements (installed above) get resolved as a separate pip
-# invocation from the base torch/pytorch-lightning installs earlier in this file —
-# pip doesn't remember those pins across invocations, so this step has silently
-# upgraded pytorch-lightning past nemo's compatible range (dropping NeptuneLogger,
-# which nemo imports unconditionally) and dropped torchaudio entirely (needed by
-# CosyVoice's own frontend.py for resampling). Re-pin both as the final step so
-# nothing installed afterward can disturb them again. --no-deps because we already
-# know these exact versions are correct together; re-resolving would just repeat
-# the problem this is fixing.
+# invocation from the base torch/pytorch-lightning/datasets installs earlier in
+# this file — pip doesn't remember those pins across invocations, so this step has
+# silently upgraded pytorch-lightning past nemo's compatible range (dropping
+# NeptuneLogger, which nemo imports unconditionally), dropped torchaudio entirely
+# (needed by CosyVoice's own frontend.py for resampling), and upgraded datasets
+# past nemo's compatible range too (calls a pyarrow API too new for the installed
+# pyarrow). Re-pin all three as the final step so nothing installed afterward can
+# disturb them again. --no-deps because we already know these exact versions are
+# correct together; re-resolving would just repeat the problem this is fixing.
 RUN pip install --no-cache-dir --no-deps \
     --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchaudio==2.5.1 \
-    && pip install --no-cache-dir --no-deps pytorch-lightning==2.2.5
+    && pip install --no-cache-dir --no-deps pytorch-lightning==2.2.5 "datasets<3"
 
 COPY app.py .
 

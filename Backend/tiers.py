@@ -11,18 +11,20 @@ from fastapi import HTTPException
 from Backend.db import get_session
 from Backend.redis_client import get_redis
 
-# Mercury's own model names — Iris/Echo/Janus/Apollo/Thoth/Bragi are Mercury's
-# in-house branding for these engines, not third-party names to expose to users.
+# Mercury's own model names — one brand per tier (see MODELVERSION.md for the
+# versioning rules: 1.x while these are stock pre-trained weights we didn't train
+# ourselves; a tier's first fine-tune bumps it to 2.0, each one after increments
+# the minor version, e.g. 2.3 -> 2.4).
 ASR_CATALOG = {
-    "distil-whisper/distil-large-v3": {"engine": "hf_asr_pipeline", "label": "Iris (fast)"},
-    "openai/whisper-large-v3-turbo": {"engine": "hf_asr_pipeline", "label": "Janus"},
-    "nvidia/parakeet-tdt-0.6b-v2": {"engine": "nemo", "label": "Thoth (best accuracy)"},
+    "distil-whisper/distil-large-v3": {"engine": "hf_asr_pipeline", "label": "Echo 1.1"},
+    "openai/whisper-large-v3-turbo": {"engine": "hf_asr_pipeline", "label": "Apollo 1.2"},
+    "nvidia/parakeet-tdt-0.6b-v2": {"engine": "nemo", "label": "Thoth 1.3"},
 }
 
 TTS_CATALOG = {
-    "kokoro": {"engine": "kokoro", "label": "Echo (fast)"},
-    "suno/bark": {"engine": "bark", "label": "Apollo"},
-    "FunAudioLLM/CosyVoice2-0.5B": {"engine": "cosyvoice2", "label": "Bragi (best quality, voice cloning)"},
+    "kokoro": {"engine": "kokoro", "label": "Echo 1.1"},
+    "suno/bark": {"engine": "bark", "label": "Apollo 1.2"},
+    "FunAudioLLM/CosyVoice2-0.5B": {"engine": "cosyvoice2", "label": "Thoth 1.3"},
 }
 
 # Tier -> allowed model ids. Enterprise mirrors max (best models, free billing).

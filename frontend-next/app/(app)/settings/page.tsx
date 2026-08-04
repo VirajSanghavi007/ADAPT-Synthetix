@@ -245,7 +245,11 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             About
-            <Badge variant="secondary">v{CURRENT_VERSION}</Badge>
+            <Badge variant="secondary">
+              v{CURRENT_VERSION}
+              {betaFeatures ? "-beta" : ""}
+            </Badge>
+            {betaFeatures && <Badge variant="outline">Beta</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

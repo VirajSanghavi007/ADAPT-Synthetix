@@ -76,6 +76,41 @@ def align_phoneme_errors(reference_text: str, hypothesis_text: str) -> dict:
 
 CONFUSION_RATE_THRESHOLD = 0.30  # DyPCL / POWER systematic-confusion rule
 
+# ARPAbet (CMUdict/g2p_en's phoneme alphabet) -> a plain-English name and example
+# word, for the majority of users who have no reason to know what "AH0" means.
+# Stress digits (0/1/2) on vowels are stripped before lookup.
+_PHONEME_NAMES: dict[str, tuple[str, str]] = {
+    "AA": ("ah", "father"), "AE": ("a", "cat"), "AH": ("uh", "but"),
+    "AO": ("aw", "dog"), "AW": ("ow", "how"), "AY": ("eye", "my"),
+    "B": ("b", "boy"), "CH": ("ch", "chip"), "D": ("d", "dog"),
+    "DH": ("th (soft)", "this"), "EH": ("e", "bed"), "ER": ("er", "bird"),
+    "EY": ("ay", "day"), "F": ("f", "fish"), "G": ("g", "go"),
+    "HH": ("h", "hat"), "IH": ("i", "bit"), "IY": ("ee", "see"),
+    "JH": ("j", "joy"), "K": ("k", "cat"), "L": ("l", "lip"),
+    "M": ("m", "man"), "N": ("n", "no"), "NG": ("ng", "sing"),
+    "OW": ("oh", "go"), "OY": ("oy", "boy"), "P": ("p", "pig"),
+    "R": ("r", "run"), "S": ("s", "sun"), "SH": ("sh", "shoe"),
+    "T": ("t", "top"), "TH": ("th (hard)", "think"), "UH": ("oo (short)", "book"),
+    "UW": ("oo (long)", "food"), "V": ("v", "van"), "W": ("w", "we"),
+    "Y": ("y", "yes"), "Z": ("z", "zoo"), "ZH": ("zh", "vision"),
+}
+
+
+def _describe_phoneme(code: str) -> str:
+    if not code:
+        return "(nothing)"
+    base = code.rstrip("012")
+    name, example = _PHONEME_NAMES.get(base, (code, None))
+    return f'the "{name}" sound (as in "{example}")' if example else f'the "{name}" sound'
+
+
+def _plain_english(operation: str, reference_phoneme: str, hypothesis_phoneme: str) -> str:
+    if operation == "substitution":
+        return f"{_describe_phoneme(reference_phoneme)} gets heard as {_describe_phoneme(hypothesis_phoneme)}"
+    if operation == "deletion":
+        return f"{_describe_phoneme(reference_phoneme)} gets dropped entirely"
+    return f"an extra {_describe_phoneme(hypothesis_phoneme)} gets added in"
+
 
 def build_error_report(rows: list[dict]) -> dict:
     """rows: [{operation, reference_phoneme, hypothesis_phoneme, count}, ...]"""
@@ -90,8 +125,26 @@ def build_error_report(rows: list[dict]) -> dict:
             if rate >= CONFUSION_RATE_THRESHOLD:
                 systematic.append({**r, "confusion_rate": round(rate, 3), "systematic": True})
 
+    top_errors = [
+        {**r, "plain_english": _plain_english(r["operation"], r["reference_phoneme"], r["hypothesis_phoneme"])}
+        for r in rows[:25]
+    ]
+    systematic = [
+        {**r, "plain_english": _plain_english(r["operation"], r["reference_phoneme"], r["hypothesis_phoneme"])}
+        for r in systematic
+    ]
+
+    summary = None
+    if top_errors:
+        worst = top_errors[0]
+        summary = (
+            f"Most often, {worst['plain_english']} "
+            f"({worst['count']} time{'s' if worst['count'] != 1 else ''} across everything reviewed)."
+        )
+
     return {
         "basis": "reference_aligned_phoneme_errors",
-        "top_errors": rows[:25],
+        "summary": summary,
+        "top_errors": top_errors,
         "systematic_confusions": systematic,
     }

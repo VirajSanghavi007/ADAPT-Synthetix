@@ -39,11 +39,13 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   const { profile, loading: profileLoading } = useProfile();
   const [verified, setVerified] = useState(false);
   const [whatsNewSeen, setWhatsNewSeen] = useState(true);
+  const [betaFeatures, setBetaFeatures] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     setWhatsNewSeen(localStorage.getItem("mercury-last-seen-version") === CURRENT_VERSION);
+    setBetaFeatures(localStorage.getItem("mercury-beta-features") === "true");
   }, []);
 
   useEffect(() => {
@@ -125,6 +127,10 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
           </SidebarMenu>
           <p className="truncate px-2 pb-1 text-xs text-muted group-data-[collapsible=icon]:hidden">
             {session.user.email}
+          </p>
+          <p className="px-2 pb-1 text-[11px] text-muted group-data-[collapsible=icon]:hidden">
+            v{CURRENT_VERSION}
+            {betaFeatures ? "-beta" : ""}
           </p>
         </SidebarFooter>
       </Sidebar>

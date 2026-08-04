@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, Lightbulb, RefreshCw } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { friendlyApiError } from "@/lib/apiError";
@@ -10,14 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 type PhonemeErrorRow = {
   operation: string;
@@ -26,10 +18,12 @@ type PhonemeErrorRow = {
   count: number;
   confusion_rate?: number;
   systematic?: boolean;
+  plain_english: string;
 };
 
 type ErrorReport = {
   basis: string;
+  summary: string | null;
   top_errors: PhonemeErrorRow[];
   systematic_confusions: PhonemeErrorRow[];
 };
@@ -92,18 +86,28 @@ export default function ErrorAnalysisPage() {
         </Card>
       )}
 
+      {report?.summary && (
+        <Card className="border-accent/40 bg-accent/5">
+          <CardContent className="flex items-start gap-2 p-4 text-sm">
+            <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <p>{report.summary}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>Systematic confusions</CardTitle>
+          <CardTitle>Recurring mix-ups</CardTitle>
           <p className="text-sm text-muted">
-            Substitutions occurring ≥30% of the time for a given reference phoneme (DyPCL / POWER rule).
+            Sounds that get confused for another sound often enough to be a pattern, not a fluke — worth
+            practicing if you're using this for speech training.
           </p>
         </CardHeader>
         <CardContent>
           {loading ? (
             <SkeletonRows />
           ) : !report || report.systematic_confusions.length === 0 ? (
-            <EmptyState message="No systematic confusions yet — needs transcriptions submitted with a reference_text to populate." />
+            <EmptyState message="No recurring mix-ups yet — needs transcriptions submitted with a reference_text to populate, and a large enough sample for a pattern to show." />
           ) : (
             <ConfusionTable rows={report.systematic_confusions} showRate />
           )}
@@ -112,13 +116,14 @@ export default function ErrorAnalysisPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Top phoneme errors</CardTitle>
+          <CardTitle>All recent mistakes</CardTitle>
+          <p className="text-sm text-muted">Every kind of sound mix-up seen, most common first.</p>
         </CardHeader>
         <CardContent>
           {loading ? (
             <SkeletonRows />
           ) : !report || report.top_errors.length === 0 ? (
-            <EmptyState message="No phoneme errors logged yet." />
+            <EmptyState message="No errors logged yet." />
           ) : (
             <ConfusionTable rows={report.top_errors} />
           )}
@@ -130,36 +135,29 @@ export default function ErrorAnalysisPage() {
 
 function ConfusionTable({ rows, showRate = false }: { rows: PhonemeErrorRow[]; showRate?: boolean }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Operation</TableHead>
-          <TableHead>Reference</TableHead>
-          <TableHead>Hypothesis</TableHead>
-          <TableHead className="text-right">Count</TableHead>
-          {showRate && <TableHead className="text-right">Confusion rate</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row, i) => (
-          <TableRow key={i}>
-            <TableCell>
-              <Badge variant={row.operation === "substitution" ? "default" : "secondary"}>
-                {row.operation}
-              </Badge>
-            </TableCell>
-            <TableCell className="font-mono text-sm">{row.reference_phoneme || "—"}</TableCell>
-            <TableCell className="font-mono text-sm">{row.hypothesis_phoneme || "—"}</TableCell>
-            <TableCell className="text-right tabular-nums">{row.count}</TableCell>
-            {showRate && (
-              <TableCell className="text-right tabular-nums">
-                {row.confusion_rate ? `${Math.round(row.confusion_rate * 100)}%` : "—"}
-              </TableCell>
+    <div className="space-y-2">
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+        >
+          <div className="flex items-center gap-3">
+            <Badge variant={row.operation === "substitution" ? "default" : "secondary"} className="capitalize">
+              {row.operation}
+            </Badge>
+            <p className="text-sm">{row.plain_english}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3 text-right">
+            {showRate && row.confusion_rate !== undefined && (
+              <span className="text-xs text-muted tabular-nums">
+                {Math.round(row.confusion_rate * 100)}% of the time
+              </span>
             )}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+            <span className="text-sm font-medium tabular-nums">{row.count}×</span>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
