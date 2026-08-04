@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { tierDisplayName } from "@/lib/tierNames";
 
 const MAX_PHOTO_BYTES = 250_000; // leaves headroom under the backend's 300KB base64 cap
 
@@ -187,8 +188,8 @@ export default function ProfileSection() {
           {profile?.tier && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted">Plan:</span>
-              <Badge variant={profile.tier === "max" ? "default" : "secondary"} className="capitalize">
-                {profile.is_enterprise ? "Enterprise" : profile.tier}
+              <Badge variant={profile.tier === "max" ? "default" : "secondary"}>
+                {profile.is_enterprise ? "Enterprise" : tierDisplayName(profile.tier)}
               </Badge>
             </div>
           )}

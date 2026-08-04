@@ -1,6 +1,8 @@
 # Mercury — Developer Reference for AI Assistants
 
-See `MEMORY.md` for the full version history and architecture narrative.
+See `docs/MEMORY.md` for the full version history and architecture narrative, and
+`docs/MODELVERSION.md` for the model-naming/versioning rules. `docs/` is gitignored
+(repo is public) — those files exist locally only, not on GitHub.
 
 ## Git branch policy (binding — set 2026-07-30, branches renamed 2026-08-04)
 

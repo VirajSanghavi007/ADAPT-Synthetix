@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/usePageTitle";
 import CreditsCard from "@/components/CreditsCard";
+import { tierDisplayName } from "@/lib/tierNames";
 
 type Plan = {
   id: string;
@@ -37,7 +38,7 @@ type Plan = {
 const PLANS: Plan[] = [
   {
     id: "free",
-    name: "Free",
+    name: "Freyr",
     price: "₹0",
     cadence: "/month",
     description: "Try Mercury on a handful of sessions.",
@@ -45,7 +46,7 @@ const PLANS: Plan[] = [
   },
   {
     id: "pro",
-    name: "Pro",
+    name: "Horus",
     price: "₹1,499",
     cadence: "/month",
     description: "For individual clinicians and lecturers.",
@@ -59,12 +60,12 @@ const PLANS: Plan[] = [
   },
   {
     id: "max",
-    name: "Max",
+    name: "Odin",
     price: "₹4,999",
     cadence: "/month",
     description: "For teams needing admin controls and audit trail.",
     features: [
-      "Everything in Pro",
+      "Everything in Horus",
       "Admin panel + audit log",
       "Priority queue for domain vocabulary",
       "Dedicated support",
@@ -114,7 +115,7 @@ export default function SubscriptionPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Gauge className="h-4 w-4 text-accent" /> Your usage on the{" "}
-              <span className="capitalize">{currentTier}</span> plan
+              <span>{tierDisplayName(currentTier)}</span> plan
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">

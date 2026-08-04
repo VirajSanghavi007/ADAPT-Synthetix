@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { tierDisplayName } from "@/lib/tierNames";
 
 type ApiKeyRow = {
   id: number;
@@ -211,9 +212,7 @@ export default function ApiKeysPage() {
                     <TableCell className="font-medium">{k.name}</TableCell>
                     <TableCell className="font-mono text-sm text-muted">{k.prefix}...</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="capitalize">
-                        {k.tier}
-                      </Badge>
+                      <Badge variant="secondary">{tierDisplayName(k.tier)}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted">
                       {k.last_used_at ? new Date(k.last_used_at).toLocaleString() : "Never"}

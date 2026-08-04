@@ -1,6 +1,6 @@
 // Mirrors VERSION.md (gitignored) — bump CURRENT_VERSION and add an entry here whenever
 // VERSION.md gets a new version. Shown once per version via WhatsNewModal.
-export const CURRENT_VERSION = "5.4.1";
+export const CURRENT_VERSION = "5.5.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -10,6 +10,18 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "5.5.0",
+    date: "2026-08-04",
+    whatsNew: [
+      "Plans renamed — Freyr (free), Horus (pro), Odin (max) — and their two engines each have their own names too: Echo 1.1, Apollo 1.2, Thoth 1.3",
+      "Upload a custom profile picture instead of only picking a preset avatar",
+      "Error Analysis now explains phoneme mistakes in plain English instead of raw phonetic codes",
+      "Usage credits, shown on the Subscription page — free renews every 5 hours, pro/max renew weekly",
+      "Rate-limit emails — you'll get notified the moment you hit your hourly limit",
+    ],
+    bugFixes: [],
+  },
   {
     version: "5.4.1",
     date: "2026-08-04",
