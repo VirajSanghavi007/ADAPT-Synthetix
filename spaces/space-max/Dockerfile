@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # CUDA-bundled one — installed first so both the NeMo install below and CosyVoice's
 # own install further down see it already satisfied instead of each re-resolving
 # their own (huge, CUDA-bundled) torch.
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchaudio==2.5.1
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
@@ -34,11 +34,30 @@ RUN pip install --no-cache-dir "setuptools<81" wheel \
     && echo "onnxruntime==1.18.0" >> /app/CosyVoice/requirements.cpu.txt \
     && pip install --no-cache-dir --no-build-isolation --retries 10 --timeout 120 -r /app/CosyVoice/requirements.cpu.txt
 
+# CosyVoice's own requirements (installed above) get resolved as a separate pip
+# invocation from the base torch/pytorch-lightning installs earlier in this file —
+# pip doesn't remember those pins across invocations, so this step has silently
+# upgraded pytorch-lightning past nemo's compatible range (dropping NeptuneLogger,
+# which nemo imports unconditionally) and dropped torchaudio entirely (needed by
+# CosyVoice's own frontend.py for resampling). Re-pin both as the final step so
+# nothing installed afterward can disturb them again. --no-deps because we already
+# know these exact versions are correct together; re-resolving would just repeat
+# the problem this is fixing.
+RUN pip install --no-cache-dir --no-deps \
+    --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchaudio==2.5.1 \
+    && pip install --no-cache-dir --no-deps pytorch-lightning==2.2.5
+
 COPY app.py .
 
-RUN useradd -m spaceuser
+# See space-free/Dockerfile for why the HF cache dir is pre-created with spaceuser
+# ownership before the named volume mounts over it.
+RUN useradd -m spaceuser \
+    && mkdir -p /home/spaceuser/.cache/huggingface \
+    && chown -R spaceuser:spaceuser /home/spaceuser
 USER spaceuser
 
+# See space-free/Dockerfile for why.
+ENV HF_HUB_DISABLE_XET=1
 ENV PYTHONUNBUFFERED=1
 EXPOSE 7860
 

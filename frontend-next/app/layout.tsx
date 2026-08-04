@@ -51,7 +51,7 @@ export default function RootLayout({
           id="mercury-theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('mercury-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('mercury-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}var p=localStorage.getItem('mercury-palette');if(p&&p!=='emerald'){document.documentElement.setAttribute('data-palette',p);}}catch(e){}})();`,
           }}
         />
       </head>

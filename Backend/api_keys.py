@@ -18,9 +18,10 @@ from Backend.redis_client import get_redis
 router = APIRouter(prefix="/api/keys", tags=["api-keys"])
 
 TIER_LIMITS = {
-    "free": 60,     # requests / hour
+    "free": 60,     # requests / hour — unreachable via API (free tier can't create keys), kept as a safe fallback
     "pro": 1000,
     "max": 10000,
+    "enterprise": 10000,
 }
 
 
@@ -40,10 +41,16 @@ class CreateKeyRequest(BaseModel):
 
 @router.post("")
 def create_key(req: CreateKeyRequest, user: dict = Depends(require_user)):
+    from Backend.tiers import get_user_tier
+
+    user_tier = get_user_tier(user["id"])
+    if user_tier == "free":
+        raise HTTPException(403, "API access requires Pro tier or above — upgrade to create a key")
+
     raw, prefix, key_hash = _generate_key()
     db = get_session()
     try:
-        record = ApiKey(user_id=user["id"], name=req.name, key_prefix=prefix, key_hash=key_hash)
+        record = ApiKey(user_id=user["id"], name=req.name, key_prefix=prefix, key_hash=key_hash, tier=user_tier)
         db.add(record)
         db.commit()
         db.refresh(record)
@@ -92,7 +99,7 @@ def revoke_key(key_id: int, user: dict = Depends(require_user)):
     return {"status": "revoked"}
 
 
-def _check_rate_limit(key_id: int, tier: str) -> None:
+def _check_rate_limit(key_id: int, tier: str, user_id: str) -> None:
     """Fixed-window per-hour counter in Redis. No Redis => no rate limiting (fail open)."""
     r = get_redis()
     if r is None:
@@ -104,6 +111,8 @@ def _check_rate_limit(key_id: int, tier: str) -> None:
         r.expire(redis_key, 3600)
     limit = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
     if count > limit:
+        from Backend.tiers import _notify_rate_limit_once
+        _notify_rate_limit_once(r, user_id, tier, limit, window)
         raise HTTPException(429, f"rate limit exceeded for {tier} tier ({limit}/hour)")
 
 
@@ -119,7 +128,7 @@ def require_api_key(request: Request) -> dict:
         if record is None:
             raise HTTPException(401, "invalid API key")
 
-        _check_rate_limit(record.id, record.tier)
+        _check_rate_limit(record.id, record.tier, record.user_id)
 
         from Backend.db import utcnow
         record.last_used_at = utcnow()

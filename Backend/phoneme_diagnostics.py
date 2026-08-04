@@ -14,6 +14,15 @@ def _get_g2p():
             nltk.data.find("corpora/cmudict")
         except LookupError:
             nltk.download("cmudict", quiet=True)
+        # g2p_en's own lazy-download uses NLTK's old resource name
+        # ("averaged_perceptron_tagger"), which newer NLTK versions renamed to
+        # "averaged_perceptron_tagger_eng" — g2p_en's download silently succeeds
+        # against the wrong name, then nltk.pos_tag() fails to find it at call time.
+        # Pre-download the current name ourselves so it's already there.
+        try:
+            nltk.data.find("taggers/averaged_perceptron_tagger_eng")
+        except LookupError:
+            nltk.download("averaged_perceptron_tagger_eng", quiet=True)
         from g2p_en import G2p
         _g2p = G2p()
     return _g2p

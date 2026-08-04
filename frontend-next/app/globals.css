@@ -68,6 +68,131 @@
   --ring: #0891b2;
 }
 
+/* Color palettes — selectable in Profile, independent of light/dark mode.
+   "emerald" (the block above) is the default/unset case. Each palette below
+   overrides the same primary/secondary/accent/ring/border set for light,
+   explicit dark, and system-preference-dark, mirroring the structure above. */
+
+:root[data-palette="violet"] {
+  --primary: #7c3aed;
+  --on-primary: #ffffff;
+  --secondary: #a78bfa;
+  --accent: #6d28d9;
+  --on-accent: #ffffff;
+  --border: #ddd6fe;
+  --ring: #7c3aed;
+}
+:root[data-palette="violet"][data-theme="dark"] {
+  --primary: #a78bfa;
+  --on-primary: #1e1033;
+  --secondary: #7c3aed;
+  --accent: #c4b5fd;
+  --on-accent: #1e1033;
+  --border: #4c1d95;
+  --ring: #a78bfa;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="violet"]:not([data-theme="light"]) {
+    --primary: #a78bfa;
+    --on-primary: #1e1033;
+    --secondary: #7c3aed;
+    --accent: #c4b5fd;
+    --on-accent: #1e1033;
+    --border: #4c1d95;
+    --ring: #a78bfa;
+  }
+}
+
+:root[data-palette="amber"] {
+  --primary: #d97706;
+  --on-primary: #ffffff;
+  --secondary: #fbbf24;
+  --accent: #b45309;
+  --on-accent: #ffffff;
+  --border: #fde68a;
+  --ring: #d97706;
+}
+:root[data-palette="amber"][data-theme="dark"] {
+  --primary: #fbbf24;
+  --on-primary: #1f1300;
+  --secondary: #d97706;
+  --accent: #fcd34d;
+  --on-accent: #1f1300;
+  --border: #78350f;
+  --ring: #fbbf24;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="amber"]:not([data-theme="light"]) {
+    --primary: #fbbf24;
+    --on-primary: #1f1300;
+    --secondary: #d97706;
+    --accent: #fcd34d;
+    --on-accent: #1f1300;
+    --border: #78350f;
+    --ring: #fbbf24;
+  }
+}
+
+:root[data-palette="rose"] {
+  --primary: #e11d48;
+  --on-primary: #ffffff;
+  --secondary: #fb7185;
+  --accent: #be123c;
+  --on-accent: #ffffff;
+  --border: #fecdd3;
+  --ring: #e11d48;
+}
+:root[data-palette="rose"][data-theme="dark"] {
+  --primary: #fb7185;
+  --on-primary: #2c0a10;
+  --secondary: #e11d48;
+  --accent: #fda4af;
+  --on-accent: #2c0a10;
+  --border: #881337;
+  --ring: #fb7185;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="rose"]:not([data-theme="light"]) {
+    --primary: #fb7185;
+    --on-primary: #2c0a10;
+    --secondary: #e11d48;
+    --accent: #fda4af;
+    --on-accent: #2c0a10;
+    --border: #881337;
+    --ring: #fb7185;
+  }
+}
+
+:root[data-palette="blue"] {
+  --primary: #2563eb;
+  --on-primary: #ffffff;
+  --secondary: #60a5fa;
+  --accent: #1d4ed8;
+  --on-accent: #ffffff;
+  --border: #bfdbfe;
+  --ring: #2563eb;
+}
+:root[data-palette="blue"][data-theme="dark"] {
+  --primary: #60a5fa;
+  --on-primary: #0b1a33;
+  --secondary: #2563eb;
+  --accent: #93c5fd;
+  --on-accent: #0b1a33;
+  --border: #1e3a8a;
+  --ring: #60a5fa;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="blue"]:not([data-theme="light"]) {
+    --primary: #60a5fa;
+    --on-primary: #0b1a33;
+    --secondary: #2563eb;
+    --accent: #93c5fd;
+    --on-accent: #0b1a33;
+    --border: #1e3a8a;
+    --ring: #60a5fa;
+  }
+}
+
 @theme inline {
   /* Mercury semantic tokens */
   --color-background: var(--bg);

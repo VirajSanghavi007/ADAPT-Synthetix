@@ -21,18 +21,23 @@ router = APIRouter(prefix="/api/mlops", tags=["mlops"])
 
 def record_latency(kind: str, model_id: str, tier: str, latency_ms: float, success: bool = True) -> None:
     """Called from /api/transcribe and /api/tts around the inference call, regardless
-    of whether a reference_text was given — unlike eval_metrics, this doesn't need one."""
+    of whether a reference_text was given — unlike eval_metrics, this doesn't need one.
+
+    Best-effort: a DB hiccup here must never turn an already-successful inference
+    into a 500 for the caller, so failures are swallowed rather than raised."""
     db = get_session()
     try:
         db.add(RequestLatency(kind=kind, model_id=model_id, tier=tier, latency_ms=latency_ms, success=int(success)))
         db.commit()
+    except Exception:
+        db.rollback()
     finally:
         db.close()
 
 
 def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypothesis_text: str) -> None:
     """Called from /api/transcribe alongside phoneme-error logging, whenever a
-    reference_text is supplied."""
+    reference_text is supplied. Best-effort, same reasoning as record_latency."""
     if not reference_text.strip() or not hypothesis_text.strip():
         return
     db = get_session()
@@ -46,6 +51,8 @@ def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypo
             )
         )
         db.commit()
+    except Exception:
+        db.rollback()
     finally:
         db.close()
 
@@ -189,7 +196,7 @@ def get_latency(admin: dict = Depends(require_admin)):
                     count(*) as n,
                     percentile_cont(0.5) within group (order by latency_ms) as p50_ms,
                     percentile_cont(0.95) within group (order by latency_ms) as p95_ms,
-                    avg(case when success then 0.0 else 1.0 end) as error_rate
+                    avg(case when success = 1 then 0.0 else 1.0 end) as error_rate
                 from request_latency
                 where created_at > now() - interval '7 days'
                 group by model_id, kind, tier

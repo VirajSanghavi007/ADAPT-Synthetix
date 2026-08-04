@@ -1,6 +1,8 @@
 fastapi==0.139.2
 uvicorn[standard]==0.32.1
 python-multipart==0.0.31
+pytorch-lightning==2.2.5
+datasets<3
 nemo_toolkit[asr]==2.0.0
 soundfile==0.12.1
 pydub==0.25.1

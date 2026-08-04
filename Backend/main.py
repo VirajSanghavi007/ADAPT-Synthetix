@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from Backend.account import router as account_router
 from Backend.admin import router as admin_router
 from Backend.api_keys import require_user_or_api_key
+from Backend.credits import check_and_deduct_credit, get_credit_status, get_enterprise_usage
 from Backend.enterprise import router as enterprise_router
 from Backend.api_keys import router as api_keys_router
 from Backend.history import router as history_router
@@ -92,6 +93,16 @@ def list_models(user_id: str = Depends(_require_user_id)):
     }
 
 
+@app.get("/api/credits")
+def credits_status(user_id: str = Depends(_require_user_id)):
+    """Current usage-credit balance (free/pro/max) or pay-per-use usage (enterprise),
+    for the Subscription/Settings page."""
+    tier = get_user_tier(user_id)
+    if tier == "enterprise":
+        return get_enterprise_usage(user_id)
+    return get_credit_status(user_id, tier)
+
+
 @app.post("/api/transcribe")
 @limiter.limit("10/minute")
 async def transcribe(
@@ -112,6 +123,7 @@ async def transcribe(
 
     tier = get_user_tier(user_id)
     check_tier_rate_limit(user_id, tier)
+    check_and_deduct_credit(user_id, tier)
     resolved_model = resolve_model(tier, "asr", model_id)
 
     try:
@@ -127,13 +139,18 @@ async def transcribe(
         raise
     record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=True)
 
+    # Logging (ASRLog, phoneme errors, eval metrics) is best-effort — the transcript
+    # is already computed, so a DB hiccup here must not turn a successful transcribe
+    # into a 500. log_id stays None if the insert itself fails.
     duration_sec = len(audio) / sr if sr else None
     db = get_session()
+    log_id = None
     try:
         log = ASRLog(user_id=user_id, transcript=text, duration_sec=duration_sec, model_id=resolved_model)
         db.add(log)
         db.commit()
         db.refresh(log)
+        log_id = log.id
 
         if reference_text and reference_text.strip():
             alignment = align_phoneme_errors(reference_text, text)
@@ -147,11 +164,13 @@ async def transcribe(
                 for e in alignment["errors"]
             )
             db.commit()
+    except Exception:
+        db.rollback()
     finally:
         db.close()
 
-    if reference_text and reference_text.strip():
-        record_eval_metric(log.id, resolved_model, reference_text, text)
+    if log_id is not None and reference_text and reference_text.strip():
+        record_eval_metric(log_id, resolved_model, reference_text, text)
 
     return {"text": text}
 
@@ -206,6 +225,7 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
 
     tier = get_user_tier(user_id)
     check_tier_rate_limit(user_id, tier)
+    check_and_deduct_credit(user_id, tier)
     resolved_model = resolve_model(tier, "tts", req.model_id)
 
     # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks()
@@ -220,10 +240,14 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
     if mp3_bytes is None:
         raise HTTPException(500, "no audio generated")
 
+    # Best-effort, same reasoning as the transcribe logging block above — the audio
+    # is already generated, a logging failure must not discard it.
     db = get_session()
     try:
         db.add(TTSLog(user_id=user_id, input_text=text, voice=req.voice, model_id=resolved_model))
         db.commit()
+    except Exception:
+        db.rollback()
     finally:
         db.close()
 

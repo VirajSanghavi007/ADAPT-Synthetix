@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/usePageTitle";
+import CreditsCard from "@/components/CreditsCard";
 
 type Plan = {
   id: string;
@@ -136,6 +137,8 @@ export default function SubscriptionPage() {
           </CardContent>
         </Card>
       )}
+
+      <CreditsCard />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {PLANS.map((plan) => (

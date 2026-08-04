@@ -11,16 +11,18 @@ from fastapi import HTTPException
 from Backend.db import get_session
 from Backend.redis_client import get_redis
 
+# Mercury's own model names — Iris/Echo/Janus/Apollo/Thoth/Bragi are Mercury's
+# in-house branding for these engines, not third-party names to expose to users.
 ASR_CATALOG = {
-    "distil-whisper/distil-large-v3": {"engine": "hf_asr_pipeline", "label": "Distil-Whisper (fast)"},
-    "openai/whisper-large-v3-turbo": {"engine": "hf_asr_pipeline", "label": "Whisper Large v3 Turbo"},
-    "nvidia/parakeet-tdt-0.6b-v2": {"engine": "nemo", "label": "Parakeet TDT 0.6B (best accuracy)"},
+    "distil-whisper/distil-large-v3": {"engine": "hf_asr_pipeline", "label": "Iris (fast)"},
+    "openai/whisper-large-v3-turbo": {"engine": "hf_asr_pipeline", "label": "Janus"},
+    "nvidia/parakeet-tdt-0.6b-v2": {"engine": "nemo", "label": "Thoth (best accuracy)"},
 }
 
 TTS_CATALOG = {
-    "kokoro": {"engine": "kokoro", "label": "Kokoro (fast)"},
-    "suno/bark": {"engine": "bark", "label": "Bark"},
-    "FunAudioLLM/CosyVoice2-0.5B": {"engine": "cosyvoice2", "label": "CosyVoice2 (best quality, voice cloning)"},
+    "kokoro": {"engine": "kokoro", "label": "Echo (fast)"},
+    "suno/bark": {"engine": "bark", "label": "Apollo"},
+    "FunAudioLLM/CosyVoice2-0.5B": {"engine": "cosyvoice2", "label": "Bragi (best quality, voice cloning)"},
 }
 
 # Tier -> allowed model ids. Enterprise mirrors max (best models, free billing).
@@ -109,4 +111,35 @@ def check_tier_rate_limit(user_id: str, tier: str) -> None:
         r.expire(key, 3600)
     limit = TIER_RATE_LIMITS.get(tier, TIER_RATE_LIMITS["free"])
     if count > limit:
+        _notify_rate_limit_once(r, user_id, tier, limit, window)
         raise HTTPException(429, f"rate limit exceeded for {tier} tier ({limit}/hour)")
+
+
+def _notify_rate_limit_once(r, user_id: str, tier: str, limit: int, window: int) -> None:
+    """Fire the rate-limit email at most once per user per hourly window — the
+    counter above increments on every request once past the limit, so without this
+    guard every subsequent blocked request in the same hour would re-send it."""
+    notify_key = f"tier_rl_notified:{user_id}:{window}"
+    if not r.set(notify_key, "1", nx=True, ex=3600):
+        return  # already notified this window
+
+    from sqlalchemy import text
+
+    db = get_session()
+    try:
+        row = db.execute(text("select email from auth.users where id = :uid"), {"uid": user_id}).first()
+    except Exception:
+        row = None
+    finally:
+        db.close()
+    if not row or not row[0]:
+        return
+
+    from Backend.email_utils import send_email
+
+    send_email(
+        row[0],
+        "Mercury — hourly rate limit reached",
+        f"You've hit the {tier} tier's rate limit ({limit} requests/hour). "
+        f"It resets at the top of the next hour — upgrade your plan for a higher limit.",
+    )

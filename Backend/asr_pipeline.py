@@ -103,7 +103,11 @@ def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | No
         headers={"X-Internal-Secret": SPACE_SECRET},
         files={"file": ("audio.wav", wav_buf, "audio/wav")},
         data={"model_id": model_id},
-        timeout=120.0,
+        # A model's first-ever request cold-loads its weights (HF download + init),
+        # which has been observed taking 100-500s depending on model size and network
+        # — 120s cut that off mid-download. Every request after the first for a given
+        # model+container is fast (seconds), so this only costs anything once.
+        timeout=600.0,
     )
     resp.raise_for_status()
     return resp.json()["text"]
@@ -116,7 +120,7 @@ def synthesize_speech(text: str, voice: str, model_id: str) -> bytes | None:
         f"{url}/synthesize",
         headers={"X-Internal-Secret": SPACE_SECRET},
         data={"text": text, "voice": voice or "", "model_id": model_id},
-        timeout=120.0,
+        timeout=600.0,  # see transcribe_audio's comment above
     )
     if resp.status_code == 500:
         return None

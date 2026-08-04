@@ -15,9 +15,15 @@ RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
 
 COPY app.py .
 
-RUN useradd -m spaceuser
+# See space-free/Dockerfile for why the HF cache dir is pre-created with spaceuser
+# ownership before the named volume mounts over it.
+RUN useradd -m spaceuser \
+    && mkdir -p /home/spaceuser/.cache/huggingface \
+    && chown -R spaceuser:spaceuser /home/spaceuser
 USER spaceuser
 
+# See space-free/Dockerfile for why.
+ENV HF_HUB_DISABLE_XET=1
 ENV PYTHONUNBUFFERED=1
 EXPOSE 7860
 

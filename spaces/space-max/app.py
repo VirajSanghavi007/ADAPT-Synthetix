@@ -4,6 +4,11 @@ import io
 import os
 import tempfile
 
+# HF's xet chunked-download backend has proven unreliable on this network (fails
+# mid-transfer on large files with a ConnectionError, no automatic fallback) —
+# force the plain HTTP download path instead. Must be set before any HF download call.
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+
 import numpy as np
 import soundfile as sf
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -40,7 +45,13 @@ def get_tts_pipeline():
         sys.path.insert(0, "/app/CosyVoice")
         sys.path.insert(0, "/app/CosyVoice/third_party/Matcha-TTS")
         from cosyvoice.cli.cosyvoice import CosyVoice2
-        _tts_pipeline = CosyVoice2("FunAudioLLM/CosyVoice2-0.5B")
+        # CosyVoice2(model_dir) skips its own download entirely if model_dir already
+        # exists locally — otherwise it calls modelscope's snapshot_download, which
+        # 404s on this repo id (ModelScope's own registry, separate from HF, doesn't
+        # have it under this path). Pre-fetch from HF ourselves and hand it a local dir.
+        from huggingface_hub import snapshot_download
+        local_dir = snapshot_download("FunAudioLLM/CosyVoice2-0.5B")
+        _tts_pipeline = CosyVoice2(local_dir)
     return _tts_pipeline
 
 
