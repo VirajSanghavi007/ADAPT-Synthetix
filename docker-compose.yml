@@ -6,6 +6,8 @@ services:
       SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7861:7860"
+    volumes:
+      - mercury_hf_cache_free:/home/spaceuser/.cache/huggingface
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
       interval: 10s
@@ -20,6 +22,8 @@ services:
       SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7862:7860"
+    volumes:
+      - mercury_hf_cache_pro:/home/spaceuser/.cache/huggingface
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
       interval: 10s
@@ -38,6 +42,8 @@ services:
       SPACE_SECRET: ${SPACE_SECRET}
     ports:
       - "7863:7860"
+    volumes:
+      - mercury_hf_cache_max:/home/spaceuser/.cache/huggingface
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
       interval: 15s
@@ -83,3 +89,6 @@ services:
 
 volumes:
   mercury_redisdata:
+  mercury_hf_cache_free:
+  mercury_hf_cache_pro:
+  mercury_hf_cache_max:
