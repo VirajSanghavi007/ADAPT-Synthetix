@@ -190,7 +190,10 @@ def errors_report(request: Request, user_id: str = Depends(_require_user_id)):
 
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
-    voice: str = "english_female"
+    # Empty by default so each Space applies its own valid default voice
+    # (Kokoro's af_heart, CosyVoice2's "default" spk_id) instead of a bogus
+    # cross-model placeholder name that 404s against the wrong model's voice pack.
+    voice: str = ""
     model_id: str | None = None
 
 

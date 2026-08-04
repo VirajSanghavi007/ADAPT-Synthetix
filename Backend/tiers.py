@@ -61,7 +61,7 @@ TIER_RATE_LIMITS = {
 
 def get_user_tier(user_id: str) -> str:
     from sqlalchemy import text
-    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.exc import OperationalError, ProgrammingError
 
     db = get_session()
     try:
@@ -72,6 +72,11 @@ def get_user_tier(user_id: str) -> str:
     except OperationalError:
         # DB unreachable (network outage, pooler down) — degrade to free rather
         # than taking down transcribe/TTS entirely.
+        return "free"
+    except ProgrammingError:
+        # profiles.tier missing (migrations/005_tiers_and_profile.sql not applied
+        # yet) — same degrade-to-free stopgap until the migration is run.
+        db.rollback()
         return "free"
     finally:
         db.close()

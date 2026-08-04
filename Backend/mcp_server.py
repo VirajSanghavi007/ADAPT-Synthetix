@@ -58,7 +58,7 @@ def transcribe(ctx: Context, audio_base64: str, model_id: str | None = None) -> 
 
 
 @mcp.tool()
-def synthesize(ctx: Context, text: str, voice: str = "english_female", model_id: str | None = None) -> dict:
+def synthesize(ctx: Context, text: str, voice: str = "", model_id: str | None = None) -> dict:
     """Synthesize speech from text using Mercury's TTS pipeline. Returns base64-encoded MP3 audio."""
     auth = _authed_user(ctx)
     tier = get_user_tier(auth["id"])
