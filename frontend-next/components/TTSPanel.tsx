@@ -29,6 +29,15 @@ export default function TTSPanel() {
     setModelId(localStorage.getItem(TTS_MODEL_KEY) || "");
   }, []);
 
+  // Live ticking timer while a request is in flight — see Recorder.tsx for why.
+  useEffect(() => {
+    if (!busy) return;
+    const start = performance.now();
+    setElapsedMs(0);
+    const id = setInterval(() => setElapsedMs(performance.now() - start), 100);
+    return () => clearInterval(id);
+  }, [busy]);
+
   function selectModel(id: string | null) {
     if (!id) return;
     setModelId(id);
@@ -40,8 +49,6 @@ export default function TTSPanel() {
     if (!trimmed) return;
     setBusy(true);
     setStatus("Generating audio...");
-    setElapsedMs(null);
-    const start = performance.now();
     try {
       const res = await fetch(`${API_URL}/api/tts`, {
         method: "POST",
@@ -51,16 +58,13 @@ export default function TTSPanel() {
         },
         body: JSON.stringify({ text: trimmed, model_id: modelId || undefined }),
       });
-      const ms = performance.now() - start;
       if (!res.ok) throw new Error(await friendlyApiError(res));
       const buffer = await res.arrayBuffer();
       const blob = new Blob([buffer], { type: "audio/mpeg" });
       setAudioBlob(blob);
       setAudioUrl(URL.createObjectURL(blob));
-      setElapsedMs(ms);
       setStatus("Playing.");
     } catch (err) {
-      setElapsedMs(performance.now() - start);
       setStatus("Error: " + (err as Error).message);
     } finally {
       setBusy(false);

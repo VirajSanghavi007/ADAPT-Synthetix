@@ -20,9 +20,21 @@ export default function Recorder() {
   const [status, setStatus] = useState("");
   const [transcript, setTranscript] = useState("");
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
   const [modelId, setModelId] = useState<string>("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Live ticking timer while a request is in flight — some models cold-load in
+  // the 100-600s range on first use, so "Transcribing..." with no feedback reads
+  // as hung. Updates every 100ms; freezes at the real elapsed time on completion.
+  useEffect(() => {
+    if (!busy) return;
+    const start = performance.now();
+    setElapsedMs(0);
+    const id = setInterval(() => setElapsedMs(performance.now() - start), 100);
+    return () => clearInterval(id);
+  }, [busy]);
 
   // Restore last transcript + model choice so returning users don't lose their place.
   useEffect(() => {
@@ -81,30 +93,28 @@ export default function Recorder() {
 
   async function onRecordingStop() {
     setStatus("Transcribing...");
-    setElapsedMs(null);
+    setBusy(true);
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
     const form = new FormData();
     form.append("file", blob, "recording.webm");
     if (modelId) form.append("model_id", modelId);
 
-    const start = performance.now();
     try {
       const res = await fetch(`${API_URL}/api/transcribe`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session?.access_token}` },
         body: form,
       });
-      const ms = performance.now() - start;
       if (!res.ok) throw new Error(await friendlyApiError(res));
       const data = await res.json();
       const text = data.text || "(no speech detected)";
       setTranscript(text);
       localStorage.setItem(TRANSCRIPT_CACHE_KEY, text);
-      setElapsedMs(ms);
       setStatus("Done.");
     } catch (err) {
-      setElapsedMs(performance.now() - start);
       setStatus("Error: " + (err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
