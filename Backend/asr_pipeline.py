@@ -41,6 +41,22 @@ SPACE_URLS = {
     "max": os.environ.get("SPACE_MAX_URL", ""),
 }
 
+# Process-local "have we sent a request for this model yet" tracker, used only to
+# tag latency records as cold/warm for the admin dashboard (see Backend.mlops).
+# Now that each Space warms its own models on container startup (spaces/*/app.py),
+# this should read as cold only on the very first request after this app process
+# itself restarts and briefly races the Space's own warm-up — not on genuine
+# per-model cold loads, which is the whole point of P0.1.
+_seen_models: set[str] = set()
+
+
+def was_cold(model_id: str) -> bool:
+    if model_id in _seen_models:
+        return False
+    _seen_models.add(model_id)
+    return True
+
+
 MODEL_TO_SPACE = {}
 for _model_id in ASR_CATALOG:
     if _model_id in ("distil-whisper/distil-large-v3",):
@@ -103,10 +119,10 @@ def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | No
         headers={"X-Internal-Secret": SPACE_SECRET},
         files={"file": ("audio.wav", wav_buf, "audio/wav")},
         data={"model_id": model_id},
-        # A model's first-ever request cold-loads its weights (HF download + init),
-        # which has been observed taking 100-500s depending on model size and network
-        # — 120s cut that off mid-download. Every request after the first for a given
-        # model+container is fast (seconds), so this only costs anything once.
+        # Each Space now warms its own models on container startup (spaces/*/app.py)
+        # so a real request should never pay the 100-500s cold-load cost observed
+        # pre-P0.1 — this generous timeout is now a safety net for a Space that's
+        # still warming after a restart, not the expected path.
         timeout=600.0,
     )
     resp.raise_for_status()

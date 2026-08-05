@@ -21,7 +21,7 @@ from Backend.credits import check_and_deduct_credit, get_credit_status, get_ente
 from Backend.enterprise import router as enterprise_router
 from Backend.api_keys import router as api_keys_router
 from Backend.history import router as history_router
-from Backend.asr_pipeline import ALLOWED_AUDIO_TYPES, decode_audio, synthesize_speech, transcribe_audio
+from Backend.asr_pipeline import ALLOWED_AUDIO_TYPES, decode_audio, synthesize_speech, transcribe_audio, was_cold
 from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
 from Backend.ingest import router as ingest_router
 from Backend.limiter import limiter
@@ -134,13 +134,14 @@ async def transcribe(
     except Exception:
         raise HTTPException(400, "could not decode audio file")
 
+    cold = was_cold(resolved_model)
     start = time.monotonic()
     try:
         text = await run_in_threadpool(transcribe_audio, audio, sr, resolved_model)
     except Exception:
-        record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=False)
+        record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=False, cold=cold)
         raise
-    record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=True)
+    record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=True, cold=cold)
 
     # Logging (ASRLog, phoneme errors, eval metrics) is best-effort — the transcript
     # is already computed, so a DB hiccup here must not turn a successful transcribe
@@ -235,15 +236,21 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
     check_and_deduct_credit(user_id, tier)
     resolved_model = resolve_model(tier, "tts", req.model_id)
 
-    # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks()
-    # TODO: confirm exact spk_id set once the model is pulled in Docker
+    # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks().
+    # space-max's own startup warm-up (spaces/space-max/app.py) now exercises this
+    # exact "default" spk_id at boot and fails /health if it's wrong, so a bad id
+    # surfaces before any real user hits it instead of via this TODO.
+    cold = was_cold(resolved_model)
     start = time.monotonic()
     try:
         mp3_bytes = await run_in_threadpool(synthesize_speech, text, req.voice, resolved_model)
     except Exception:
-        record_latency("tts", resolved_model, tier, (time.monotonic() - start) * 1000, success=False)
+        record_latency("tts", resolved_model, tier, (time.monotonic() - start) * 1000, success=False, cold=cold)
         raise
-    record_latency("tts", resolved_model, tier, (time.monotonic() - start) * 1000, success=(mp3_bytes is not None))
+    record_latency(
+        "tts", resolved_model, tier, (time.monotonic() - start) * 1000,
+        success=(mp3_bytes is not None), cold=cold,
+    )
     if mp3_bytes is None:
         raise HTTPException(500, "no audio generated")
 

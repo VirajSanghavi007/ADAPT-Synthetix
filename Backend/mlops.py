@@ -19,15 +19,28 @@ from Backend.db import ASRLog, EvalMetric, ModelRegistry, RequestLatency, TTSLog
 router = APIRouter(prefix="/api/mlops", tags=["mlops"])
 
 
-def record_latency(kind: str, model_id: str, tier: str, latency_ms: float, success: bool = True) -> None:
+def record_latency(
+    kind: str, model_id: str, tier: str, latency_ms: float, success: bool = True, cold: bool = False
+) -> None:
     """Called from /api/transcribe and /api/tts around the inference call, regardless
     of whether a reference_text was given — unlike eval_metrics, this doesn't need one.
+
+    `cold` marks the first request this process has sent to this (kind, model_id)
+    pair — see `Backend.asr_pipeline.was_cold()`. With Space-side warm-up (see
+    spaces/*/app.py `/health`) this should now be rare outside of Space restarts;
+    a persistently high cold rate means warm-up is failing or the Space is
+    restarting under load, which the p50/p95 split below is meant to surface.
 
     Best-effort: a DB hiccup here must never turn an already-successful inference
     into a 500 for the caller, so failures are swallowed rather than raised."""
     db = get_session()
     try:
-        db.add(RequestLatency(kind=kind, model_id=model_id, tier=tier, latency_ms=latency_ms, success=int(success)))
+        db.add(
+            RequestLatency(
+                kind=kind, model_id=model_id, tier=tier, latency_ms=latency_ms,
+                success=int(success), cold=cold,
+            )
+        )
         db.commit()
     except Exception:
         db.rollback()
@@ -196,7 +209,10 @@ def get_latency(admin: dict = Depends(require_admin)):
                     count(*) as n,
                     percentile_cont(0.5) within group (order by latency_ms) as p50_ms,
                     percentile_cont(0.95) within group (order by latency_ms) as p95_ms,
-                    avg(case when success = 1 then 0.0 else 1.0 end) as error_rate
+                    avg(case when success = 1 then 0.0 else 1.0 end) as error_rate,
+                    count(*) filter (where cold) as cold_n,
+                    avg(latency_ms) filter (where cold) as cold_avg_ms,
+                    avg(latency_ms) filter (where not cold) as warm_avg_ms
                 from request_latency
                 where created_at > now() - interval '7 days'
                 group by model_id, kind, tier
@@ -216,6 +232,9 @@ def get_latency(admin: dict = Depends(require_admin)):
             "p50_ms": round(r[4], 1) if r[4] is not None else None,
             "p95_ms": round(r[5], 1) if r[5] is not None else None,
             "error_rate": round(r[6], 4) if r[6] is not None else None,
+            "cold_n": r[7],
+            "cold_avg_ms": round(r[8], 1) if r[8] is not None else None,
+            "warm_avg_ms": round(r[9], 1) if r[9] is not None else None,
         }
         for r in rows
     ]

@@ -7,12 +7,13 @@ backend itself.
 """
 import io
 import os
+import threading
 
 import numpy as np
 import soundfile as sf
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from pydub import AudioSegment
 
 app = FastAPI(title="Mercury — Free-tier model space")
@@ -22,6 +23,8 @@ MODELS = {"distil-whisper/distil-large-v3", "kokoro"}
 
 _asr_pipe = None
 _tts_pipeline = None
+_warm = False
+_warm_error: str | None = None
 
 
 def require_internal(request: Request):
@@ -61,8 +64,30 @@ def decode_audio(raw: bytes) -> tuple[np.ndarray, int]:
     return audio, sr
 
 
+def _warm_up():
+    """Load both models and run one real inference each, so the first *user*
+    request never pays the cold-load cost — the container does at boot instead."""
+    global _warm, _warm_error
+    try:
+        silence = np.zeros(16000, dtype=np.float32)  # 1s of silence @ 16kHz
+        get_asr_pipe()({"array": silence, "sampling_rate": 16000})
+        list(get_tts_pipeline()("warm up.", voice="af_heart"))
+        _warm = True
+    except Exception as exc:  # noqa: BLE001 — surfaced via /health, not swallowed
+        _warm_error = str(exc)
+
+
+@app.on_event("startup")
+def _start_warm_up():
+    threading.Thread(target=_warm_up, daemon=True).start()
+
+
 @app.get("/health")
 def health():
+    if _warm_error is not None:
+        return JSONResponse({"status": "error", "detail": _warm_error}, status_code=503)
+    if not _warm:
+        return JSONResponse({"status": "warming"}, status_code=503)
     return {"status": "ok", "models": list(MODELS)}
 
 

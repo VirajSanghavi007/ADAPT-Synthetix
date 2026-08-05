@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, DateTime, Float, Integer, String, Text,
+    Boolean, Column, DateTime, Float, Integer, String, Text,
     create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -130,6 +130,7 @@ class RequestLatency(Base):
     tier = Column(String(16), nullable=False)
     latency_ms = Column(Float, nullable=False)
     success = Column(Integer, nullable=False, default=1)
+    cold = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
