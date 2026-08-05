@@ -68,12 +68,18 @@
   --ring: #0891b2;
 }
 
-/* Color palettes — selectable in Profile, independent of light/dark mode.
-   "emerald" (the block above) is the default/unset case. Each palette below
-   overrides the same primary/secondary/accent/ring/border set for light,
-   explicit dark, and system-preference-dark, mirroring the structure above. */
+/* Color palettes — selectable in Settings, independent of light/dark mode.
+   "emerald" (the block above) is the default/unset case. Each palette retints
+   the WHOLE site, not just buttons — background and card surfaces carry a subtle
+   tint of the palette's hue (the dominant ~60%), card/secondary elements a
+   stronger tint (~30%), and primary/accent stay the fully-saturated pop color
+   (~10%, same idea as a 60/30/10 color split). Overrides light, explicit dark,
+   and system-preference-dark, mirroring the structure above. */
 
 :root[data-palette="violet"] {
+  --bg: #faf8ff;
+  --fg: #4c1d95;
+  --card: #f3edfe;
   --primary: #7c3aed;
   --on-primary: #ffffff;
   --secondary: #a78bfa;
@@ -83,6 +89,9 @@
   --ring: #7c3aed;
 }
 :root[data-palette="violet"][data-theme="dark"] {
+  --bg: #180f2e;
+  --fg: #ede9fe;
+  --card: #241a42;
   --primary: #a78bfa;
   --on-primary: #1e1033;
   --secondary: #7c3aed;
@@ -93,6 +102,9 @@
 }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="violet"]:not([data-theme="light"]) {
+    --bg: #180f2e;
+    --fg: #ede9fe;
+    --card: #241a42;
     --primary: #a78bfa;
     --on-primary: #1e1033;
     --secondary: #7c3aed;
@@ -104,6 +116,9 @@
 }
 
 :root[data-palette="amber"] {
+  --bg: #fffaf0;
+  --fg: #78350f;
+  --card: #fef1d6;
   --primary: #d97706;
   --on-primary: #ffffff;
   --secondary: #fbbf24;
@@ -113,6 +128,9 @@
   --ring: #d97706;
 }
 :root[data-palette="amber"][data-theme="dark"] {
+  --bg: #1c1103;
+  --fg: #fef3c7;
+  --card: #2b1a04;
   --primary: #fbbf24;
   --on-primary: #1f1300;
   --secondary: #d97706;
@@ -123,6 +141,9 @@
 }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="amber"]:not([data-theme="light"]) {
+    --bg: #1c1103;
+    --fg: #fef3c7;
+    --card: #2b1a04;
     --primary: #fbbf24;
     --on-primary: #1f1300;
     --secondary: #d97706;
@@ -134,6 +155,9 @@
 }
 
 :root[data-palette="rose"] {
+  --bg: #fff8f8;
+  --fg: #881337;
+  --card: #ffe9eb;
   --primary: #e11d48;
   --on-primary: #ffffff;
   --secondary: #fb7185;
@@ -143,6 +167,9 @@
   --ring: #e11d48;
 }
 :root[data-palette="rose"][data-theme="dark"] {
+  --bg: #26090e;
+  --fg: #ffe4e6;
+  --card: #3a0d15;
   --primary: #fb7185;
   --on-primary: #2c0a10;
   --secondary: #e11d48;
@@ -153,6 +180,9 @@
 }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="rose"]:not([data-theme="light"]) {
+    --bg: #26090e;
+    --fg: #ffe4e6;
+    --card: #3a0d15;
     --primary: #fb7185;
     --on-primary: #2c0a10;
     --secondary: #e11d48;
@@ -164,6 +194,9 @@
 }
 
 :root[data-palette="blue"] {
+  --bg: #f7faff;
+  --fg: #1e3a8a;
+  --card: #e3edfe;
   --primary: #2563eb;
   --on-primary: #ffffff;
   --secondary: #60a5fa;
@@ -173,6 +206,9 @@
   --ring: #2563eb;
 }
 :root[data-palette="blue"][data-theme="dark"] {
+  --bg: #08152b;
+  --fg: #dbeafe;
+  --card: #0f2144;
   --primary: #60a5fa;
   --on-primary: #0b1a33;
   --secondary: #2563eb;
@@ -183,6 +219,9 @@
 }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="blue"]:not([data-theme="light"]) {
+    --bg: #08152b;
+    --fg: #dbeafe;
+    --card: #0f2144;
     --primary: #60a5fa;
     --on-primary: #0b1a33;
     --secondary: #2563eb;

@@ -25,6 +25,15 @@ import AccountSection from "@/components/AccountSection";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { useProfile } from "@/lib/useProfile";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import {
+  CUSTOM_PALETTE_KEY,
+  CUSTOM_PALETTE_FIELDS,
+  DEFAULT_CUSTOM_COLORS,
+  buildCssVars,
+  isValidHex,
+  type CustomPaletteColors,
+} from "@/lib/customPalette";
 
 const THEME_KEY = "mercury-theme";
 const PALETTE_KEY = "mercury-palette";
@@ -88,6 +97,8 @@ export default function SettingsPage() {
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [betaFeatures, setBetaFeaturesState] = useState(false);
   const [devMode, setDevModeState] = useState(false);
+  const [customColors, setCustomColors] = useState<CustomPaletteColors>(DEFAULT_CUSTOM_COLORS);
+  const [customError, setCustomError] = useState<string | null>(null);
   const isAdmin = profile?.role === "admin";
 
   useEffect(() => {
@@ -95,6 +106,12 @@ export default function SettingsPage() {
     setPaletteState(localStorage.getItem(PALETTE_KEY) || "emerald");
     setBetaFeaturesState(localStorage.getItem(BETA_KEY) === "true");
     setDevModeState(localStorage.getItem(DEV_MODE_KEY) === "true");
+    try {
+      const saved = JSON.parse(localStorage.getItem(CUSTOM_PALETTE_KEY) || "null");
+      if (saved) setCustomColors(saved);
+    } catch {
+      // ignore malformed saved palette
+    }
   }, []);
 
   function setBetaFeatures(enabled: boolean) {
@@ -117,14 +134,39 @@ export default function SettingsPage() {
     }
   }
 
+  function clearCustomVars() {
+    ["bg", "fg", "card", "primary", "on-primary", "secondary", "accent", "on-accent", "border", "ring"].forEach(
+      (k) => document.documentElement.style.removeProperty(`--${k}`)
+    );
+  }
+
   function setPalette(id: string) {
     localStorage.setItem(PALETTE_KEY, id);
     setPaletteState(id);
+    if (id !== "custom") clearCustomVars();
     if (id === "emerald") {
       document.documentElement.removeAttribute("data-palette");
     } else {
       document.documentElement.setAttribute("data-palette", id);
     }
+    if (id === "custom") applyCustomPalette(customColors);
+  }
+
+  function applyCustomPalette(colors: CustomPaletteColors) {
+    const vars = buildCssVars(colors);
+    Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(`--${k}`, v));
+  }
+
+  function setCustomColor(key: keyof CustomPaletteColors, value: string) {
+    const next = { ...customColors, [key]: value };
+    setCustomColors(next);
+    if (!isValidHex(value)) {
+      setCustomError(`"${value}" isn't a valid hex color (expected e.g. #059669).`);
+      return;
+    }
+    setCustomError(null);
+    localStorage.setItem(CUSTOM_PALETTE_KEY, JSON.stringify(next));
+    if (palette === "custom") applyCustomPalette(next);
   }
 
   return (
@@ -173,7 +215,7 @@ export default function SettingsPage() {
             <Label className="mb-2 flex items-center gap-1.5">
               <Palette className="h-3.5 w-3.5" /> Color palette
             </Label>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-6 gap-3">
               {PALETTE_OPTIONS.map(({ id, label, swatch }) => (
                 <button
                   key={id}
@@ -193,7 +235,57 @@ export default function SettingsPage() {
                   <span className="text-xs text-muted">{label}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setPalette("custom")}
+                aria-label="Custom"
+                aria-pressed={palette === "custom"}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  palette === "custom" ? "border-accent" : "border-border hover:border-accent/50"
+                )}
+              >
+                <span
+                  className="h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-background"
+                  style={{
+                    background: "conic-gradient(from 0deg, #ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)",
+                    "--tw-ring-color": palette === "custom" ? "var(--accent)" : "transparent",
+                  } as React.CSSProperties}
+                />
+                <span className="text-xs text-muted">Custom</span>
+              </button>
             </div>
+
+            {palette === "custom" && (
+              <div className="mt-4 space-y-3 rounded-lg border border-border p-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {CUSTOM_PALETTE_FIELDS.map(({ key, label }) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={isValidHex(customColors[key]) ? customColors[key] : "#000000"}
+                        onChange={(e) => setCustomColor(key, e.target.value)}
+                        className="h-8 w-8 cursor-pointer rounded border border-border bg-transparent p-0"
+                        aria-label={`${label} color`}
+                      />
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs">{label}</Label>
+                        <Input
+                          value={customColors[key]}
+                          onChange={(e) => setCustomColor(key, e.target.value)}
+                          className="h-7 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {customError && <p className="text-xs text-destructive">{customError}</p>}
+                <p className="text-xs text-muted">
+                  Text on top of Primary/Accent is picked automatically for contrast — you only need to pick
+                  the 7 colors above.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

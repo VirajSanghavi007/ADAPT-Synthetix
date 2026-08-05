@@ -128,7 +128,11 @@ export default function Recorder() {
         <h2 className="text-lg font-medium">Speech → Text</h2>
       </div>
       {models && models.asr.length > 0 && (
-        <Select value={modelId || models.asr[0].id} onValueChange={selectModel}>
+        <Select
+          value={modelId || models.asr[0].id}
+          onValueChange={selectModel}
+          items={Object.fromEntries(models.asr.map((m) => [m.id, m.label]))}
+        >
           <SelectTrigger className="w-full" aria-label="ASR model">
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>

@@ -3,7 +3,7 @@ import { Building2, KeyRound, ShieldOff, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 
-export const metadata = { title: "Enterprise Documentation — Mercury" };
+export const metadata = { title: "Enterprise Documentation" };
 
 export default function EnterpriseDocsPage() {
   return (

@@ -1,14 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, HardDriveUpload } from "lucide-react";
+import { Download, HardDriveUpload, ShieldCheck } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { useModels } from "@/lib/useModels";
 import { uploadToDrive } from "@/lib/googleDrive";
 import { friendlyApiError } from "@/lib/apiError";
+import { wordErrorRate } from "@/lib/wordErrorRate";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Above this WER, the round-trip check flags the audio as likely garbled rather
+// than just "imperfect" — TTS mispronunciations naturally produce some ASR
+// mismatch even on good audio, so this needs to be well above normal ASR error
+// rates (which run a few percent on clean speech) to mean something.
+const GARBLED_WER_THRESHOLD = 0.4;
 
 const TTS_TEXT_CACHE_KEY = "mercury-last-tts-text";
 const TTS_MODEL_KEY = "mercury-tts-model";
@@ -23,6 +30,8 @@ export default function TTSPanel() {
   const [busy, setBusy] = useState(false);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [modelId, setModelId] = useState<string>("");
+  const [checkingQuality, setCheckingQuality] = useState(false);
+  const [qualityResult, setQualityResult] = useState<{ wer: number; garbled: boolean; heard: string } | null>(null);
 
   useEffect(() => {
     setText(localStorage.getItem(TTS_TEXT_CACHE_KEY) || "");
@@ -63,6 +72,7 @@ export default function TTSPanel() {
       const blob = new Blob([buffer], { type: "audio/mpeg" });
       setAudioBlob(blob);
       setAudioUrl(URL.createObjectURL(blob));
+      setQualityResult(null);
       setStatus("Playing.");
     } catch (err) {
       setStatus("Error: " + (err as Error).message);
@@ -90,6 +100,34 @@ export default function TTSPanel() {
     }
   }
 
+  // Round-trip quality check: feed the generated audio back into ASR and diff the
+  // result against the original input text. High word-error-rate is a decent
+  // proxy for "this came out garbled" — a clean synthesis re-transcribes close to
+  // the original text; a garbled one produces something barely related.
+  async function checkQuality() {
+    if (!audioBlob) return;
+    setCheckingQuality(true);
+    setQualityResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", audioBlob, "check.mp3");
+      const res = await fetch(`${API_URL}/api/transcribe`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: form,
+      });
+      if (!res.ok) throw new Error(await friendlyApiError(res));
+      const data = await res.json();
+      const heard = (data.text || "").trim();
+      const wer = wordErrorRate(text.trim(), heard);
+      setQualityResult({ wer, garbled: wer >= GARBLED_WER_THRESHOLD, heard });
+    } catch (err) {
+      setStatus("Quality check error: " + (err as Error).message);
+    } finally {
+      setCheckingQuality(false);
+    }
+  }
+
   return (
     <section className="card-elevated space-y-3 rounded-xl border border-border p-6">
       <div className="flex items-center gap-2">
@@ -113,7 +151,11 @@ export default function TTSPanel() {
         className="min-h-24 w-full rounded-lg border border-border bg-background/40 p-3 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       {models && models.tts.length > 0 && (
-        <Select value={modelId || models.tts[0].id} onValueChange={selectModel}>
+        <Select
+          value={modelId || models.tts[0].id}
+          onValueChange={selectModel}
+          items={Object.fromEntries(models.tts.map((m) => [m.id, m.label]))}
+        >
           <SelectTrigger className="w-full" aria-label="TTS model">
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>
@@ -147,7 +189,24 @@ export default function TTSPanel() {
             <Button variant="outline" size="sm" onClick={saveAudioToDrive} className="cursor-pointer gap-1.5">
               <HardDriveUpload className="h-3.5 w-3.5" /> Save to Drive
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkQuality}
+              disabled={checkingQuality}
+              className="cursor-pointer gap-1.5"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {checkingQuality ? "Checking..." : "Check for garbled speech"}
+            </Button>
           </div>
+          {qualityResult && (
+            <p className={`text-sm ${qualityResult.garbled ? "text-destructive" : "text-accent"}`}>
+              {qualityResult.garbled
+                ? `This may have come out garbled — re-transcribing it gave "${qualityResult.heard}", quite different from what you typed.`
+                : `Sounds right — re-transcribing it matched closely (${Math.round(qualityResult.wer * 100)}% word difference).`}
+            </p>
+          )}
         </>
       )}
     </section>

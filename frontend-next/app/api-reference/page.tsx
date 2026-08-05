@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 import CodeBlock from "@/components/CodeBlock";
 
-export const metadata = { title: "API Reference — Mercury" };
+export const metadata = { title: "API Reference" };
 
 type Endpoint = {
   method: "GET" | "POST" | "PATCH" | "DELETE";

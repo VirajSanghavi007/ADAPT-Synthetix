@@ -99,7 +99,12 @@ export default function LiveTranscribe() {
   return (
     <section className="card-elevated space-y-3 rounded-xl border border-border p-6">
       {models && models.asr.length > 0 && (
-        <Select value={modelId || models.asr[0].id} onValueChange={(v) => v && setModelId(v)} disabled={listening}>
+        <Select
+          value={modelId || models.asr[0].id}
+          onValueChange={(v) => v && setModelId(v)}
+          disabled={listening}
+          items={Object.fromEntries(models.asr.map((m) => [m.id, m.label]))}
+        >
           <SelectTrigger className="w-full" aria-label="ASR model">
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>

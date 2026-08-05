@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import statistics
 from collections import defaultdict
 
 _g2p = None
@@ -83,7 +84,8 @@ def align_phoneme_errors(reference_text: str, hypothesis_text: str) -> dict:
     }
 
 
-CONFUSION_RATE_THRESHOLD = 0.30  # DyPCL / POWER systematic-confusion rule
+SYSTEMATIC_Z_SCORE = 1.5  # how many std devs above the mean confusion rate counts as "systematic"
+MIN_REF_COUNT_FOR_SYSTEMATIC = 5  # ignore phonemes seen too few times to trust a rate
 
 # ARPAbet (CMUdict/g2p_en's phoneme alphabet) -> a plain-English name and example
 # word, for the majority of users who have no reason to know what "AH0" means.
@@ -132,16 +134,35 @@ def _plain_english(operation: str, reference_phoneme: str, hypothesis_phoneme: s
 
 def build_error_report(rows: list[dict]) -> dict:
     """rows: [{operation, reference_phoneme, hypothesis_phoneme, count}, ...]"""
+    # Data-driven instead of a fixed cutoff: compute a confusion rate per
+    # substitution pair, then flag pairs that sit meaningfully above THIS
+    # corpus's own mean+stddev (z-score), not an arbitrary fixed percentage.
+    # A threshold that never adapts (e.g. "always 30%") either misses real
+    # patterns in a clean corpus or drowns in false positives on a noisy one.
     systematic = []
     ref_totals: dict[str, int] = defaultdict(int)
     for r in rows:
         if r["operation"] == "substitution":
             ref_totals[r["reference_phoneme"]] += r["count"]
+
+    rates: list[tuple[dict, float]] = []
     for r in rows:
-        if r["operation"] == "substitution" and ref_totals.get(r["reference_phoneme"], 0) > 0:
-            rate = r["count"] / ref_totals[r["reference_phoneme"]]
-            if rate >= CONFUSION_RATE_THRESHOLD:
-                systematic.append({**r, "confusion_rate": round(rate, 3), "systematic": True})
+        if r["operation"] != "substitution":
+            continue
+        ref_total = ref_totals.get(r["reference_phoneme"], 0)
+        if ref_total < MIN_REF_COUNT_FOR_SYSTEMATIC:
+            continue
+        rates.append((r, r["count"] / ref_total))
+
+    if len(rates) >= 2:
+        pop = [rate for _, rate in rates]
+        mean = statistics.mean(pop)
+        stdev = statistics.pstdev(pop)
+        cutoff = mean + SYSTEMATIC_Z_SCORE * stdev if stdev > 0 else mean
+        for r, rate in rates:
+            if rate >= cutoff and rate > mean:
+                z = (rate - mean) / stdev if stdev > 0 else float("inf")
+                systematic.append({**r, "confusion_rate": round(rate, 3), "z_score": round(z, 2), "systematic": True})
 
     top_errors = [
         {**r, "plain_english": _plain_english(r["operation"], r["reference_phoneme"], r["hypothesis_phoneme"])}

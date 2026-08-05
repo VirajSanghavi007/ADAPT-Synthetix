@@ -21,7 +21,7 @@ const DESCRIPTION =
   "Adaptive speech-to-text and text-to-speech for lecture and medical transcription, with phoneme-level error diagnostics.";
 
 export const metadata: Metadata = {
-  title: { default: "Mercury", template: "%s — Mercury" },
+  title: { default: "Mercury", template: "%s | Mercury" },
   description: DESCRIPTION,
   openGraph: {
     title: "Mercury",
@@ -51,7 +51,7 @@ export default function RootLayout({
           id="mercury-theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('mercury-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}var p=localStorage.getItem('mercury-palette');if(p&&p!=='emerald'){document.documentElement.setAttribute('data-palette',p);}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('mercury-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}var p=localStorage.getItem('mercury-palette');if(p&&p!=='emerald'){document.documentElement.setAttribute('data-palette',p);}if(p==='custom'){var c=JSON.parse(localStorage.getItem('mercury-custom-palette')||'null');if(c){for(var k in c){document.documentElement.style.setProperty('--'+k,c[k]);}}}}catch(e){}})();`,
           }}
         />
       </head>

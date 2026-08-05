@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import Logo from "@/components/Logo";
 import { CURRENT_VERSION, getLatestEntry } from "@/lib/changelog";
 
-export const metadata = { title: "Documentation — Mercury" };
+export const metadata = { title: "Documentation" };
 
 const SECTIONS = [
   {

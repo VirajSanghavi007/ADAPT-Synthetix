@@ -7,6 +7,6 @@ import { useEffect } from "react";
 // the root layout's default. Every tab just said "Mercury" regardless of page.
 export function usePageTitle(title: string) {
   useEffect(() => {
-    document.title = `${title} — Mercury`;
+    document.title = `${title} | Mercury`;
   }, [title]);
 }

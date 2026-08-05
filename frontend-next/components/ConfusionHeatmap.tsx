@@ -35,8 +35,8 @@ export default function ConfusionHeatmap({
           <tr>
             <th className="p-1 text-right align-bottom text-muted">heard as →<br />actually said ↓</th>
             {hypothesisLabels.map((label) => (
-              <th key={label} className="w-10 p-1 text-center align-bottom text-muted">
-                <span className="inline-block -rotate-45 whitespace-nowrap">{label}</span>
+              <th key={label} className="min-w-14 p-1 text-center align-bottom text-muted">
+                <span className="whitespace-nowrap">{label}</span>
               </th>
             ))}
           </tr>
@@ -52,7 +52,7 @@ export default function ConfusionHeatmap({
                   <td key={hi} className="p-0">
                     <div
                       title={`${refLabel} → ${hypLabel}: ${count}×`}
-                      className="flex h-8 w-10 items-center justify-center rounded-sm text-[10px] tabular-nums"
+                      className="flex h-8 min-w-14 items-center justify-center rounded-sm text-[10px] tabular-nums"
                       style={{
                         backgroundColor: count > 0 ? `color-mix(in oklch, var(--accent), transparent ${100 - alpha * 100}%)` : "transparent",
                         border: "1px solid var(--border)",
