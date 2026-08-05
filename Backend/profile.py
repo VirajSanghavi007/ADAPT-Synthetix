@@ -23,7 +23,7 @@ def get_profile(user: dict = Depends(require_user)):
     try:
         row = db.execute(
             text(
-                "select username, display_name, avatar_id, avatar_url, tier, is_enterprise "
+                "select username, display_name, avatar_id, avatar_url, tier, is_enterprise, role "
                 "from profiles where id = :uid"
             ),
             {"uid": user["id"]},
@@ -37,6 +37,7 @@ def get_profile(user: dict = Depends(require_user)):
             "avatar_url": row[3],
             "tier": row[4],
             "is_enterprise": row[5],
+            "role": row[6],
         }
     finally:
         db.close()

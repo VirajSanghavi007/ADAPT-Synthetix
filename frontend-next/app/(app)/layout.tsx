@@ -13,7 +13,6 @@ import { NAV_ITEMS } from "@/lib/nav";
 import Logo from "@/components/Logo";
 import MFAChallenge from "@/components/MFAChallenge";
 import EnterpriseChallenge from "@/components/EnterpriseChallenge";
-import ThemeToggle from "@/components/ThemeToggle";
 import GuidedTour from "@/components/GuidedTour";
 import WhatsNewModal from "@/components/WhatsNewModal";
 import { CURRENT_VERSION } from "@/lib/changelog";
@@ -126,7 +125,7 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
             </SidebarMenuItem>
           </SidebarMenu>
           <p className="truncate px-2 pb-1 text-xs text-muted group-data-[collapsible=icon]:hidden">
-            {session.user.email}
+            {profile?.display_name || profile?.username || session.user.email}
           </p>
           <p className="px-2 pb-1 text-[11px] text-muted group-data-[collapsible=icon]:hidden">
             v{CURRENT_VERSION}
@@ -135,9 +134,8 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
           <SidebarTrigger className="cursor-pointer" />
-          <ThemeToggle variant="inline" />
         </header>
         <div className="flex-1 space-y-6 p-6">{children}</div>
       </SidebarInset>

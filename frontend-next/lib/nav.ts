@@ -3,8 +3,6 @@ import {
   LayoutDashboard,
   ActivitySquare,
   Settings,
-  UserCircle,
-  ShieldCheck,
   CreditCard,
   BookOpen,
   KeyRound,
@@ -18,12 +16,13 @@ export type NavItem = {
   hideForEnterprise?: boolean;
 };
 
+// Profile and Account live inside Settings (collapsible sections) instead of
+// their own sidebar entries — their routes (/profile, /account) still work
+// standalone for deep links/bookmarks, just not linked from the sidebar.
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "History", href: "/history", icon: History },
   { title: "Error Analysis", href: "/errors", icon: ActivitySquare },
-  { title: "Profile", href: "/profile", icon: UserCircle },
-  { title: "Account", href: "/account", icon: ShieldCheck },
   { title: "API Keys", href: "/api-keys", icon: KeyRound },
   { title: "Subscription", href: "/subscription", icon: CreditCard, hideForEnterprise: true },
   { title: "Settings", href: "/settings", icon: Settings },

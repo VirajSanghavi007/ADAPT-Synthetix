@@ -10,9 +10,13 @@ import {
   Code2,
   Building2,
   ArrowRight,
+  Sparkles,
+  Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import Logo from "@/components/Logo";
+import { CURRENT_VERSION, getLatestEntry } from "@/lib/changelog";
 
 export const metadata = { title: "Documentation — Mercury" };
 
@@ -61,6 +65,7 @@ const SECTIONS = [
 ];
 
 export default function DocsHomePage() {
+  const latest = getLatestEntry();
   return (
     <div className="mx-auto max-w-4xl space-y-10 px-6 py-12">
       <div className="flex items-center gap-3">
@@ -111,6 +116,44 @@ export default function DocsHomePage() {
           >
             Enterprise docs <ArrowRight className="h-3.5 w-3.5" />
           </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            About
+            <Badge variant="secondary">v{CURRENT_VERSION}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-accent" /> What's new in v{latest.version}
+            </p>
+            <ul className="space-y-1.5 pl-1">
+              {latest.whatsNew.map((item) => (
+                <li key={item} className="text-sm text-muted">
+                  • {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {latest.bugFixes.length > 0 && (
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                <Wrench className="h-4 w-4 text-muted-foreground" /> Bug fixes
+              </p>
+              <ul className="space-y-1.5 pl-1">
+                {latest.bugFixes.map((item) => (
+                  <li key={item} className="text-sm text-muted">
+                    • {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-xs text-muted">Released {latest.date}</p>
         </CardContent>
       </Card>
     </div>

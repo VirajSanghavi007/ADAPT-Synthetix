@@ -41,7 +41,10 @@ from Backend.tiers import (
     resolve_model,
 )
 
-app = FastAPI(title="Mercury v3")
+# FastAPI's own auto-docs default to /docs and /redoc, colliding with the frontend's
+# own /docs page (which won since it's a route match, silently serving Swagger UI
+# instead of our docs page). API docs live at /api-reference instead.
+app = FastAPI(title="Mercury v3", docs_url=None, redoc_url=None)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

@@ -11,6 +11,7 @@ type Profile = {
   avatar_url: string | null;
   tier: string;
   is_enterprise: boolean;
+  role: string;
 };
 
 export function useProfile() {

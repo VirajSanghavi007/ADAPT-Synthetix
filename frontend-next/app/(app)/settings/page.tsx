@@ -1,35 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Monitor,
   Moon,
   Sun,
   Compass,
   FlaskConical,
-  Sparkles,
-  Wrench,
   UserCircle,
   ShieldCheck,
   ChevronDown,
   Palette,
+  Terminal,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { resetTour } from "@/components/GuidedTour";
 import ProfileSection from "@/components/ProfileSection";
 import AccountSection from "@/components/AccountSection";
 import { usePageTitle } from "@/lib/usePageTitle";
-import { CURRENT_VERSION, getLatestEntry } from "@/lib/changelog";
+import { useProfile } from "@/lib/useProfile";
 import { cn } from "@/lib/utils";
 
 const THEME_KEY = "mercury-theme";
 const PALETTE_KEY = "mercury-palette";
 const BETA_KEY = "mercury-beta-features";
+const DEV_MODE_KEY = "mercury-dev-mode";
 const THEME_OPTIONS = [
   { mode: "light", label: "Light", icon: Sun },
   { mode: "system", label: "System", icon: Monitor },
@@ -82,21 +82,29 @@ function ExpandableSection({
 
 export default function SettingsPage() {
   usePageTitle("Settings");
+  const { profile } = useProfile();
   const [theme, setThemeState] = useState("system");
   const [palette, setPaletteState] = useState("emerald");
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [betaFeatures, setBetaFeaturesState] = useState(false);
-  const latest = getLatestEntry();
+  const [devMode, setDevModeState] = useState(false);
+  const isAdmin = profile?.role === "admin";
 
   useEffect(() => {
     setThemeState(localStorage.getItem(THEME_KEY) || "system");
     setPaletteState(localStorage.getItem(PALETTE_KEY) || "emerald");
     setBetaFeaturesState(localStorage.getItem(BETA_KEY) === "true");
+    setDevModeState(localStorage.getItem(DEV_MODE_KEY) === "true");
   }, []);
 
   function setBetaFeatures(enabled: boolean) {
     localStorage.setItem(BETA_KEY, String(enabled));
     setBetaFeaturesState(enabled);
+  }
+
+  function setDevMode(enabled: boolean) {
+    localStorage.setItem(DEV_MODE_KEY, String(enabled));
+    setDevModeState(enabled);
   }
 
   function setTheme(mode: string) {
@@ -241,45 +249,27 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            About
-            <Badge variant="secondary">
-              v{CURRENT_VERSION}
-              {betaFeatures ? "-beta" : ""}
-            </Badge>
-            {betaFeatures && <Badge variant="outline">Beta</Badge>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-              <Sparkles className="h-4 w-4 text-accent" /> What's new in v{latest.version}
-            </p>
-            <ul className="space-y-1.5 pl-1">
-              {latest.whatsNew.map((item) => (
-                <li key={item} className="text-sm text-muted">
-                  • {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-              <Wrench className="h-4 w-4 text-muted-foreground" /> Bug fixes
-            </p>
-            <ul className="space-y-1.5 pl-1">
-              {latest.bugFixes.map((item) => (
-                <li key={item} className="text-sm text-muted">
-                  • {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <p className="text-xs text-muted">Released {latest.date}</p>
-        </CardContent>
-      </Card>
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Terminal className="h-4 w-4" /> Developer tools
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="dev-mode">Developer mode</Label>
+                <p className="text-sm text-muted">Show raw model ids and extra debug info throughout the app.</p>
+              </div>
+              <Switch id="dev-mode" checked={devMode} onCheckedChange={setDevMode} />
+            </div>
+            <Link href="/admin" className="text-sm text-accent underline-offset-2 hover:underline">
+              Open admin panel →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

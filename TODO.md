@@ -17,6 +17,8 @@ as they've come up, so they don't get lost.
   audio, without leaving the page. Needs: tab-audio capture permission, a lightweight
   in-page UI, and reuse of the existing `/api/transcribe` / `/api/tts` endpoints
   (probably via an API key, not a full user session, given the extension context).
+  Same tier-naming (Echo/Apollo/Thoth, Freyr/Horus/Odin) applies here too — the
+  extension's model picker/UI copy should use those names, not raw model ids.
 - **CLI ("Developer Mode")** — a command-line client against the existing REST API /
   MCP server, for scripting and CI use. `mercury transcribe file.wav`,
   `mercury tts "text" -o out.mp3`, config via `~/.mercury/config` or an API key env var.
