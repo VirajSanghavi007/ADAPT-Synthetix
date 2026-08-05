@@ -22,6 +22,19 @@ as they've come up, so they don't get lost.
 - **CLI ("Developer Mode")** — a command-line client against the existing REST API /
   MCP server, for scripting and CI use. `mercury transcribe file.wav`,
   `mercury tts "text" -o out.mp3`, config via `~/.mercury/config` or an API key env var.
+- **"The brain"** — quantize/prune Kimi K2 (or whatever model ends up right-sized)
+  down to something that fits on Oracle Cloud's free tier, and run it as a reasoning
+  layer alongside ASR/TTS — the "Claude but for speech" framing. Big undertaking,
+  blocked on actually having the Oracle Cloud instance (still pending signup as of
+  this writing) and on picking a model that's actually small enough post-quantization
+  to run acceptably on free-tier hardware — needs real benchmarking before committing,
+  not just picking a parameter count that sounds right.
+- **True streaming ASR** — Live Recording (shipped) currently approximates "live" by
+  recording ~6-second segments and transcribing each as a discrete request, so text
+  lands a few seconds behind and stutters at segment boundaries. Real low-latency
+  streaming needs a persistent connection (WebSocket) to a model that supports
+  incremental/streaming inference (not all of Echo/Apollo/Thoth's engines do —
+  worth checking per-engine before assuming this is just a backend wiring change).
 
 ## Infrastructure (explicitly "not now, future")
 

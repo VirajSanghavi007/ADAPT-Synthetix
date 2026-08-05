@@ -7,6 +7,7 @@ import {
   BookOpen,
   KeyRound,
   History,
+  Radio,
 } from "lucide-react";
 
 export type NavItem = {
@@ -21,6 +22,7 @@ export type NavItem = {
 // standalone for deep links/bookmarks, just not linked from the sidebar.
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Live Recording", href: "/live-recording", icon: Radio },
   { title: "History", href: "/history", icon: History },
   { title: "Error Analysis", href: "/errors", icon: ActivitySquare },
   { title: "API Keys", href: "/api-keys", icon: KeyRound },

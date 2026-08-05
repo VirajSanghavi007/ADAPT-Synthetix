@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { Mic, Volume2, ActivitySquare, TrendingUp } from "lucide-react";
 import { API_URL } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
+import { useProfile } from "@/lib/useProfile";
 import { useModels } from "@/lib/useModels";
-import Recorder from "@/components/Recorder";
 import TTSPanel from "@/components/TTSPanel";
-import ImportPanel from "@/components/ImportPanel";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { tierDisplayName } from "@/lib/tierNames";
 
 function StatCard({
   icon: Icon,
@@ -41,6 +41,7 @@ function StatCard({
 export default function DashboardPage() {
   usePageTitle("Dashboard");
   const { session } = useSession();
+  const { profile } = useProfile();
   const { models } = useModels();
   const [usage, setUsage] = useState<{ transcription_count: number; synthesis_count: number } | null>(null);
 
@@ -53,42 +54,30 @@ export default function DashboardPage() {
       .then(setUsage);
   }, [session?.access_token]);
 
+  const welcomeName = profile?.display_name || profile?.username || session?.user.email;
+
   return (
     <div className="animate-fade-up space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted">
-          Welcome back{session?.user.email ? `, ${session.user.email}` : ""}.
-        </p>
+        <p className="text-sm text-muted">Welcome back{welcomeName ? `, ${welcomeName}` : ""}.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Mic} label="Transcriptions" value={usage ? String(usage.transcription_count) : "—"} hint="Total sessions logged" />
         <StatCard icon={Volume2} label="TTS generations" value={usage ? String(usage.synthesis_count) : "—"} hint="Speech synthesized" />
         <StatCard icon={ActivitySquare} label="Phoneme errors" value="—" hint="See Error Analysis" />
-        <StatCard icon={TrendingUp} label="Tier" value={models?.tier ?? "—"} hint="See Subscription" />
+        <StatCard icon={TrendingUp} label="Tier" value={tierDisplayName(models?.tier) || "—"} hint="See Subscription" />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Transcribe</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Recorder />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Text to speech</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TTSPanel />
-          </CardContent>
-        </Card>
-      </div>
-
-      <ImportPanel />
+      <Card>
+        <CardHeader>
+          <CardTitle>Text to speech</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TTSPanel />
+        </CardContent>
+      </Card>
     </div>
   );
 }
