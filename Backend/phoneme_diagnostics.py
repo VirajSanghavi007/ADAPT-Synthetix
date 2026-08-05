@@ -96,12 +96,21 @@ _PHONEME_NAMES: dict[str, tuple[str, str]] = {
 }
 
 
+_VOWELS = {"AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "IH", "IY", "OW", "OY", "UH", "UW"}
+
+
 def _describe_phoneme(code: str) -> str:
     if not code:
         return "(nothing)"
     base = code.rstrip("012")
     name, example = _PHONEME_NAMES.get(base, (code, None))
     return f'the "{name}" sound (as in "{example}")' if example else f'the "{name}" sound'
+
+
+def _phoneme_category(code: str) -> str:
+    if not code:
+        return "none"
+    return "vowel" if code.rstrip("012") in _VOWELS else "consonant"
 
 
 def _plain_english(operation: str, reference_phoneme: str, hypothesis_phoneme: str) -> str:
@@ -142,9 +151,25 @@ def build_error_report(rows: list[dict]) -> dict:
             f"({worst['count']} time{'s' if worst['count'] != 1 else ''} across everything reviewed)."
         )
 
+    # Breakdowns for the dashboard's charts — same rows, grouped differently, so the
+    # frontend doesn't have to re-derive them from the (already-aggregated) top_errors.
+    operation_breakdown: dict[str, int] = defaultdict(int)
+    category_breakdown: dict[str, int] = defaultdict(int)
+    for r in rows:
+        operation_breakdown[r["operation"]] += r["count"]
+        if r["operation"] == "substitution":
+            cat = f'{_phoneme_category(r["reference_phoneme"])} -> {_phoneme_category(r["hypothesis_phoneme"])}'
+        elif r["operation"] == "deletion":
+            cat = f'{_phoneme_category(r["reference_phoneme"])} dropped'
+        else:
+            cat = f'{_phoneme_category(r["hypothesis_phoneme"])} inserted'
+        category_breakdown[cat] += r["count"]
+
     return {
         "basis": "reference_aligned_phoneme_errors",
         "summary": summary,
         "top_errors": top_errors,
         "systematic_confusions": systematic,
+        "operation_breakdown": dict(operation_breakdown),
+        "category_breakdown": dict(category_breakdown),
     }

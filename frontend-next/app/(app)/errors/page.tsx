@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import SimpleBarChart from "@/components/SimpleBarChart";
 
 type PhonemeErrorRow = {
   operation: string;
@@ -26,6 +27,14 @@ type ErrorReport = {
   summary: string | null;
   top_errors: PhonemeErrorRow[];
   systematic_confusions: PhonemeErrorRow[];
+  operation_breakdown: Record<string, number>;
+  category_breakdown: Record<string, number>;
+};
+
+const OPERATION_LABELS: Record<string, string> = {
+  substitution: "Wrong sound heard",
+  deletion: "Sound dropped",
+  insertion: "Extra sound added",
 };
 
 export default function ErrorAnalysisPage() {
@@ -93,6 +102,40 @@ export default function ErrorAnalysisPage() {
             <p>{report.summary}</p>
           </CardContent>
         </Card>
+      )}
+
+      {report && (report.top_errors.length > 0 || Object.keys(report.operation_breakdown ?? {}).length > 0) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>What kind of mistake</CardTitle>
+              <p className="text-sm text-muted">Wrong sound vs. dropped vs. extra — which is most common.</p>
+            </CardHeader>
+            <CardContent>
+              <SimpleBarChart
+                data={Object.entries(report.operation_breakdown ?? {}).map(([op, count]) => ({
+                  label: OPERATION_LABELS[op] ?? op,
+                  value: count,
+                }))}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Vowels vs. consonants</CardTitle>
+              <p className="text-sm text-muted">Which category of sound is behind the mistakes.</p>
+            </CardHeader>
+            <CardContent>
+              <SimpleBarChart
+                data={Object.entries(report.category_breakdown ?? {})
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 6)
+                  .map(([cat, count]) => ({ label: cat, value: count }))}
+                colorClassName="bg-primary"
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <Card>
