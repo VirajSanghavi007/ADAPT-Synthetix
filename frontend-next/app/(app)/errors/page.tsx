@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import SimpleBarChart from "@/components/SimpleBarChart";
+import ConfusionHeatmap from "@/components/ConfusionHeatmap";
 
 type PhonemeErrorRow = {
   operation: string;
@@ -29,6 +30,13 @@ type ErrorReport = {
   systematic_confusions: PhonemeErrorRow[];
   operation_breakdown: Record<string, number>;
   category_breakdown: Record<string, number>;
+  confusion_matrix: {
+    reference_codes: string[];
+    hypothesis_codes: string[];
+    reference_labels: string[];
+    hypothesis_labels: string[];
+    cells: { reference: string; hypothesis: string; count: number }[];
+  };
 };
 
 const OPERATION_LABELS: Record<string, string> = {
@@ -136,6 +144,26 @@ export default function ErrorAnalysisPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {report?.confusion_matrix && report.confusion_matrix.reference_codes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Confusion heatmap</CardTitle>
+            <p className="text-sm text-muted">
+              Darker cells = more frequent. Rows are what was actually said, columns are what got heard instead.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ConfusionHeatmap
+              referenceCodes={report.confusion_matrix.reference_codes}
+              hypothesisCodes={report.confusion_matrix.hypothesis_codes}
+              referenceLabels={report.confusion_matrix.reference_labels}
+              hypothesisLabels={report.confusion_matrix.hypothesis_labels}
+              cells={report.confusion_matrix.cells}
+            />
+          </CardContent>
+        </Card>
       )}
 
       <Card>

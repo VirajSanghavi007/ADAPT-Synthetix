@@ -181,7 +181,9 @@ async def transcribe(
 @app.get("/api/errors/report")
 @limiter.limit("30/minute")
 def errors_report(request: Request, user_id: str = Depends(_require_user_id)):
-    """Confusion-matrix view over logged phoneme errors, for the Error Analysis dashboard."""
+    """Confusion-matrix view over the *current user's* logged phoneme errors —
+    scoped via the ASRLog each PhonemeError links back to, so one user's Error
+    Analysis dashboard never shows another user's transcription mistakes."""
     db = get_session()
     try:
         rows = (
@@ -190,6 +192,8 @@ def errors_report(request: Request, user_id: str = Depends(_require_user_id)):
                 PhonemeError.reference_phoneme,
                 PhonemeError.hypothesis_phoneme,
             )
+            .join(ASRLog, ASRLog.id == PhonemeError.transcription_id)
+            .filter(ASRLog.user_id == user_id)
             .all()
         )
     finally:

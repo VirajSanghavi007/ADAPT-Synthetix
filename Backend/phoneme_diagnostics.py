@@ -1,6 +1,7 @@
 """Reference-aligned phoneme error diagnostics, ported from v2's diagnostics.py."""
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
 _g2p = None
@@ -28,9 +29,17 @@ def _get_g2p():
     return _g2p
 
 
+_PHONEME_TOKEN_RE = re.compile(r"^[A-Z]+[0-2]?$")
+
+
 def extract_phonemes(text: str) -> list[str]:
+    # g2p_en's output interleaves real phonemes with punctuation/space tokens
+    # (".", ",", " ") it emits for prosody — those aren't phonemes and were being
+    # counted as "insertion" errors whenever hypothesis punctuation didn't match
+    # reference punctuation (which it never does, since references are typically
+    # unpunctuated). Keep only tokens that actually look like ARPAbet phonemes.
     tokens = _get_g2p()(text or "")
-    return [str(t) for t in tokens if str(t).strip()]
+    return [str(t) for t in tokens if _PHONEME_TOKEN_RE.match(str(t))]
 
 
 def align_phoneme_errors(reference_text: str, hypothesis_text: str) -> dict:
@@ -165,6 +174,30 @@ def build_error_report(rows: list[dict]) -> dict:
             cat = f'{_phoneme_category(r["hypothesis_phoneme"])} inserted'
         category_breakdown[cat] += r["count"]
 
+    # Confusion-matrix heatmap data — reference phoneme x hypothesis phoneme, capped
+    # to the busiest 12 on each axis so the grid stays readable. Uses plain-English
+    # names (not the raw ARPAbet codes) for the same reason the rest of this module
+    # avoids them.
+    sub_rows = [r for r in rows if r["operation"] == "substitution"]
+    ref_axis_totals: dict[str, int] = defaultdict(int)
+    hyp_axis_totals: dict[str, int] = defaultdict(int)
+    for r in sub_rows:
+        ref_axis_totals[r["reference_phoneme"]] += r["count"]
+        hyp_axis_totals[r["hypothesis_phoneme"]] += r["count"]
+    top_ref_axis = [p for p, _ in sorted(ref_axis_totals.items(), key=lambda kv: -kv[1])[:12]]
+    top_hyp_axis = [p for p, _ in sorted(hyp_axis_totals.items(), key=lambda kv: -kv[1])[:12]]
+    confusion_matrix = {
+        "reference_codes": top_ref_axis,
+        "hypothesis_codes": top_hyp_axis,
+        "reference_labels": [_describe_phoneme(p).split('"')[1] for p in top_ref_axis],
+        "hypothesis_labels": [_describe_phoneme(p).split('"')[1] for p in top_hyp_axis],
+        "cells": [
+            {"reference": p, "hypothesis": q, "count": next((r["count"] for r in sub_rows if r["reference_phoneme"] == p and r["hypothesis_phoneme"] == q), 0)}
+            for p in top_ref_axis
+            for q in top_hyp_axis
+        ],
+    }
+
     return {
         "basis": "reference_aligned_phoneme_errors",
         "summary": summary,
@@ -172,4 +205,5 @@ def build_error_report(rows: list[dict]) -> dict:
         "systematic_confusions": systematic,
         "operation_breakdown": dict(operation_breakdown),
         "category_breakdown": dict(category_breakdown),
+        "confusion_matrix": confusion_matrix,
     }
