@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "5.5.0";
+export const CURRENT_VERSION = "5.6.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,19 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "5.6.0",
+    date: "2026-08-09",
+    whatsNew: [
+      "Enterprise mode now splits into three domain pipelines — Medical, Children, Elderly — chosen at signup, each with its own priority-terms and diagnostic routing",
+      "New landing screen: regular sign-in, enterprise sign-in, or a sample demo per enterprise domain (no account needed)",
+      "Architecture docs — ER diagram, tech stack, system architecture, deployment topology, and the user journey, all in one page",
+      "Repo-wide reorganization (Frontend/, Docker/, Documentation/, Secret Files/) and a no-comments policy for all new code",
+    ],
+    bugFixes: [
+      "Fixed enterprise accounts landing on tier='max' instead of the dedicated 'enterprise' tier, which had made that tier's model catalog unreachable",
+    ],
+  },
   {
     version: "5.5.0",
     date: "2026-08-04",

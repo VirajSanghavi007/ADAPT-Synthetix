@@ -13,6 +13,7 @@ import {
   Sparkles,
   Wrench,
   Gauge,
+  Workflow,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,12 @@ const SECTIONS = [
     title: "API & integrations",
     body: "Full REST API reference, including request/response examples and authentication (session token or API key).",
     href: "/api-reference",
+  },
+  {
+    icon: Workflow,
+    title: "Architecture",
+    body: "ER diagram, tech stack, request flow, deployment topology, and the end-to-end user journey — five diagrams covering how the system actually fits together.",
+    href: "/docs/architecture",
   },
 ];
 
