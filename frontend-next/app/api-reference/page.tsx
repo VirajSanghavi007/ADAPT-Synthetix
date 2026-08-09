@@ -30,7 +30,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
           { name: "reference_text", type: "string", required: false, note: "enables phoneme-error logging" },
           { name: "model_id", type: "string", required: false, note: "defaults to your tier's best model" },
         ],
-        curl: `curl -X POST https://api.mercury.app/api/transcribe \\
+        curl: `curl -X POST https://api.adapt-synthetix.app/api/transcribe \\
   -H "X-API-Key: mk_live_..." \\
   -F "file=@recording.wav"`,
         response: `{ "text": "the transcribed speech" }`,
@@ -45,7 +45,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
           { name: "voice", type: "string", required: false },
           { name: "model_id", type: "string", required: false },
         ],
-        curl: `curl -X POST https://api.mercury.app/api/tts \\
+        curl: `curl -X POST https://api.adapt-synthetix.app/api/tts \\
   -H "X-API-Key: mk_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{"text": "hello world"}' --output speech.mp3`,
@@ -56,7 +56,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         path: "/api/models",
         summary: "List ASR/TTS models available to your subscription tier.",
         auth: "Bearer / API key",
-        curl: `curl https://api.mercury.app/api/models -H "X-API-Key: mk_live_..."`,
+        curl: `curl https://api.adapt-synthetix.app/api/models -H "X-API-Key: mk_live_..."`,
         response: `{ "tier": "pro", "asr": [{ "id": "...", "label": "..." }], "tts": [...] }`,
       },
       {
@@ -64,7 +64,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         path: "/api/errors/report",
         summary: "Phoneme-level confusion-matrix report over logged transcriptions.",
         auth: "Bearer / API key",
-        curl: `curl https://api.mercury.app/api/errors/report -H "X-API-Key: mk_live_..."`,
+        curl: `curl https://api.adapt-synthetix.app/api/errors/report -H "X-API-Key: mk_live_..."`,
         response: `{ "top_errors": [...], "systematic_confusions": [...] }`,
       },
     ],
@@ -78,7 +78,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         summary: "Transcribe multiple audio files from your computer in one call.",
         auth: "Bearer / API key",
         params: [{ name: "files", type: "multipart files[]", required: true, note: "max 20 per batch" }],
-        curl: `curl -X POST https://api.mercury.app/api/ingest/upload \\
+        curl: `curl -X POST https://api.adapt-synthetix.app/api/ingest/upload \\
   -H "X-API-Key: mk_live_..." \\
   -F "files=@a.wav" -F "files=@b.wav"`,
         response: `{ "results": [{ "filename": "a.wav", "text": "..." }] }`,
@@ -92,7 +92,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
           { name: "access_token", type: "string", required: true, note: "Google OAuth token, drive.readonly scope" },
           { name: "file_ids", type: "string[]", required: true },
         ],
-        curl: `curl -X POST https://api.mercury.app/api/ingest/drive \\
+        curl: `curl -X POST https://api.adapt-synthetix.app/api/ingest/drive \\
   -H "X-API-Key: mk_live_..." -H "Content-Type: application/json" \\
   -d '{"access_token": "...", "file_ids": ["1a2b3c"]}'`,
         response: `{ "results": [{ "file_id": "1a2b3c", "text": "..." }] }`,
@@ -107,7 +107,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         path: "/api/profile",
         summary: "Get your profile (username, avatar, tier).",
         auth: "Bearer",
-        curl: `curl https://api.mercury.app/api/profile -H "Authorization: Bearer <token>"`,
+        curl: `curl https://api.adapt-synthetix.app/api/profile -H "Authorization: Bearer <token>"`,
         response: `{ "username": "dr_sharma", "tier": "pro", "avatar_id": 3 }`,
       },
       {
@@ -115,7 +115,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         path: "/api/account/usage",
         summary: "Lifetime usage — words processed, audio hours.",
         auth: "Bearer",
-        curl: `curl https://api.mercury.app/api/account/usage -H "Authorization: Bearer <token>"`,
+        curl: `curl https://api.adapt-synthetix.app/api/account/usage -H "Authorization: Bearer <token>"`,
         response: `{ "total_word_count": 12500, "audio_hours": 3.4 }`,
       },
     ],
@@ -129,7 +129,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         summary: "Create a new API key. The full key is only ever shown once.",
         auth: "Bearer",
         params: [{ name: "name", type: "string", required: true }],
-        curl: `curl -X POST https://api.mercury.app/api/keys \\
+        curl: `curl -X POST https://api.adapt-synthetix.app/api/keys \\
   -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \\
   -d '{"name": "production"}'`,
         response: `{ "id": 1, "key": "mk_live_...", "tier": "pro" }`,
@@ -139,7 +139,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         path: "/api/keys",
         summary: "List your active API keys (prefix only, not the full key).",
         auth: "Bearer",
-        curl: `curl https://api.mercury.app/api/keys -H "Authorization: Bearer <token>"`,
+        curl: `curl https://api.adapt-synthetix.app/api/keys -H "Authorization: Bearer <token>"`,
         response: `[{ "id": 1, "name": "production", "prefix": "mk_live_abc1" }]`,
       },
       {
@@ -147,7 +147,7 @@ const GROUPS: { title: string; endpoints: Endpoint[] }[] = [
         path: "/api/keys/{key_id}",
         summary: "Revoke an API key immediately.",
         auth: "Bearer",
-        curl: `curl -X DELETE https://api.mercury.app/api/keys/1 -H "Authorization: Bearer <token>"`,
+        curl: `curl -X DELETE https://api.adapt-synthetix.app/api/keys/1 -H "Authorization: Bearer <token>"`,
         response: `{ "status": "revoked" }`,
       },
     ],
@@ -167,7 +167,7 @@ export default function ApiReferencePage() {
       <div className="mb-10 flex items-center gap-3">
         <Logo className="h-8 w-8" />
         <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">Mercury API Reference</h1>
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">ADAPT-Synthetix API Reference</h1>
           <p className="text-sm text-muted">
             Authenticate with a Supabase session bearer token, or an{" "}
             <code className="rounded bg-secondary px-1 py-0.5">X-API-Key</code> header from{" "}

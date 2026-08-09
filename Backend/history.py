@@ -107,5 +107,5 @@ def export_history_csv(
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=mercury-{kind}-history.csv"},
+        headers={"Content-Disposition": f"attachment; filename=adapt-synthetix-{kind}-history.csv"},
     )

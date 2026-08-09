@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Mercury",
-    "slug": "mercury-mobile",
+    "name": "ADAPT-Synthetix 2.0",
+    "slug": "adapt-synthetix-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mercury.app",
+      "bundleIdentifier": "com.adapt-synthetix.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Mercury needs microphone access to transcribe your speech."
+        "NSMicrophoneUsageDescription": "ADAPT-Synthetix 2.0 needs microphone access to transcribe your speech."
       }
     },
     "android": {
-      "package": "com.mercury.app",
+      "package": "com.adapt-synthetix.app",
       "permissions": ["RECORD_AUDIO"]
     }
   }

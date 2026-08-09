@@ -129,6 +129,32 @@ def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | No
     return resp.json()["text"]
 
 
+def transcribe_audio_with_confidence(audio: np.ndarray, sr: int, model_id: str) -> tuple[str, float | None]:
+    """Same call as transcribe_audio(), but for Spaces that return a confidence value
+    alongside text (currently: free tier only — see spaces/space-free/app.py). Kept as
+    a separate function rather than changing transcribe_audio()'s return type, since
+    that function has other callers (mcp_server.py, ingest.py, eval_harness.py) that
+    expect a plain string and shouldn't need to change for this.
+
+    Falls back to (text, None) for any Space that doesn't return a confidence field,
+    so this can be pointed at pro/max later without them needing a matching change."""
+    url = _space_url_for(model_id)
+    wav_buf = io.BytesIO()
+    sf.write(wav_buf, audio, sr, format="WAV")
+    wav_buf.seek(0)
+
+    resp = httpx.post(
+        f"{url}/transcribe",
+        headers={"X-Internal-Secret": SPACE_SECRET},
+        files={"file": ("audio.wav", wav_buf, "audio/wav")},
+        data={"model_id": model_id},
+        timeout=600.0,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+    return body["text"], body.get("confidence")
+
+
 def synthesize_speech(text: str, voice: str, model_id: str) -> bytes | None:
     """Synchronous — call via run_in_threadpool from async routes. Returns MP3 bytes."""
     url = _space_url_for(model_id)

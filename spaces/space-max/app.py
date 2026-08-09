@@ -17,7 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, JSONResponse
 from pydub import AudioSegment
 
-app = FastAPI(title="Mercury — Max-tier model space")
+app = FastAPI(title="ADAPT-Synthetix — Max-tier model space")
 
 INTERNAL_SECRET = os.environ.get("SPACE_SECRET")
 MODELS = {"nvidia/parakeet-tdt-0.6b-v2", "FunAudioLLM/CosyVoice2-0.5B"}

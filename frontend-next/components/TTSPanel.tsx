@@ -17,8 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // rates (which run a few percent on clean speech) to mean something.
 const GARBLED_WER_THRESHOLD = 0.4;
 
-const TTS_TEXT_CACHE_KEY = "mercury-last-tts-text";
-const TTS_MODEL_KEY = "mercury-tts-model";
+const TTS_TEXT_CACHE_KEY = "adapt-synthetix-last-tts-text";
+const TTS_MODEL_KEY = "adapt-synthetix-tts-model";
 
 export default function TTSPanel() {
   const { session } = useSession();
@@ -85,7 +85,7 @@ export default function TTSPanel() {
     if (!audioUrl) return;
     const a = document.createElement("a");
     a.href = audioUrl;
-    a.download = `mercury-speech-${Date.now()}.mp3`;
+    a.download = `adapt-synthetix-speech-${Date.now()}.mp3`;
     a.click();
   }
 
@@ -93,7 +93,7 @@ export default function TTSPanel() {
     if (!audioBlob) return;
     setStatus("Saving to Google Drive...");
     try {
-      await uploadToDrive(`mercury-speech-${Date.now()}.mp3`, audioBlob, "audio/mpeg");
+      await uploadToDrive(`adapt-synthetix-speech-${Date.now()}.mp3`, audioBlob, "audio/mpeg");
       setStatus("Saved to Google Drive.");
     } catch (err) {
       setStatus("Drive error: " + (err as Error).message);

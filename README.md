@@ -1,4 +1,4 @@
-# Mercury
+# ADAPT-Synthetix 2.0
 
 Adaptive speech-to-text and text-to-speech for lecture and medical transcription, with
 phoneme-level error diagnostics. Six tier-gated ASR/TTS models, a REST API + MCP server
@@ -41,6 +41,6 @@ downloads.
   subscription, settings, onboarding, docs)
 - `mobile/` — Expo/React Native scaffold (record/transcribe, TTS)
 - `n8n/` — workflow JSON for retrain-threshold notification and account-deletion cron
-- `design-system/mercury/MASTER.md` — the frontend's design tokens/style guide
+- `design-system/adapt-synthetix/MASTER.md` — the frontend's design tokens/style guide
 
 See `MEMORY.md` for the full version history and architecture narrative.

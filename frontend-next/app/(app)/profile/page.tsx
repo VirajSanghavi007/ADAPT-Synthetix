@@ -10,7 +10,7 @@ export default function ProfilePage() {
     <div className="animate-fade-up space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="text-sm text-muted">Your public identity within Mercury.</p>
+        <p className="text-sm text-muted">Your public identity within ADAPT-Synthetix.</p>
       </div>
       <ProfileSection />
     </div>

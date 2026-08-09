@@ -62,9 +62,9 @@ def request_deletion(user: dict = Depends(require_user)):
     confirm_link = f"{FRONTEND_URL}/confirm-delete?token={token}"
     sent = send_email(
         to=user["email"],
-        subject="Confirm account deletion — Mercury",
+        subject="Confirm account deletion — ADAPT-Synthetix",
         body=(
-            "We received a request to permanently delete your Mercury account.\n\n"
+            "We received a request to permanently delete your ADAPT-Synthetix account.\n\n"
             f"Confirm here: {confirm_link}\n\n"
             f"Confirming schedules deletion {DELETION_DELAY_HOURS} hours out — this gives you a "
             "last window to change your mind. After that, deletion is permanent and cannot be undone.\n\n"

@@ -21,16 +21,16 @@ const DESCRIPTION =
   "Adaptive speech-to-text and text-to-speech for lecture and medical transcription, with phoneme-level error diagnostics.";
 
 export const metadata: Metadata = {
-  title: { default: "Mercury", template: "%s | Mercury" },
+  title: { default: "ADAPT-Synthetix 2.0", template: "%s | ADAPT-Synthetix 2.0" },
   description: DESCRIPTION,
   openGraph: {
-    title: "Mercury",
+    title: "ADAPT-Synthetix 2.0",
     description: DESCRIPTION,
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "Mercury",
+    title: "ADAPT-Synthetix 2.0",
     description: DESCRIPTION,
   },
 };
@@ -48,10 +48,10 @@ export default function RootLayout({
     >
       <head>
         <Script
-          id="mercury-theme-init"
+          id="adapt-synthetix-theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('mercury-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}var p=localStorage.getItem('mercury-palette');if(p&&p!=='emerald'){document.documentElement.setAttribute('data-palette',p);}if(p==='custom'){var c=JSON.parse(localStorage.getItem('mercury-custom-palette')||'null');if(c){for(var k in c){document.documentElement.style.setProperty('--'+k,c[k]);}}}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('adapt-synthetix-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}var p=localStorage.getItem('adapt-synthetix-palette');if(p&&p!=='emerald'){document.documentElement.setAttribute('data-palette',p);}if(p==='custom'){var c=JSON.parse(localStorage.getItem('adapt-synthetix-custom-palette')||'null');if(c){for(var k in c){document.documentElement.style.setProperty('--'+k,c[k]);}}}}catch(e){}})();`,
           }}
         />
       </head>

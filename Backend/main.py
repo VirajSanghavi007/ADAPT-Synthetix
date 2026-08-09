@@ -21,17 +21,29 @@ from Backend.credits import check_and_deduct_credit, get_credit_status, get_ente
 from Backend.enterprise import router as enterprise_router
 from Backend.api_keys import router as api_keys_router
 from Backend.history import router as history_router
-from Backend.asr_pipeline import ALLOWED_AUDIO_TYPES, decode_audio, synthesize_speech, transcribe_audio, was_cold
+from Backend.asr_pipeline import (
+    ALLOWED_AUDIO_TYPES,
+    decode_audio,
+    synthesize_speech,
+    transcribe_audio,
+    transcribe_audio_with_confidence,
+    was_cold,
+)
 from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
+from Backend.drift_detector import check_drift, record_phoneme_events
+from Backend.error_diagnosis import classify as classify_error_type
 from Backend.ingest import router as ingest_router
 from Backend.limiter import limiter
 from Backend.mcp_server import mcp
 from Backend.mlops import record_eval_metric, record_latency
 from Backend.mlops import router as mlops_router
+from Backend.noise_fingerprint import fingerprint as noise_fingerprint
 from Backend.password import router as password_router
+from Backend.priority_queue import enqueue as enqueue_priority
 from Backend.profile import router as profile_router
 from Backend.phoneme_diagnostics import align_phoneme_errors, build_error_report
 from Backend.spaces_status import router as spaces_status_router
+from Backend.tts_remediation import generate_remediation, worst_phoneme_pair
 from Backend.tiers import (
     ASR_CATALOG,
     TIER_MODELS,
@@ -44,7 +56,7 @@ from Backend.tiers import (
 # FastAPI's own auto-docs default to /docs and /redoc, colliding with the frontend's
 # own /docs page (which won since it's a route match, silently serving Swagger UI
 # instead of our docs page). API docs live at /api-reference instead.
-app = FastAPI(title="Mercury v3", docs_url=None, redoc_url=None)
+app = FastAPI(title="ADAPT-Synthetix 2.0", docs_url=None, redoc_url=None)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -135,13 +147,32 @@ async def transcribe(
         raise HTTPException(400, "could not decode audio file")
 
     cold = was_cold(resolved_model)
+    is_free_tier = tier == "free"  # diagnostic core (objectives 2-7) is free-tier only for now
+
     start = time.monotonic()
     try:
-        text = await run_in_threadpool(transcribe_audio, audio, sr, resolved_model)
+        if is_free_tier:
+            text, confidence = await run_in_threadpool(
+                transcribe_audio_with_confidence, audio, sr, resolved_model
+            )
+        else:
+            text = await run_in_threadpool(transcribe_audio, audio, sr, resolved_model)
+            confidence = None
     except Exception:
         record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=False, cold=cold)
         raise
     record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=True, cold=cold)
+
+    # Noise fingerprint + error-type diagnosis (objectives 3-4) — free tier only,
+    # best-effort: a feature-extraction hiccup must not break transcription itself.
+    noise_category = None
+    error_type = None
+    if is_free_tier:
+        try:
+            noise_category = (await run_in_threadpool(noise_fingerprint, audio, sr))["noise_category"]
+        except Exception:
+            noise_category = "clean"
+        error_type = classify_error_type(confidence, None, noise_category)
 
     # Logging (ASRLog, phoneme errors, eval metrics) is best-effort — the transcript
     # is already computed, so a DB hiccup here must not turn a successful transcribe
@@ -149,6 +180,7 @@ async def transcribe(
     duration_sec = len(audio) / sr if sr else None
     db = get_session()
     log_id = None
+    alignment = None
     try:
         log = ASRLog(user_id=user_id, transcript=text, duration_sec=duration_sec, model_id=resolved_model)
         db.add(log)
@@ -176,7 +208,44 @@ async def transcribe(
     if log_id is not None and reference_text and reference_text.strip():
         record_eval_metric(log_id, resolved_model, reference_text, text)
 
-    return {"text": text}
+    # Objectives 5-7, free tier only, all best-effort — reusing the same phoneme
+    # alignment already computed above when a reference_text was supplied, so this
+    # costs nothing extra unless there's something to act on.
+    priority_queued = False
+    remediation = None
+    if is_free_tier and error_type is not None:
+        if error_type != "clean":
+            priority_queued = enqueue_priority(log_id, text, confidence, error_type) is not None
+
+        if alignment is not None:
+            try:
+                record_phoneme_events(resolved_model, alignment["errors"])
+                check_drift(resolved_model)
+            except Exception:
+                pass
+
+            if error_type != "clean":
+                pair = worst_phoneme_pair(alignment["errors"])
+                if pair is not None:
+                    try:
+                        remediation = await run_in_threadpool(
+                            generate_remediation, log_id, pair[0], pair[1], resolved_model
+                        )
+                    except Exception:
+                        remediation = None
+
+    response = {"text": text}
+    if is_free_tier:
+        response.update(
+            {
+                "confidence": confidence,
+                "noise_category": noise_category,
+                "error_type": error_type,
+                "priority_queued": priority_queued,
+                "remediation": remediation,
+            }
+        )
+    return response
 
 
 @app.get("/api/errors/report")

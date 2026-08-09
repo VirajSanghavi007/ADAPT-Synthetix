@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: mercury
+    name: adapt-synthetix
     runtime: docker
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health

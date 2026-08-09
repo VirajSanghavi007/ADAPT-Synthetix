@@ -2,7 +2,7 @@
 // picking one of the 5 built-in palettes. Applied as inline CSS custom properties
 // on :root (arbitrary hex values can't be predefined in a stylesheet the way the
 // built-in palettes are), persisted as JSON in localStorage.
-export const CUSTOM_PALETTE_KEY = "mercury-custom-palette";
+export const CUSTOM_PALETTE_KEY = "adapt-synthetix-custom-palette";
 
 export type CustomPaletteColors = {
   bg: string;

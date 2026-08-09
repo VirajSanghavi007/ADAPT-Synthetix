@@ -1,4 +1,4 @@
-"""Mercury's API exposed as an MCP server (transcribe/TTS/models/error-report),
+"""ADAPT-Synthetix's API exposed as an MCP server (transcribe/TTS/models/error-report),
 mounted into the FastAPI app at /mcp. Auth is the same X-API-Key mechanism as the
 REST API — generate a key from the Account/API Keys page and use it as a Bearer
 token or the mcp-session header your MCP client sends through to us.
@@ -14,7 +14,7 @@ from Backend.db import ASRLog, PhonemeError, TTSLog, get_session
 from Backend.phoneme_diagnostics import build_error_report
 from Backend.tiers import ASR_CATALOG, TIER_MODELS, TTS_CATALOG, check_tier_rate_limit, get_user_tier, resolve_model
 
-mcp = FastMCP("mercury", stateless_http=True)
+mcp = FastMCP("adapt-synthetix", stateless_http=True)
 
 
 def _authed_user(ctx: Context) -> dict:
@@ -37,7 +37,7 @@ def list_models(ctx: Context) -> dict:
 
 @mcp.tool()
 def transcribe(ctx: Context, audio_base64: str, model_id: str | None = None) -> dict:
-    """Transcribe base64-encoded audio (wav/mp3/ogg) to text using Mercury's ASR pipeline."""
+    """Transcribe base64-encoded audio (wav/mp3/ogg) to text using ADAPT-Synthetix's ASR pipeline."""
     auth = _authed_user(ctx)
     tier = get_user_tier(auth["id"])
     check_tier_rate_limit(auth["id"], tier)
@@ -59,7 +59,7 @@ def transcribe(ctx: Context, audio_base64: str, model_id: str | None = None) -> 
 
 @mcp.tool()
 def synthesize(ctx: Context, text: str, voice: str = "", model_id: str | None = None) -> dict:
-    """Synthesize speech from text using Mercury's TTS pipeline. Returns base64-encoded MP3 audio."""
+    """Synthesize speech from text using ADAPT-Synthetix's TTS pipeline. Returns base64-encoded MP3 audio."""
     auth = _authed_user(ctx)
     tier = get_user_tier(auth["id"])
     check_tier_rate_limit(auth["id"], tier)

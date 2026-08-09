@@ -24,7 +24,7 @@ export default function Home() {
       <div className="animate-fade-up flex flex-col items-center gap-4">
         <Logo className="h-14 w-14" />
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">Mercury</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">ADAPT-Synthetix</h1>
           <p className="mt-2 max-w-sm text-muted">
             Speech-to-text and text-to-speech for lecture and medical transcription.
           </p>

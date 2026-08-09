@@ -1,5 +1,5 @@
 {
-  "name": "Mercury - Execute Pending Account Deletions",
+  "name": "ADAPT-Synthetix - Execute Pending Account Deletions",
   "nodes": [
     {
       "parameters": {
@@ -21,13 +21,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.MERCURY_API_URL }}/api/account/delete/execute-pending",
+        "url": "={{ $env.ADAPT_SYNTHETIX_API_URL }}/api/account/delete/execute-pending",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Cron-Secret",
-              "value": "={{ $env.MERCURY_CRON_SECRET }}"
+              "value": "={{ $env.ADAPT_SYNTHETIX_CRON_SECRET }}"
             }
           ]
         },
@@ -55,6 +55,6 @@
   },
   "pinData": {},
   "meta": {
-    "instanceId": "mercury-local"
+    "instanceId": "adapt-synthetix-local"
   }
 }

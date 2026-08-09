@@ -1,6 +1,6 @@
-# Mercury — Product Definition & Roadmap
+# ADAPT-Synthetix 2.0 — Product Definition & Roadmap
 
-## What Mercury is
+## What ADAPT-Synthetix is
 
 **Speech infrastructure that knows what it doesn't know.**
 
@@ -13,7 +13,7 @@ on screen to warn the person reading them. The industry's own standard metric,
 word error rate, is structurally incapable of telling a dropped filler word from
 a dropped drug name.
 
-Mercury takes the opposite position. Every transcript we return carries its own
+ADAPT-Synthetix takes the opposite position. Every transcript we return carries its own
 confidence with it: which segments were certain, which were guesses, which model
 version produced them, and where the recognised sounds diverged from what was
 expected. Customers run the whole stack on their own infrastructure, so the audio
@@ -28,7 +28,7 @@ regulated buyer actually needs.
 
 ## Who this is for
 
-Mercury is for the customer where a *silently wrong* answer costs more than a
+ADAPT-Synthetix is for the customer where a *silently wrong* answer costs more than a
 *slow* one:
 
 - **Clinical documentation** — where a hallucinated line contaminates a patient
@@ -46,7 +46,7 @@ Mercury is for the customer where a *silently wrong* answer costs more than a
 
 **O1 — Ship the honest transcript.**
 Every response carries per-segment confidence, flagged uncertain spans, and the
-exact model version that produced it. *Success:* no Mercury response can be
+exact model version that produced it. *Success:* no ADAPT-Synthetix response can be
 consumed without the caller also receiving its reliability signal.
 
 **O2 — Make our own accuracy claims honest.**
@@ -68,7 +68,7 @@ and provenance chain for any data used in training.
 from?" without contacting us.
 
 **O5 — Become the layer, not the model.**
-Support bringing your own model backend, so Mercury's value compounds as the
+Support bringing your own model backend, so ADAPT-Synthetix's value compounds as the
 open-model ecosystem improves rather than competing against it.
 *Success:* a customer running their own Whisper deployment still pays us.
 
@@ -223,7 +223,7 @@ starting Phase 1 workstream P1.4 onwards, not as a suggestion.
 
 ### Phase 1 — The Honest Transcript
 
-**Thesis.** Change the *shape* of Mercury's output so that within thirty seconds
+**Thesis.** Change the *shape* of ADAPT-Synthetix's output so that within thirty seconds
 of a trial, a technical evaluator sees something no competitor returns. This is
 the phase that converts the positioning statement from a claim into an
 observable property. Most of the work is promotion of existing code into a new
@@ -426,6 +426,54 @@ Phase 2 onward.
   isn't a one-time toast that disappears.
   Est: S. Accept: the number is visible again on a return visit to settings.
 
+#### P1.8 — Noise fingerprinting + rule-based error-type classification *(∥ — ported from ADAPT-Synthetix, already proven)*
+
+ADAPT-Synthetix has no noise classification and no error-*type* attribution today —
+only a raw confidence number (once P1.2 ships) and phoneme divergence. The
+2024-2025 ADAPT-Synthetix prototype (`docs/ADAPT-Synthetix.docx`, a prior
+academic build of this same idea on Wav2Vec2/Bark) already designed, built, and
+measured exactly this layer: 18/18 pytest passing, 88% noise-classification
+accuracy on a 100-clip held-out set. This is not new invention — it's porting a
+working design into ADAPT-Synthetix's stack.
+
+- **P1.8.a** — Task: 8-feature noise fingerprinter — extract spectral centroid,
+  spectral bandwidth, spectral rolloff (85th percentile), zero-crossing rate,
+  RMS energy, MFCC variance, tempo, and harmonic ratio from the input audio
+  (librosa has all eight).
+  Design: normalise features to [0,1] against precomputed corpus statistics,
+  then classify into one of five categories (clean, traffic, crowd, machinery,
+  indoor) with a lightweight sklearn Random Forest — deliberately not a CNN;
+  the ADAPT-Synthetix build hit 88% accuracy with this exact approach on a
+  CPU-only server, and the point of these 8 features over the more common
+  2-3-feature (MFCC-only) baseline is finer categorisation without needing a
+  GPU or a deep classifier.
+  Est: M. Accept: on a constructed test set with clean, traffic, crowd,
+  machinery, and indoor clips, categorisation accuracy is measured and
+  recorded — target 85%+ per ADAPT-Synthetix's baseline, not assumed.
+- **P1.8.b** — Task: training corpus for the Random Forest — assemble or
+  source ~500 labelled clips across the five categories (ADAPT-Synthetix's
+  own corpus size); MUSAN (already referenced elsewhere in this roadmap for
+  augmentation) is a plausible source for the noise categories specifically.
+  Est: M. Accept: corpus committed/referenced with per-category clip counts.
+- **P1.8.c** — Task: rule-based error-type classifier — combine ASR confidence
+  (P1.2), CER-when-reference-available, and the noise category (P1.8.a) into
+  one of four labels: clean, noise-induced, accent-related, pronunciation-based.
+  Design (ADAPT-Synthetix's exact validated thresholds, as a starting point —
+  recalibrate against ADAPT-Synthetix's own engines rather than assuming portability):
+  confidence > 0.85 and CER < 0.05 → clean; noise category ≠ clean and
+  confidence < 0.6 → noise-induced; confidence in [0.55, 0.80] with elevated
+  CER and a clean noise reading → accent-related; everything else →
+  pronunciation-based.
+  Est: S (rules only, given P1.2/P1.8.a already supply the inputs). Accept:
+  the four labels are mutually exclusive and exhaustive over a constructed
+  test set spanning each case.
+- **P1.8.d** — Task: surface `noise_category` and `error_type` as fields on
+  `TranscriptSegment` (extends P1.1.a's shape) and in the history/diagnostics
+  view, so a user or admin sees *why* a segment was flagged uncertain, not
+  just that it was.
+  Est: S. Accept: a deliberately noisy test clip returns `noise_category` ≠
+  "clean" and `error_type` = "noise-induced" end to end through the API.
+
 **Exit criteria.** A `/api/transcribe` response contains per-segment confidence,
 uncertain-span flags, model version, and diagnostics. Measured hallucination rate
 on non-speech audio is published. Semantic WER and Missed Entity Rate appear in
@@ -445,7 +493,7 @@ data exists.
 
 ### Phase 2 — Trust at Scale
 
-**Thesis.** Phase 1 makes Mercury interesting to an engineer. Phase 2 makes it
+**Thesis.** Phase 1 makes ADAPT-Synthetix interesting to an engineer. Phase 2 makes it
 purchasable by an organisation — which is a different problem, solved with audit
 trails, documentation, and provable claims rather than with model quality. The
 August 2026 EU AI Act conformity deadline is an externally imposed forcing
@@ -484,7 +532,7 @@ function we did not have to create and should organise around.
   final — this one is worth a second pair of eyes given the legal exposure.
 - **P2.2.b** — Task: consent capture UI at signup / recording time —
   explicit, unticked-by-default checkbox for "permit use of my recordings to
-  improve Mercury's models," separate from basic service consent.
+  improve ADAPT-Synthetix's models," separate from basic service consent.
   Est: S. Accept: default state is opt-out, verified by inspecting the actual
   rendered form state, not just the intent.
 - **P2.2.c** — Task: erasure flow — a user withdrawing consent flags their
@@ -503,7 +551,7 @@ function we did not have to create and should organise around.
   Est: S. Accept: diagram reviewed against the actual `docker-compose.yml` —
   every network call an external auditor would ask about is either shown or
   explicitly noted as absent.
-- **P2.3.b** — Task: written mapping from Mercury's actual controls (P2.1
+- **P2.3.b** — Task: written mapping from ADAPT-Synthetix's actual controls (P2.1
   audit log, P1.6 version pinning, P2.2 consent ledger) to EU AI Act
   technical-documentation article requirements.
   Est: M — this is research-and-writing effort, not engineering; likely needs
@@ -550,7 +598,7 @@ function we did not have to create and should organise around.
 
 #### P2.6 — Contractual accuracy and latency targets
 
-- **P2.6.a** — Task: define the actual numbers Mercury is willing to commit
+- **P2.6.a** — Task: define the actual numbers ADAPT-Synthetix is willing to commit
   to (e.g., specific WER/Semantic-WER ceiling under stated conditions, p95
   latency ceiling), derived from real measured data from P1.5/P0.1.d, not
   aspirational figures.
@@ -563,7 +611,7 @@ function we did not have to create and should organise around.
   Est: S. Accept: page exists, legal/founder review done before publishing
   (this is a commitment, not a blog post).
 
-**Exit criteria.** A security reviewer can approve a Mercury deployment from
+**Exit criteria.** A security reviewer can approve a ADAPT-Synthetix deployment from
 written documentation alone. Every request is auditable and exportable. No audio
 enters a training set without a recorded consent basis. Published, defensible
 accuracy and latency figures exist.
@@ -578,9 +626,9 @@ here is to be *ready* for one, not to perform it.
 
 ### Phase 3 — Platform
 
-**Thesis.** The strategic inversion. As long as Mercury ships its own models, it
+**Thesis.** The strategic inversion. As long as ADAPT-Synthetix ships its own models, it
 is in a quality race against organisations with vastly more compute. The moment
-Mercury runs *other people's* models and adds the trust layer, every improvement
+ADAPT-Synthetix runs *other people's* models and adds the trust layer, every improvement
 in the open-model ecosystem becomes a tailwind instead of a threat. This phase is
 what makes the answer to "you're just wrapping pretrained models" be "yes,
 deliberately, that's the product."
@@ -589,7 +637,7 @@ deliberately, that's the product."
 
 - **P3.1.a** — Task: define a backend protocol contract — the minimal request/
   response shape any external inference endpoint must implement to plug into
-  Mercury (audio in, `TranscriptionResult`-compatible out, or an adapter layer
+  ADAPT-Synthetix (audio in, `TranscriptionResult`-compatible out, or an adapter layer
   translating a raw-text response into that shape when the backend can't
   supply confidence).
   Est: M. Accept: contract documented, and the existing built-in tiers pass it
@@ -615,7 +663,7 @@ deliberately, that's the product."
 #### P3.2 — Speaker diarization *(∥)*
 
 - **P3.2.a** — Task: evaluate and select an existing diarization model/library
-  (not build from scratch) against Mercury's actual audio profile (call
+  (not build from scratch) against ADAPT-Synthetix's actual audio profile (call
   center, lecture, clinical).
   Est: M. Accept: a written comparison of 2-3 candidates against a small
   labeled internal test set, with a decision recorded.
@@ -672,7 +720,7 @@ deliberately, that's the product."
   deletion error rate and timestamp drift over the file's duration, using
   existing engines as-is.
   Est: S. Accept: a table showing error rate vs. position-in-file, proving or
-  disproving that degradation is actually present in Mercury's pipeline
+  disproving that degradation is actually present in ADAPT-Synthetix's pipeline
   specifically (not just in the literature).
 - **P3.5.b** — Task: fix chunk-boundary stitching — overlap-and-merge windows
   instead of hard cuts, resolving duplicate/dropped words at boundaries.
@@ -696,7 +744,7 @@ deliberately, that's the product."
   Est: S. Accept: a user can add an entry and immediately hear it applied in
   a test synthesis.
 
-**Exit criteria.** A customer runs their own model behind Mercury and gets the
+**Exit criteria.** A customer runs their own model behind ADAPT-Synthetix and gets the
 full trust layer. Diarization ships with honest overlap reporting. Streaming
 supports live uncertainty flagging. Turn-detection is callable standalone.
 
@@ -714,7 +762,7 @@ that the differentiator is honest reporting, not a better number.
 **Thesis.** Everything up to here is defensible engineering that a
 well-resourced competitor could replicate in a year. This phase builds the part
 that gets *harder* to copy over time, because it is made of accumulated
-real-world error data rather than code. The loop: observe where Mercury fails on
+real-world error data rather than code. The loop: observe where ADAPT-Synthetix fails on
 real customer audio, synthesise targeted training data through our own TTS,
 retrain, measure. Published work validates the technique — TTS-augmented training
 cut mixed error rate from 12.1% to 10.1% and 17.8% to 16.0% on code-switching
@@ -731,7 +779,7 @@ system shares.
   mixed test set.
 - **P4.1.b** — Task: targeted synthesis — for the most common error patterns
   found (e.g., a specific phoneme confusion or code-switch boundary), generate
-  synthetic training pairs via Mercury's own TTS engines.
+  synthetic training pairs via ADAPT-Synthetix's own TTS engines.
   Est: L. Accept: generated synthetic samples reviewed for basic quality
   (not garbled — reuse the existing TTS garbled-speech check from the
   coaching module work) before entering the training set.
@@ -748,17 +796,47 @@ system shares.
   Est: M. Accept: a deliberately-degraded test model fails to promote through
   the pipeline.
 
-#### P4.2 — Real drift detection *(feeds the safety gate on P4.1)*
+#### P4.2 — Real drift detection *(feeds the safety gate on P4.1 — design ported from ADAPT-Synthetix)*
 
-- **P4.2.a** — Task: replace the volume-based proxy in `Backend/mlops.py`'s
-  `get_drift_signal()` with genuine WER/CER (and Semantic WER, once P1.5
-  ships) trend computation per model against a rolling baseline window.
-  Est: M. Accept: the endpoint's own docstring no longer needs to say "not
-  real drift detection"; a synthetic test where recent accuracy is
-  deliberately worse than baseline correctly triggers the signal.
-- **P4.2.b** — Task: alerting — when drift crosses a threshold, flag in the
-  admin dashboard and (if wired to notifications) alert, distinct from and in
-  addition to the existing crude proxy.
+ADAPT-Synthetix already designed and unit-tested (DD-01 through DD-05, all
+passing) exactly this mechanism at the per-phoneme level, one layer more
+precise than "replace the volume proxy with WER trend" as originally scoped.
+Adopt its design directly rather than re-deriving a coarser version.
+
+- **P4.2.a** — Task: per-phoneme rolling-window confidence tracking — for
+  every phoneme observed (via the existing phoneme diagnostics pipeline), keep
+  a rolling record of mean confidence per session, across the last five
+  sessions per model.
+  Design: this needs the per-segment confidence from P1.2 correlated down to
+  the phoneme level (P1.3 already does phoneme-level diagnostics; extend it to
+  retain a confidence value per phoneme occurrence, not just an error/no-error
+  flag).
+  Est: M. Accept: querying "confidence history for phoneme /θ/ over the last 5
+  sessions" returns a real time series from live data.
+- **P4.2.b** — Task: drift flagging — fit a linear regression per phoneme
+  (minimum 3-of-5 sessions present) over its confidence trend; flag as
+  drifting when the slope is negative *and* the mean of the last 3 sessions
+  falls below 0.5 (ADAPT-Synthetix's validated threshold — recalibrate against
+  ADAPT-Synthetix's own engines rather than assuming it transfers unchanged).
+  Est: S (regression itself is cheap; the work is wiring P4.2.a's data in).
+  Accept: DD-01/DD-02 equivalent — a constructed session history with 3+
+  phonemes declining below threshold triggers the flag; one with only 2
+  declining does not (matches ADAPT-Synthetix's own false-positive guard).
+- **P4.2.c** — Task: replace the volume-based proxy in `Backend/mlops.py`'s
+  `get_drift_signal()` with P4.2.b's real per-phoneme signal, aggregated to a
+  per-model drift flag (3+ simultaneously-drifting phonemes → model flagged).
+  Est: S. Accept: the endpoint's own docstring no longer needs to say "not
+  real drift detection."
+- **P4.2.d** — Task: wire the per-model drift flag to trigger P4.1's retrain
+  loop automatically (ADAPT-Synthetix's DD-03/DD-05 equivalent: adapter saved
+  correctly, and a subsequent request actually uses the retrained
+  adapter-modified model) — with a rollback path if the retrained model
+  regresses (DD-04 equivalent), consistent with P4.1.d's promotion gate.
+  Est: M. Accept: a simulated drift flag triggers a retrain run without manual
+  intervention, and a deliberately-regressed result rolls back to the
+  previous adapter rather than promoting.
+- **P4.2.e** — Task: alerting — when drift crosses threshold, flag in the
+  admin dashboard and (if wired to notifications) alert.
   Est: S. Accept: threshold breach produces a visible admin alert within one
   evaluation cycle.
 
@@ -766,7 +844,7 @@ system shares.
 
 - **P4.3.a** — Task: assemble or source a code-switching evaluation set
   (starting point: public datasets like SwitchLingua, referenced in the
-  research sweep) to measure Mercury's current baseline performance.
+  research sweep) to measure ADAPT-Synthetix's current baseline performance.
   Est: M. Accept: a baseline Semantic WER / mixed-error-rate number exists on
   a real code-switching test set, before any augmentation work starts.
 - **P4.3.b** — Task: apply the P4.1 closed loop specifically targeted at
@@ -802,7 +880,7 @@ system shares.
 
 - **P4.5.a** — Task: pick one target low-resource language (e.g., one of the
   named Indic languages with active research infrastructure) and assess
-  available public data (IndicVoices, similar) against what Mercury's
+  available public data (IndicVoices, similar) against what ADAPT-Synthetix's
   pipeline needs.
   Est: S. Accept: a written data-availability assessment and go/no-go
   recommendation for a first language.
@@ -829,6 +907,72 @@ system shares.
   voice-cloning infrastructure from the TTS tiers.
   Est: M. Accept: a generated corrected sample is audibly in the same voice
   as the original recording, verified by listening comparison.
+
+#### P4.7 — Domain-critical priority queue *(ported from ADAPT-Synthetix, formula already validated)*
+
+Nothing in ADAPT-Synthetix today prioritises which flagged errors matter most — every
+uncertain segment (P1) is equally visible. ADAPT-Synthetix already designed and
+empirically validated a priority formula for exactly this, measured at 1.8-2.7×
+separation between domain-critical and ordinary utterances at equal confidence
+(target was 3×; the gap was attributed to a capped match count, not a flawed
+formula — worth retesting uncapped before assuming the same ceiling here).
+
+- **P4.7.a** — Task: domain vocabulary lists — curated term sets (starting
+  point: ADAPT-Synthetix assembled ~800 medical terms and ~120 emergency
+  command phrases) for exact-match, case-insensitive lookup against a
+  transcript, per Phase 4's vertical targets (P4.4's clinical/contact-centre
+  packages).
+  Est: M (mostly data assembly — the matching logic itself is small). Accept:
+  a transcript containing N domain terms returns `domain_match_count = N`.
+- **P4.7.b** — Task: priority scoring — `priority = (1 − confidence) × (1 +
+  0.5 × domain_match_count)`, computed on every flagged (non-clean, per
+  P1.8.c) transcript and stored alongside the transcription record.
+  Est: S (formula is trivial once P4.7.a and P1.2 confidence exist). Accept:
+  reproduce ADAPT-Synthetix's own validation experiment — 25 domain-matched
+  vs. 25 non-domain utterances at identical confidence — and confirm a
+  measured separation, not just that the formula runs.
+- **P4.7.c** — Task: priority queue surface — an admin/ops view (extends
+  P2.4's batch QA ranking) ordered by priority score descending, with status
+  (pending/in-progress/resolved) per entry, so domain-critical errors are
+  triaged first rather than left in review order.
+  Est: M. Accept: a domain-critical low-confidence entry sorts above a
+  non-domain low-confidence entry with the same raw confidence.
+
+#### P4.8 — Phoneme-pair targeted TTS remediation *(ported from ADAPT-Synthetix's core novelty claim)*
+
+The single most distinctive mechanism in ADAPT-Synthetix, and the one ADAPT-Synthetix's
+Phase 4 retrain loop (P4.1.b) currently under-specifies: rather than
+re-synthesising a whole corrected utterance, generate corrective audio
+targeted at the *specific phoneme pair* an error traces back to (e.g. a /p/ →
+/b/ substitution), which the source document frames as producing higher-quality
+corrective training data with fewer TTS calls than full-utterance resynthesis.
+This sharpens P4.1.b into something concrete rather than "synthesise targeted
+training pairs" left unspecified.
+
+- **P4.8.a** — Task: phoneme-pair identification — given a flagged error
+  (from P1.3's phoneme diagnostics), determine the specific confused phoneme
+  pair (predicted vs. expected) rather than only "this utterance had an
+  error."
+  Est: S — P1.3's phoneme alignment already produces this at the diagnostic
+  level; this task is extracting and retaining the pair, not deriving it fresh.
+  Accept: a known substitution test case (e.g. a constructed /θ/→/d/ error)
+  is correctly identified as that specific pair, not just flagged generically.
+- **P4.8.b** — Task: corrective prompt construction — build a natural-sentence
+  TTS prompt that emphasises the target phoneme pair in context (not an
+  isolated phoneme, which synthesises poorly and trains poorly), and
+  synthesise via ADAPT-Synthetix's own TTS engines.
+  Est: M. Accept: for a target pair, the synthesised audio is reviewed
+  (reuse the existing garbled-speech WER check from the coaching module) and
+  confirmed to actually contain the target phoneme contrast, not just
+  plausible-sounding text.
+  Downgrades P4.1.b from "synthesise targeted training pairs" to this concrete
+  design.
+- **P4.8.c** — Task: tag and store the resulting corrective audio as remedial
+  training data linked to the originating error, feeding directly into P4.1.c's
+  retraining pipeline.
+  Est: S. Accept: a generated corrective sample is retrievable by querying
+  "training data for phoneme pair X," and shows up in the next P4.1.c
+  retraining run's input set.
 
 **Exit criteria.** A measurable, published accuracy improvement on accented and
 code-switched audio that is attributable to the loop rather than to a model
@@ -903,21 +1047,21 @@ they don't get lost. Not scheduled, not prioritised against each other.
 
 ## Integrations
 
-- **n8n node for Mercury** — a real installable n8n *node* (published npm package,
-  shows up in n8n's node picker with Mercury's own icon/params) so anyone building
-  an n8n workflow can add a "Mercury" step directly, instead of wiring an HTTP
+- **n8n node for ADAPT-Synthetix** — a real installable n8n *node* (published npm package,
+  shows up in n8n's node picker with ADAPT-Synthetix's own icon/params) so anyone building
+  an n8n workflow can add a "ADAPT-Synthetix" step directly, instead of wiring an HTTP
   Request node by hand against the REST API. Different from the n8n *workflows*
   already in the repo (`n8n/retrain_trigger.json`, `n8n/account_deletion_cron.json`)
-  — those are workflow definitions that happen to call Mercury's API; this would be
+  — those are workflow definitions that happen to call ADAPT-Synthetix's API; this would be
   the reusable building block other people's workflows could use.
 
-## Coaching module (not a standalone product — a module on top of Mercury's
+## Coaching module (not a standalone product — a module on top of ADAPT-Synthetix's
 ## existing ASR/TTS/error-diagnostics core)
 
 Researched ELSA Speak, Speak, Speechling before scoping this (2026-08-05) — all
 three already own real-time phoneme feedback, color-coded scoring, tongue/lip
 placement guidance, and L1-accent-specific drills. Competing head-on there is
-not viable; this module only makes sense bolted onto Mercury's existing
+not viable; this module only makes sense bolted onto ADAPT-Synthetix's existing
 transcription/TTS use cases, not as a reason to build a separate consumer app.
 
 - **Real-time inline pronunciation correction** — flag a mispronunciation while
@@ -931,7 +1075,7 @@ transcription/TTS use cases, not as a reason to build a separate consumer app.
   phoneme diagnostics. Nobody bridges phoneme-level error tracking into a
   therapist/ESL-teacher-facing longitudinal view a clinician can act on and
   bill against. Sell to clinics/schools (recurring, real budget) as an add-on
-  seat, not a replacement for Mercury's core product.
+  seat, not a replacement for ADAPT-Synthetix's core product.
 - **Own-voice corrected playback** — TTS voice-clone the user's own voice
   reading back the corrected pronunciation of what they just said ("hear
   yourself saying it right"), instead of a generic TTS voice modeling the
@@ -953,7 +1097,7 @@ OpenAI/ElevenLabs, model layer is commodity and getting more commodity monthly).
 **First Principles**: audio→text, text→audio, and the error/confidence signal
 between them are the only three primitives. Nobody pays for the conversion itself
 anymore — they pay for what wraps it: trust (compliance/privacy), interpretability
-(why did it fail here), workflow fit. Mercury's stack (self-hosted, phoneme
+(why did it fail here), workflow fit. ADAPT-Synthetix's stack (self-hosted, phoneme
 diagnostics, tiered credits) already leans wrap-not-convert — lean harder, don't
 compete at the model layer at all.
 
@@ -968,7 +1112,7 @@ compete at the model layer at all.
 
 **TRIZ contradiction**: need differentiation, but the model layer is commodity.
 Resolved by separating in space — differentiate at the deployment/observability
-layer sitting on top of commodity models, not the model layer itself. Mercury
+layer sitting on top of commodity models, not the model layer itself. ADAPT-Synthetix
 becomes the platform orgs run their model of choice *through*, not another model
 vendor.
 
@@ -993,7 +1137,7 @@ vendor.
    number. Directly answers the most common real-world complaint (Reddit/Adobe
    forums): headline accuracy numbers don't reflect accented/noisy real audio.
 6. **Bring-your-own-model backend registration** — let an org register their own
-   model endpoint (self-hosted Whisper, whatever) and get Mercury's diagnostics/
+   model endpoint (self-hosted Whisper, whatever) and get ADAPT-Synthetix's diagnostics/
    versioning/audit layer wrapped around it, same as the built-in tiers. This is
    the one that actually answers "what makes this not just a fine-tuned
    wrapper" — uniqueness moves off the model entirely onto the platform layer.
@@ -1002,7 +1146,7 @@ vendor.
    real buyer found) to code-switching/underrepresented-accent speech, where
    it's now a published, validated technique: TTS-synthesized data augmenting
    ASR training cut mixed-error-rate 12.1%→10.1% and 17.8%→16.0% in a 2025-2026
-   paper (arxiv 2601.00935). Feeds Mercury's own models with real usage error
+   paper (arxiv 2601.00935). Feeds ADAPT-Synthetix's own models with real usage error
    data over time — the actual data moat, vs. static fine-tuning.
 8. **Streaming ASR for live uncertain-word flagging** — biggest lift of this
    list, but now justified by a real buyer (accessibility/live captioning), not
@@ -1021,7 +1165,7 @@ vendor.
 
 Sixteen searches across arxiv/IEEE/ScienceDirect papers, vendor engineering blogs,
 and real user complaint threads. Every item below is a documented gap or a
-documented user pain — not a guess. Grouped by how well each fits what Mercury
+documented user pain — not a guess. Grouped by how well each fits what ADAPT-Synthetix
 already has built.
 
 ### A. Directly buildable on the existing stack
@@ -1032,7 +1176,7 @@ already has built.
   explicit harms (fabricated violence, false authority). Healthcare reporting
   already flagged it inventing things patients never said. Documented fixes are
   cheap: VAD gating (SileroVAD), silence trimming at file head/tail (silence is a
-  direct trigger), and a "bag of hallucinations" post-filter. Mercury can ship
+  direct trigger), and a "bag of hallucinations" post-filter. ADAPT-Synthetix can ship
   this as a *safety guarantee competitors don't advertise* — nobody markets
   "we don't make things up," and in medical/legal it's the whole purchase
   decision. Refs: arxiv 2501.11378, arxiv 2505.12969 (Calm-Whisper),
@@ -1044,7 +1188,7 @@ already has built.
   reference transcript. The 2026 recommendation is WER *alongside* Semantic WER
   (embedding-distance-based) and Missed Entity Rate (accuracy on proper nouns,
   medical terms, account numbers, dates — the words downstream systems actually
-  depend on). Mercury already computes WER/CER in `eval_metrics`; adding these two
+  depend on). ADAPT-Synthetix already computes WER/CER in `eval_metrics`; adding these two
   makes the admin trend charts and any customer-facing benchmark honest, and is a
   legitimately differentiated eval story. Refs: arxiv 2603.05267,
   arxiv 2511.16544 ("WER is Unaware"), arxiv 2410.07400, AssemblyAI.
@@ -1053,12 +1197,12 @@ already has built.
   non-English names, and acronyms (can't tell NATO-style from FBI-style), and
   mangles alphanumerics (A380 read as a number, "2026" read as a quantity not a
   year). Fix is a per-user/per-org pronunciation dictionary with IPA or ARPAbet
-  overrides. Mercury already extracts ARPAbet phonemes via g2p_en — the
+  overrides. ADAPT-Synthetix already extracts ARPAbet phonemes via g2p_en — the
   representation is already in the codebase, this is mostly plumbing plus UI.
 - **Long-form degradation handling.** Whisper's 30-second training window means
   hour-long audio hits "long-form degradation" — high deletion errors, and
   timestamp drift that compounds until alignment is visibly wrong by the middle
-  of a recording. Chunk-and-stitch (what Mercury effectively does in Live
+  of a recording. Chunk-and-stitch (what ADAPT-Synthetix effectively does in Live
   Recording) causes boundary errors. Worth measuring on our own long files before
   claiming meeting/lecture support, since lecture transcription is a stated
   target use case. Refs: arxiv 2606.01483 (MURMUR), arxiv 2309.09950.
@@ -1069,7 +1213,7 @@ already has built.
   explicitly *not* expected to break through in 2026 — the 30%+ DER ceiling on
   overlapping speech is structural to current approaches. Overlap, unknown
   speaker count, and online/streaming operation are individually handled but
-  "no known method solves all three at once." Mercury has no diarization at all
+  "no known method solves all three at once." ADAPT-Synthetix has no diarization at all
   today, and every meeting/call-center/clinical use case needs it. Not a research
   win to chase — a table-stakes feature to add, where being honest about overlap
   limits (surface a confidence flag rather than pretending) is itself
@@ -1080,8 +1224,8 @@ already has built.
   detection, <2% false barge-in, <1% missed interruptions; humans take turns at
   200-300ms gaps while most agents lag 800-1500ms because they wait on VAD
   silence. Modern approach combines VAD + prosodic pitch analysis + transcript
-  syntactic-completeness. If Mercury exposes semantic-VAD/turn-detection as an
-  API primitive, it sells to every voice-agent builder without Mercury having to
+  syntactic-completeness. If ADAPT-Synthetix exposes semantic-VAD/turn-detection as an
+  API primitive, it sells to every voice-agent builder without ADAPT-Synthetix having to
   build an agent product itself — sell picks, not gold.
 - **Audio deepfake / synthetic voice detection.** Biggest raw market signal found
   in the whole sweep: detection market projected $15.7B by 2026 at ~42% CAGR,
@@ -1089,7 +1233,7 @@ already has built.
   up 2,137% over three years, $1.1B US losses in 2025. Critically, there's a real
   technical gap — detectors hit ~96% in lab conditions but drop 45-50% in the
   real world, and humans only catch commercial/autoregressive-model voices 61-66%
-  of the time. Mercury runs TTS models in-house, which is an unusual advantage:
+  of the time. ADAPT-Synthetix runs TTS models in-house, which is an unusual advantage:
   you can generate labeled synthetic audio from your own engines to train a
   detector. Note the irony/conflict to think through — selling both voice cloning
   and cloning detection.
@@ -1111,7 +1255,7 @@ already has built.
   significant*; the named gaps are language auto-detection, suggested coding, and
   self-serve access. And the long-tail risk nobody markets against — bad
   transcription contaminates the EHR permanently and influences future care.
-  Mercury's angle: not "better scribe," but "the scribe that survives accented,
+  ADAPT-Synthetix's angle: not "better scribe," but "the scribe that survives accented,
   code-switched, multilingual consults" + hallucination guard (A above) as the
   EHR-contamination answer.
 - **Call-center QA / compliance.** Documented unmet needs: siloed point
@@ -1146,7 +1290,7 @@ already has built.
   GDPR Art. 9 — explicit consent is the only reliable lawful basis, and the
   consent chain is harder than for other data (performer rights, moral rights,
   right of publicity). "Can you prove where your training data came from?" is
-  becoming a procurement requirement, not a best practice. Since Mercury plans to
+  becoming a procurement requirement, not a best practice. Since ADAPT-Synthetix plans to
   retrain on user error data (see the code-switching loop), the consent/provenance
   ledger has to be designed in from the start, not retrofitted. Turn the
   obligation into a selling point: a documented, auditable provenance trail.
@@ -1161,7 +1305,7 @@ already has built.
   0.36/hr; a ~$600 Mac mini or $700-900 used RTX 3090 breaks even against
   OpenAI's $0.36/hr at roughly 1,670-2,500 hours of audio, and is effectively
   free thereafter. Best local models now beat the paid cloud baseline on accuracy
-  too. Mercury already *is* a self-hosted stack — publishing this break-even math
+  too. ADAPT-Synthetix already *is* a self-hosted stack — publishing this break-even math
   openly (with real numbers, including power and ops time) is a marketing asset,
   not a risk.
 
@@ -1182,8 +1326,8 @@ already has built.
   Same tier-naming (Echo/Apollo/Thoth, Freyr/Horus/Odin) applies here too — the
   extension's model picker/UI copy should use those names, not raw model ids.
 - **CLI ("Developer Mode")** — a command-line client against the existing REST API /
-  MCP server, for scripting and CI use. `mercury transcribe file.wav`,
-  `mercury tts "text" -o out.mp3`, config via `~/.mercury/config` or an API key env var.
+  MCP server, for scripting and CI use. `adapt-synthetix transcribe file.wav`,
+  `adapt-synthetix tts "text" -o out.mp3`, config via `~/.adapt-synthetix/config` or an API key env var.
 - **"The brain"** — quantize/prune Kimi K2 (or whatever model ends up right-sized)
   down to something that fits on Oracle Cloud's free tier, and run it as a reasoning
   layer alongside ASR/TTS — the "Claude but for speech" framing. Big undertaking,

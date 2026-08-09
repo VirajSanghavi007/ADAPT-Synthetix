@@ -103,7 +103,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo className="h-10 w-10" />
           <div>
-            <h1 className="text-2xl font-semibold">Sign in to Mercury</h1>
+            <h1 className="text-2xl font-semibold">Sign in to ADAPT-Synthetix</h1>
             <p className="mt-1 text-sm text-muted">Speech-to-text and text-to-speech, built for research</p>
           </div>
         </div>

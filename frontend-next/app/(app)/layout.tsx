@@ -43,8 +43,8 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   const router = useRouter();
 
   useEffect(() => {
-    setWhatsNewSeen(localStorage.getItem("mercury-last-seen-version") === CURRENT_VERSION);
-    setBetaFeatures(localStorage.getItem("mercury-beta-features") === "true");
+    setWhatsNewSeen(localStorage.getItem("adapt-synthetix-last-seen-version") === CURRENT_VERSION);
+    setBetaFeatures(localStorage.getItem("adapt-synthetix-beta-features") === "true");
   }, []);
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
         <div className="animate-fade-up flex flex-col items-center gap-4">
           <Logo className="h-14 w-14" />
           <div>
-            <h1 className="text-4xl font-semibold tracking-tight">Mercury</h1>
+            <h1 className="text-4xl font-semibold tracking-tight">ADAPT-Synthetix</h1>
             <p className="mt-2 max-w-sm text-muted">Sign in to continue.</p>
           </div>
           <Link href="/login" className={buttonVariants({ variant: "accent", size: "lg", className: "px-6" })}>
@@ -87,7 +87,7 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
           <div className="flex items-center gap-2 px-2 py-1.5">
             <Logo className="h-6 w-6 shrink-0" />
             <span className="font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-              Mercury
+              ADAPT-Synthetix
             </span>
           </div>
         </SidebarHeader>

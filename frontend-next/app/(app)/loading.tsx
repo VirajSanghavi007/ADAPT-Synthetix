@@ -13,7 +13,7 @@ export default function Loading() {
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 text-center">
       <div className="animate-fade-up flex flex-col items-center gap-4">
         <Logo className="h-12 w-12 animate-pulse" />
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Mercury</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">ADAPT-Synthetix</h1>
       </div>
 
       <ol className="w-full max-w-xs space-y-2 text-left" aria-label="Loading steps">
@@ -36,7 +36,7 @@ export default function Loading() {
       </div>
 
       <span className="sr-only" role="status" aria-live="polite">
-        Loading Mercury…
+        Loading ADAPT-Synthetix…
       </span>
     </main>
   );

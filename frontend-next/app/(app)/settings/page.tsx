@@ -35,10 +35,10 @@ import {
   type CustomPaletteColors,
 } from "@/lib/customPalette";
 
-const THEME_KEY = "mercury-theme";
-const PALETTE_KEY = "mercury-palette";
-const BETA_KEY = "mercury-beta-features";
-const DEV_MODE_KEY = "mercury-dev-mode";
+const THEME_KEY = "adapt-synthetix-theme";
+const PALETTE_KEY = "adapt-synthetix-palette";
+const BETA_KEY = "adapt-synthetix-beta-features";
+const DEV_MODE_KEY = "adapt-synthetix-dev-mode";
 const THEME_OPTIONS = [
   { mode: "light", label: "Light", icon: Sun },
   { mode: "system", label: "System", icon: Monitor },
@@ -176,7 +176,7 @@ export default function SettingsPage() {
         <p className="text-sm text-muted">Profile, account, appearance, and notification preferences.</p>
       </div>
 
-      <ExpandableSection title="Profile" icon={UserCircle} description="Your public identity within Mercury.">
+      <ExpandableSection title="Profile" icon={UserCircle} description="Your public identity within ADAPT-Synthetix.">
         <ProfileSection />
       </ExpandableSection>
 
@@ -310,7 +310,7 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
-          <p className="text-sm text-muted">Replay the walkthrough of Mercury's features.</p>
+          <p className="text-sm text-muted">Replay the walkthrough of ADAPT-Synthetix's features.</p>
           <Button
             variant="outline"
             className="cursor-pointer"

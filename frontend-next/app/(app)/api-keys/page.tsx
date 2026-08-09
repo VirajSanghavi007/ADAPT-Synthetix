@@ -115,7 +115,7 @@ export default function ApiKeysPage() {
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">API Keys</h1>
           <p className="text-sm text-muted">
-            For third-party or agent access to Mercury's API.{" "}
+            For third-party or agent access to ADAPT-Synthetix's API.{" "}
             <Link href="/api-reference" className="inline-flex items-center gap-1 text-accent underline-offset-2 hover:underline">
               View API reference <ExternalLink className="h-3 w-3" />
             </Link>

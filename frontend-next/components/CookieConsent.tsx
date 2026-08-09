@@ -6,7 +6,7 @@ import { Cookie } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-const CONSENT_KEY = "mercury-cookie-consent"; // "essential" | "all"
+const CONSENT_KEY = "adapt-synthetix-cookie-consent"; // "essential" | "all"
 
 export default function CookieConsent() {
   const [choice, setChoice] = useState<string | null>(null);

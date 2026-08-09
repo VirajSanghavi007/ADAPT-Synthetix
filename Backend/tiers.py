@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from Backend.db import get_session
 from Backend.redis_client import get_redis
 
-# Mercury's own model names — one brand per tier (see MODELVERSION.md for the
+# ADAPT-Synthetix's own model names — one brand per tier (see MODELVERSION.md for the
 # versioning rules: 1.x while these are stock pre-trained weights we didn't train
 # ourselves; a tier's first fine-tune bumps it to 2.0, each one after increments
 # the minor version, e.g. 2.3 -> 2.4).
@@ -141,7 +141,7 @@ def _notify_rate_limit_once(r, user_id: str, tier: str, limit: int, window: int)
 
     send_email(
         row[0],
-        "Mercury — hourly rate limit reached",
+        "ADAPT-Synthetix — hourly rate limit reached",
         f"You've hit the {tier} tier's rate limit ({limit} requests/hour). "
         f"It resets at the top of the next hour — upgrade your plan for a higher limit.",
     )

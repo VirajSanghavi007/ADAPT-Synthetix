@@ -72,7 +72,7 @@ export default function DocsHomePage() {
         <Logo className="h-8 w-8" />
         <div>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">Documentation</h1>
-          <p className="text-sm text-muted">How Mercury works, feature by feature.</p>
+          <p className="text-sm text-muted">How ADAPT-Synthetix works, feature by feature.</p>
         </div>
       </div>
 

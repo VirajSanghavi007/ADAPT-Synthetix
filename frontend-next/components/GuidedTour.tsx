@@ -11,12 +11,12 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-const TOUR_KEY = "mercury-tour-completed";
+const TOUR_KEY = "adapt-synthetix-tour-completed";
 
 const STEPS = [
   {
     icon: LayoutDashboard,
-    title: "Welcome to Mercury",
+    title: "Welcome to ADAPT-Synthetix",
     body: "Your dashboard is home base — quick stats, and the transcribe/speak tools, in one place.",
   },
   {

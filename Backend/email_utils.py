@@ -16,7 +16,7 @@ SMTP_HOST = os.environ.get("SMTP_HOST")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
-FROM_EMAIL = os.environ.get("FROM_EMAIL", "no-reply@mercury.app")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "no-reply@adapt-synthetix.app")
 
 
 def send_email(to: str, subject: str, body: str) -> bool:

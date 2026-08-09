@@ -1,4 +1,4 @@
-# Mercury — Plan of Action
+# ADAPT-Synthetix — Plan of Action
 
 - 2026-07-18 (today): Authentication
 - 2026-07-19 (tomorrow): Modelling

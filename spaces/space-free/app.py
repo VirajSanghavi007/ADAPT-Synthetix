@@ -16,7 +16,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, JSONResponse
 from pydub import AudioSegment
 
-app = FastAPI(title="Mercury — Free-tier model space")
+app = FastAPI(title="ADAPT-Synthetix — Free-tier model space")
 
 INTERNAL_SECRET = os.environ.get("SPACE_SECRET")
 MODELS = {"distil-whisper/distil-large-v3", "kokoro"}
@@ -91,6 +91,54 @@ def health():
     return {"status": "ok", "models": list(MODELS)}
 
 
+def _transcribe_with_confidence(audio: np.ndarray, sr: int) -> tuple[str, float | None]:
+    """Runs Whisper's generate() directly instead of the high-level pipeline so we can
+    capture per-token output_scores and compute a softmax-averaged confidence (mean of
+    the max token probability at each decoding step) — the pipeline's own postprocess
+    step discards this signal entirely.
+
+    Only handles audio <=30s (Whisper's native single-pass window). Longer clips fall
+    back to the standard pipeline, which chunks internally, at the cost of no
+    confidence value — replicating chunked long-form generation with per-step scores
+    is a bigger lift than this pass covers, and free-tier usage (Recorder/Live
+    Transcribe) is short-clip by design anyway.
+    """
+    import torch
+    import torchaudio
+
+    pipe = get_asr_pipe()
+    duration_sec = len(audio) / sr if sr else 0
+    if duration_sec > 30:
+        result = pipe({"array": audio, "sampling_rate": sr})
+        return result["text"].strip(), None
+
+    try:
+        target_sr = pipe.feature_extractor.sampling_rate
+        wav = torch.from_numpy(np.ascontiguousarray(audio, dtype=np.float32))
+        if sr != target_sr:
+            wav = torchaudio.functional.resample(wav, sr, target_sr)
+        inputs = pipe.feature_extractor(wav.numpy(), sampling_rate=target_sr, return_tensors="pt")
+        with torch.no_grad():
+            gen_out = pipe.model.generate(
+                inputs.input_features,
+                output_scores=True,
+                return_dict_in_generate=True,
+                max_new_tokens=440,
+            )
+        text = pipe.tokenizer.batch_decode(gen_out.sequences, skip_special_tokens=True)[0].strip()
+        confidence = None
+        if gen_out.scores:
+            probs = [torch.softmax(step[0], dim=-1).max().item() for step in gen_out.scores]
+            if probs:
+                confidence = float(sum(probs) / len(probs))
+        return text, confidence
+    except Exception:
+        # Confidence extraction touches lower-level, less battle-tested internals
+        # than the pipeline call — a text answer beats no answer if it breaks.
+        result = pipe({"array": audio, "sampling_rate": sr})
+        return result["text"].strip(), None
+
+
 @app.post("/transcribe")
 async def transcribe(
     file: UploadFile = File(...),
@@ -102,12 +150,8 @@ async def transcribe(
     raw = await file.read()
     audio, sr = decode_audio(raw)
 
-    def _run():
-        pipe = get_asr_pipe()
-        return pipe({"array": audio, "sampling_rate": sr})["text"].strip()
-
-    text = await run_in_threadpool(_run)
-    return {"text": text}
+    text, confidence = await run_in_threadpool(_transcribe_with_confidence, audio, sr)
+    return {"text": text, "confidence": confidence}
 
 
 @app.post("/synthesize")

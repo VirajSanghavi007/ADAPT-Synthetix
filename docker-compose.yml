@@ -1,3 +1,5 @@
+name: adapt-synthetix
+
 services:
   space-free:
     build: ./spaces/space-free
@@ -7,7 +9,7 @@ services:
     ports:
       - "7861:7860"
     volumes:
-      - mercury_hf_cache_free:/home/spaceuser/.cache/huggingface
+      - adapt_synthetix_hf_cache_free:/home/spaceuser/.cache/huggingface
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
       interval: 10s
@@ -23,7 +25,7 @@ services:
     ports:
       - "7862:7860"
     volumes:
-      - mercury_hf_cache_pro:/home/spaceuser/.cache/huggingface
+      - adapt_synthetix_hf_cache_pro:/home/spaceuser/.cache/huggingface
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
       interval: 10s
@@ -43,7 +45,7 @@ services:
     ports:
       - "7863:7860"
     volumes:
-      - mercury_hf_cache_max:/home/spaceuser/.cache/huggingface
+      - adapt_synthetix_hf_cache_max:/home/spaceuser/.cache/huggingface
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=3)"]
       interval: 15s
@@ -57,7 +59,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - mercury_redisdata:/data
+      - adapt_synthetix_redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -88,7 +90,7 @@ services:
         condition: service_started
 
 volumes:
-  mercury_redisdata:
-  mercury_hf_cache_free:
-  mercury_hf_cache_pro:
-  mercury_hf_cache_max:
+  adapt_synthetix_redisdata:
+  adapt_synthetix_hf_cache_free:
+  adapt_synthetix_hf_cache_pro:
+  adapt_synthetix_hf_cache_max:

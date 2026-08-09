@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Mercury
+**Project:** ADAPT-Synthetix
 **Generated:** 2026-07-30 14:37:31
 **Category:** Healthcare App
 

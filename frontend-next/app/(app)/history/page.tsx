@@ -71,7 +71,7 @@ export default function HistoryPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `mercury-${kind}-history.csv`;
+        a.download = `adapt-synthetix-${kind}-history.csv`;
         a.click();
         URL.revokeObjectURL(url);
       });

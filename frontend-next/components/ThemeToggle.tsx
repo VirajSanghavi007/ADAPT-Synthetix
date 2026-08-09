@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const THEME_KEY = "mercury-theme";
+const THEME_KEY = "adapt-synthetix-theme";
 
 function SunIcon() {
   return (

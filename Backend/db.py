@@ -2,12 +2,12 @@ import os
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, Integer, String, Text,
+    Boolean, Column, Date, DateTime, Float, Integer, String, Text,
     create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./Backend/data/mercury.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./Backend/data/adapt-synthetix.db")
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args, pool_pre_ping=True)
@@ -141,6 +141,60 @@ class TrainingMarker(Base):
 
     key = Column(String(64), primary_key=True)
     value_timestamp = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class PriorityQueueEntry(Base):
+    """Domain-critical remediation queue, ported from ADAPT-Synthetix v1's validated
+    priority formula. See Backend/priority_queue.py."""
+    __tablename__ = "priority_queue"
+
+    id = Column(Integer, primary_key=True)
+    asr_log_id = Column(Integer, nullable=True, index=True)
+    priority_score = Column(Float, nullable=False, index=True)
+    domain_match_count = Column(Integer, nullable=False, default=0)
+    error_type = Column(String(32), nullable=False)
+    status = Column(String(16), nullable=False, default="pending")  # pending | in_progress | resolved
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class RemedialAudio(Base):
+    """Phoneme-pair targeted corrective TTS output, ported from ADAPT-Synthetix v1's
+    closed-loop remediation design. See Backend/tts_remediation.py."""
+    __tablename__ = "remedial_audio"
+
+    id = Column(Integer, primary_key=True)
+    transcription_id = Column(Integer, nullable=True, index=True)
+    reference_phoneme = Column(String(16), nullable=True)
+    hypothesis_phoneme = Column(String(16), nullable=True)
+    carrier_text = Column(Text, nullable=False)
+    audio_path = Column(String(255), nullable=False)
+    model_id = Column(String(80), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class PhonemeDriftEvent(Base):
+    """One misrecognition event for one phoneme on one day — the raw signal
+    drift_detector.py aggregates into a rolling per-phoneme trend. See TODO.md P4.2
+    for why this tracks error-rate rather than true per-phoneme confidence."""
+    __tablename__ = "phoneme_drift_events"
+
+    id = Column(Integer, primary_key=True)
+    model_id = Column(String(120), nullable=False, index=True)
+    phoneme = Column(String(16), nullable=False, index=True)
+    day = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class DriftTriggerEvent(Base):
+    """A recorded 'this model should be retrained' signal from drift_detector.py.
+    Does not itself trigger a LoRA run — see that module's docstring."""
+    __tablename__ = "drift_trigger_events"
+
+    id = Column(Integer, primary_key=True)
+    model_id = Column(String(120), nullable=False, index=True)
+    drifting_phonemes = Column(Text, nullable=False)  # comma-separated phoneme codes
+    reason = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 def init_db():

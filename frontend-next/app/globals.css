@@ -233,14 +233,14 @@
 }
 
 @theme inline {
-  /* Mercury semantic tokens */
+  /* ADAPT-Synthetix semantic tokens */
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --color-card: var(--card);
   --color-on-primary: var(--on-primary);
   --color-on-accent: var(--on-accent);
 
-  /* shadcn/ui expects these exact names — aliased to Mercury tokens */
+  /* shadcn/ui expects these exact names — aliased to ADAPT-Synthetix tokens */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--on-primary);
   --color-secondary: var(--secondary);

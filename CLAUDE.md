@@ -1,4 +1,4 @@
-# Mercury — Developer Reference for AI Assistants
+# ADAPT-Synthetix — Developer Reference for AI Assistants
 
 See `docs/MEMORY.md` for the full version history and architecture narrative, and
 `docs/MODELVERSION.md` for the model-naming/versioning rules. `docs/` is gitignored

@@ -12,7 +12,7 @@ export default function EnterpriseDocsPage() {
         <Logo className="h-8 w-8" />
         <div>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">Enterprise documentation</h1>
-          <p className="text-sm text-muted">For hospitals and organizations using Mercury.</p>
+          <p className="text-sm text-muted">For hospitals and organizations using ADAPT-Synthetix.</p>
         </div>
       </div>
 

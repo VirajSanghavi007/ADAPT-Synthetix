@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const LAST_SEEN_KEY = "mercury-last-seen-version";
+const LAST_SEEN_KEY = "adapt-synthetix-last-seen-version";
 
 export default function WhatsNewModal({ onDismiss }: { onDismiss?: () => void }) {
   const [open, setOpen] = useState(false);

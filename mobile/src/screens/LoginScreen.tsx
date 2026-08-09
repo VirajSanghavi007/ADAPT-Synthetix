@@ -19,7 +19,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mercury</Text>
+      <Text style={styles.title}>ADAPT-Synthetix</Text>
       <Text style={styles.subtitle}>Speech-to-text and text-to-speech</Text>
 
       <TextInput

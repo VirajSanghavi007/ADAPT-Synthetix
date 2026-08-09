@@ -1,5 +1,5 @@
 {
-  "name": "Mercury - Retrain Threshold Check",
+  "name": "ADAPT-Synthetix - Retrain Threshold Check",
   "nodes": [
     {
       "parameters": {
@@ -31,8 +31,8 @@
       "position": [460, 300],
       "credentials": {
         "postgres": {
-          "id": "mercury-postgres",
-          "name": "Mercury Local Postgres"
+          "id": "adapt-synthetix-postgres",
+          "name": "ADAPT-Synthetix Local Postgres"
         }
       }
     },
@@ -93,8 +93,8 @@
       "position": [1120, 200],
       "credentials": {
         "postgres": {
-          "id": "mercury-postgres",
-          "name": "Mercury Local Postgres"
+          "id": "adapt-synthetix-postgres",
+          "name": "ADAPT-Synthetix Local Postgres"
         }
       }
     },
@@ -162,6 +162,6 @@
   },
   "pinData": {},
   "meta": {
-    "instanceId": "mercury-local"
+    "instanceId": "adapt-synthetix-local"
   }
 }

@@ -77,7 +77,7 @@ export default function DashboardScreen({ session }: { session: Session }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mercury</Text>
+        <Text style={styles.title}>ADAPT-Synthetix</Text>
         <TouchableOpacity onPress={() => supabase.auth.signOut()}>
           <Text style={styles.signOut}>Sign out</Text>
         </TouchableOpacity>

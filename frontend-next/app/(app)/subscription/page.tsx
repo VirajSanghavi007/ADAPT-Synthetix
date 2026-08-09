@@ -41,7 +41,7 @@ const PLANS: Plan[] = [
     name: "Freyr",
     price: "₹0",
     cadence: "/month",
-    description: "Try Mercury on a handful of sessions.",
+    description: "Try ADAPT-Synthetix on a handful of sessions.",
     features: ["25 transcriptions / month", "Standard ASR latency", "Community support"],
   },
   {

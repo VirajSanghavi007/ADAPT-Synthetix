@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
       <section className="space-y-3">
         <h2 className="font-heading text-xl font-semibold">1. Who we are</h2>
         <p className="text-foreground/90">
-          Mercury ("we", "us") provides adaptive speech-to-text and text-to-speech tooling for
+          ADAPT-Synthetix ("we", "us") provides adaptive speech-to-text and text-to-speech tooling for
           lecture and medical transcription. This policy explains what personal data we collect,
           why, and the rights you have over it under India&apos;s Digital Personal Data Protection
           Act, 2023 (DPDP Act) and applicable rules.
@@ -73,7 +73,7 @@ export default function PrivacyPolicyPage() {
       <section className="space-y-3">
         <h2 className="font-heading text-xl font-semibold">7. Special note: medical/health data</h2>
         <p className="text-foreground/90">
-          If you use Mercury for clinical transcription involving patient data, that data is
+          If you use ADAPT-Synthetix for clinical transcription involving patient data, that data is
           sensitive personal data. We do not currently offer a signed Business Associate style
           agreement or HIPAA/DPDP-grade assurance for real patient data — do not submit real
           patient-identifiable audio or text until this is explicitly confirmed as supported.

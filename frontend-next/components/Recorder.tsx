@@ -10,8 +10,8 @@ import { friendlyApiError } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const TRANSCRIPT_CACHE_KEY = "mercury-last-transcript";
-const ASR_MODEL_KEY = "mercury-asr-model";
+const TRANSCRIPT_CACHE_KEY = "adapt-synthetix-last-transcript";
+const ASR_MODEL_KEY = "adapt-synthetix-asr-model";
 
 export default function Recorder() {
   const { session } = useSession();
@@ -53,7 +53,7 @@ export default function Recorder() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `mercury-transcript-${Date.now()}.txt`;
+    a.download = `adapt-synthetix-transcript-${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -61,7 +61,7 @@ export default function Recorder() {
   async function saveTranscriptToDrive() {
     setStatus("Saving to Google Drive...");
     try {
-      await uploadToDrive(`mercury-transcript-${Date.now()}.txt`, new Blob([transcript], { type: "text/plain" }), "text/plain");
+      await uploadToDrive(`adapt-synthetix-transcript-${Date.now()}.txt`, new Blob([transcript], { type: "text/plain" }), "text/plain");
       setStatus("Saved to Google Drive.");
     } catch (err) {
       setStatus("Drive error: " + (err as Error).message);

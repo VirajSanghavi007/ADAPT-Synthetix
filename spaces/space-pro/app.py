@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, JSONResponse
 from pydub import AudioSegment
 
-app = FastAPI(title="Mercury — Pro-tier model space")
+app = FastAPI(title="ADAPT-Synthetix — Pro-tier model space")
 
 INTERNAL_SECRET = os.environ.get("SPACE_SECRET")
 MODELS = {"openai/whisper-large-v3-turbo", "suno/bark"}
