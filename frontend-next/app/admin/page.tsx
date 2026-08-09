@@ -97,9 +97,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadAll();
-    const interval = setInterval(loadAll, 15000); // refresh space status every 15s
+    const interval = setInterval(loadAll, 15000); 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   if (loading) return null;

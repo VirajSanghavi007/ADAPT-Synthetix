@@ -110,7 +110,6 @@ export default function SettingsPage() {
       const saved = JSON.parse(localStorage.getItem(CUSTOM_PALETTE_KEY) || "null");
       if (saved) setCustomColors(saved);
     } catch {
-      // ignore malformed saved palette
     }
   }, []);
 

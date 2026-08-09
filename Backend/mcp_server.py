@@ -1,8 +1,3 @@
-"""ADAPT-Synthetix's API exposed as an MCP server (transcribe/TTS/models/error-report),
-mounted into the FastAPI app at /mcp. Auth is the same X-API-Key mechanism as the
-REST API — generate a key from the Account/API Keys page and use it as a Bearer
-token or the mcp-session header your MCP client sends through to us.
-"""
 import base64
 
 from mcp.server.fastmcp import Context, FastMCP
@@ -24,7 +19,6 @@ def _authed_user(ctx: Context) -> dict:
 
 @mcp.tool()
 def list_models(ctx: Context) -> dict:
-    """List the ASR and TTS models available on the caller's subscription tier."""
     auth = _authed_user(ctx)
     tier = auth["tier"]
     allowed = TIER_MODELS.get(tier, TIER_MODELS["free"])
@@ -37,7 +31,6 @@ def list_models(ctx: Context) -> dict:
 
 @mcp.tool()
 def transcribe(ctx: Context, audio_base64: str, model_id: str | None = None) -> dict:
-    """Transcribe base64-encoded audio (wav/mp3/ogg) to text using ADAPT-Synthetix's ASR pipeline."""
     auth = _authed_user(ctx)
     tier = get_user_tier(auth["id"])
     check_tier_rate_limit(auth["id"], tier)
@@ -59,7 +52,6 @@ def transcribe(ctx: Context, audio_base64: str, model_id: str | None = None) -> 
 
 @mcp.tool()
 def synthesize(ctx: Context, text: str, voice: str = "", model_id: str | None = None) -> dict:
-    """Synthesize speech from text using ADAPT-Synthetix's TTS pipeline. Returns base64-encoded MP3 audio."""
     auth = _authed_user(ctx)
     tier = get_user_tier(auth["id"])
     check_tier_rate_limit(auth["id"], tier)
@@ -81,8 +73,7 @@ def synthesize(ctx: Context, text: str, voice: str = "", model_id: str | None = 
 
 @mcp.tool()
 def error_report(ctx: Context) -> dict:
-    """Phoneme-level confusion-matrix report from all reference-aligned transcriptions."""
-    _authed_user(ctx)  # any valid key may read the aggregate report
+    _authed_user(ctx)
     db = get_session()
     try:
         rows = db.query(

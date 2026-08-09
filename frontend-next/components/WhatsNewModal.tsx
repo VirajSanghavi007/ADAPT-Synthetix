@@ -17,7 +17,6 @@ export default function WhatsNewModal({ onDismiss }: { onDismiss?: () => void })
     const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
     if (lastSeen !== CURRENT_VERSION) setOpen(true);
     else onDismiss?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function dismiss() {

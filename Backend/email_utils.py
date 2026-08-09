@@ -1,10 +1,3 @@
-"""Minimal transactional email sender via SMTP. Separate from Supabase Auth's own
-emails (confirm/reset/magiclink) since those only cover auth-flow templates —
-account-deletion confirmation is a custom email Supabase doesn't send for us.
-
-If SMTP_HOST isn't configured, send_email() returns False and logs instead of
-raising, so callers can fall back to returning the link directly (dev-only).
-"""
 import logging
 import os
 import smtplib

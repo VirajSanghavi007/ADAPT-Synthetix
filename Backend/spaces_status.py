@@ -1,6 +1,3 @@
-"""Live online/offline status for the 3 model-serving Spaces, so the main backend
-(and its admin page) can show at a glance whether space-free/space-pro/space-max are
-actually reachable, without waiting for a real inference request to fail."""
 import os
 
 import httpx

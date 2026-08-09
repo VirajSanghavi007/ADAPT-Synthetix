@@ -1,7 +1,3 @@
-// Custom palette support — lets a user type in their own hex colors instead of
-// picking one of the 5 built-in palettes. Applied as inline CSS custom properties
-// on :root (arbitrary hex values can't be predefined in a stylesheet the way the
-// built-in palettes are), persisted as JSON in localStorage.
 export const CUSTOM_PALETTE_KEY = "adapt-synthetix-custom-palette";
 
 export type CustomPaletteColors = {
@@ -30,9 +26,6 @@ export function isValidHex(hex: string): boolean {
   return HEX_RE.test(hex);
 }
 
-// Relative luminance (WCAG) — used to auto-pick black/white text on top of
-// primary/accent so users only have to pick the colors that matter, not derive
-// contrast-safe foreground colors by hand.
 function relativeLuminance(hex: string): number {
   const full = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
   const r = parseInt(full.slice(1, 3), 16) / 255;

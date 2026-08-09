@@ -1,12 +1,3 @@
-"""Closed-loop, phoneme-pair targeted TTS remediation, ported from ADAPT-Synthetix v1's
-design (TODO.md P4.8) — free tier only (uses the free-tier TTS model, kokoro).
-
-v1 mapped a confused phoneme pair to a natural-sentence prompt emphasising that
-contrast, synthesised it, and stored the result as remedial training data. This module
-does the same three steps, minus the actual LoRA retraining consumption of the result
-(that's drift_detector.py's trigger + a future training pipeline, not this module's job
-— this module's job ends at "corrective audio exists and is stored").
-"""
 from __future__ import annotations
 
 import os
@@ -19,9 +10,6 @@ from Backend.db import RemedialAudio, get_session
 
 REMEDIAL_AUDIO_DIR = "Backend/data/remedial_audio"
 
-# Minimal-pair-flavoured carrier sentences per phoneme, so the corrective audio
-# contrasts the target sound in context rather than reading an isolated phoneme,
-# which both synthesises poorly and is a worse training signal (v1's finding).
 _CARRIER_TEMPLATES = {
     "TH": "Think carefully about the thing you just said.",
     "DH": "This is the way things are done.",
@@ -48,10 +36,6 @@ def generate_remediation(
     hypothesis_phoneme: str,
     model_id: str,
 ) -> dict | None:
-    """Synthesise one corrective audio sample targeting a confused phoneme pair and
-    persist it. Returns the stored record's metadata, or None on any failure — this
-    is best-effort background remediation, never allowed to break the caller's
-    primary transcribe response."""
     try:
         sentence = _carrier_sentence(reference_phoneme)
         audio_bytes = synthesize_speech(sentence, voice="", model_id="kokoro")
@@ -94,17 +78,6 @@ def generate_remediation(
 
 
 def worst_phoneme_pair(alignment_errors: list[dict]) -> tuple[str, str] | None:
-    """Pick the substitution to target for remediation. Ranks every substitution
-    present in *this* alignment against the historical confusion rate for that exact
-    (reference, hypothesis) pair across all logged PhonemeError rows — the pair that
-    is most systematically confused historically wins, not just whichever appears
-    first in this one utterance. Reuses the same PhonemeError table
-    phoneme_diagnostics.py's build_error_report() already aggregates, rather than
-    introducing a parallel history table.
-
-    Cold start (little/no history yet): rates come back equal (mostly 0), so this
-    degrades gracefully to "first substitution found" — same bootstrap pattern as
-    the rest of this session's changes, not a hidden failure mode."""
     substitutions = [
         (e["reference"], e["hypothesis"])
         for e in alignment_errors

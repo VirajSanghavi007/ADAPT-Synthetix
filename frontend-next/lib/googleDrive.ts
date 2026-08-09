@@ -1,8 +1,5 @@
 "use client";
 
-// Google Identity Services token client — requests a short-lived OAuth access token
-// client-side, scoped per action, never persisted. Needs NEXT_PUBLIC_GOOGLE_CLIENT_ID
-// (a public web OAuth client ID, safe to expose — not a secret).
 
 declare global {
   interface Window {

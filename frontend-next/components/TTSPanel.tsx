@@ -11,10 +11,6 @@ import { wordErrorRate } from "@/lib/wordErrorRate";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Above this WER, the round-trip check flags the audio as likely garbled rather
-// than just "imperfect" — TTS mispronunciations naturally produce some ASR
-// mismatch even on good audio, so this needs to be well above normal ASR error
-// rates (which run a few percent on clean speech) to mean something.
 const GARBLED_WER_THRESHOLD = 0.4;
 
 const TTS_TEXT_CACHE_KEY = "adapt-synthetix-last-tts-text";
@@ -38,7 +34,6 @@ export default function TTSPanel() {
     setModelId(localStorage.getItem(TTS_MODEL_KEY) || "");
   }, []);
 
-  // Live ticking timer while a request is in flight — see Recorder.tsx for why.
   useEffect(() => {
     if (!busy) return;
     const start = performance.now();
@@ -100,10 +95,6 @@ export default function TTSPanel() {
     }
   }
 
-  // Round-trip quality check: feed the generated audio back into ASR and diff the
-  // result against the original input text. High word-error-rate is a decent
-  // proxy for "this came out garbled" — a clean synthesis re-transcribes close to
-  // the original text; a garbled one produces something barely related.
   async function checkQuality() {
     if (!audioBlob) return;
     setCheckingQuality(true);

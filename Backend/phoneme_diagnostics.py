@@ -1,4 +1,3 @@
-"""Reference-aligned phoneme error diagnostics, ported from v2's diagnostics.py."""
 from __future__ import annotations
 
 import re
@@ -16,11 +15,6 @@ def _get_g2p():
             nltk.data.find("corpora/cmudict")
         except LookupError:
             nltk.download("cmudict", quiet=True)
-        # g2p_en's own lazy-download uses NLTK's old resource name
-        # ("averaged_perceptron_tagger"), which newer NLTK versions renamed to
-        # "averaged_perceptron_tagger_eng" — g2p_en's download silently succeeds
-        # against the wrong name, then nltk.pos_tag() fails to find it at call time.
-        # Pre-download the current name ourselves so it's already there.
         try:
             nltk.data.find("taggers/averaged_perceptron_tagger_eng")
         except LookupError:
@@ -34,17 +28,11 @@ _PHONEME_TOKEN_RE = re.compile(r"^[A-Z]+[0-2]?$")
 
 
 def extract_phonemes(text: str) -> list[str]:
-    # g2p_en's output interleaves real phonemes with punctuation/space tokens
-    # (".", ",", " ") it emits for prosody — those aren't phonemes and were being
-    # counted as "insertion" errors whenever hypothesis punctuation didn't match
-    # reference punctuation (which it never does, since references are typically
-    # unpunctuated). Keep only tokens that actually look like ARPAbet phonemes.
     tokens = _get_g2p()(text or "")
     return [str(t) for t in tokens if _PHONEME_TOKEN_RE.match(str(t))]
 
 
 def align_phoneme_errors(reference_text: str, hypothesis_text: str) -> dict:
-    """Levenshtein-align reference vs hypothesis at phoneme level."""
     reference = extract_phonemes(reference_text)
     hypothesis = extract_phonemes(hypothesis_text)
     rows, cols = len(reference) + 1, len(hypothesis) + 1
@@ -84,12 +72,9 @@ def align_phoneme_errors(reference_text: str, hypothesis_text: str) -> dict:
     }
 
 
-SYSTEMATIC_Z_SCORE = 1.5  # how many std devs above the mean confusion rate counts as "systematic"
-MIN_REF_COUNT_FOR_SYSTEMATIC = 5  # ignore phonemes seen too few times to trust a rate
+SYSTEMATIC_Z_SCORE = 1.5
+MIN_REF_COUNT_FOR_SYSTEMATIC = 5
 
-# ARPAbet (CMUdict/g2p_en's phoneme alphabet) -> a plain-English name and example
-# word, for the majority of users who have no reason to know what "AH0" means.
-# Stress digits (0/1/2) on vowels are stripped before lookup.
 _PHONEME_NAMES: dict[str, tuple[str, str]] = {
     "AA": ("ah", "father"), "AE": ("a", "cat"), "AH": ("uh", "but"),
     "AO": ("aw", "dog"), "AW": ("ow", "how"), "AY": ("eye", "my"),
@@ -133,12 +118,6 @@ def _plain_english(operation: str, reference_phoneme: str, hypothesis_phoneme: s
 
 
 def build_error_report(rows: list[dict]) -> dict:
-    """rows: [{operation, reference_phoneme, hypothesis_phoneme, count}, ...]"""
-    # Data-driven instead of a fixed cutoff: compute a confusion rate per
-    # substitution pair, then flag pairs that sit meaningfully above THIS
-    # corpus's own mean+stddev (z-score), not an arbitrary fixed percentage.
-    # A threshold that never adapts (e.g. "always 30%") either misses real
-    # patterns in a clean corpus or drowns in false positives on a noisy one.
     systematic = []
     ref_totals: dict[str, int] = defaultdict(int)
     for r in rows:
@@ -181,8 +160,6 @@ def build_error_report(rows: list[dict]) -> dict:
             f"({worst['count']} time{'s' if worst['count'] != 1 else ''} across everything reviewed)."
         )
 
-    # Breakdowns for the dashboard's charts — same rows, grouped differently, so the
-    # frontend doesn't have to re-derive them from the (already-aggregated) top_errors.
     operation_breakdown: dict[str, int] = defaultdict(int)
     category_breakdown: dict[str, int] = defaultdict(int)
     for r in rows:
@@ -195,10 +172,6 @@ def build_error_report(rows: list[dict]) -> dict:
             cat = f'{_phoneme_category(r["hypothesis_phoneme"])} inserted'
         category_breakdown[cat] += r["count"]
 
-    # Confusion-matrix heatmap data — reference phoneme x hypothesis phoneme, capped
-    # to the busiest 12 on each axis so the grid stays readable. Uses plain-English
-    # names (not the raw ARPAbet codes) for the same reason the rest of this module
-    # avoids them.
     sub_rows = [r for r in rows if r["operation"] == "substitution"]
     ref_axis_totals: dict[str, int] = defaultdict(int)
     hyp_axis_totals: dict[str, int] = defaultdict(int)

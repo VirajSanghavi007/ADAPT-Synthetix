@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { tierDisplayName } from "@/lib/tierNames";
 
-const MAX_PHOTO_BYTES = 250_000; // leaves headroom under the backend's 300KB base64 cap
+const MAX_PHOTO_BYTES = 250_000; 
 
 export default function ProfileSection() {
   const { session } = useSession();
@@ -121,7 +121,6 @@ export default function ProfileSection() {
             <div className="flex items-center gap-3">
               {avatarUrl ? (
                 <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={avatarUrl}
                     alt="Your uploaded profile picture"

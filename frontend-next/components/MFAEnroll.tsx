@@ -15,8 +15,6 @@ export default function MFAEnroll() {
   async function startEnroll() {
     setStatus("Generating QR code...");
 
-    // A previous, never-confirmed enroll attempt leaves a stale "unverified" factor
-    // behind under the same default friendly name — clear it first or re-enrolling fails.
     const { data: existing } = await supabase.auth.mfa.listFactors();
     const stale = existing?.all.find((f) => f.factor_type === "totp" && f.status === "unverified");
     if (stale) {
@@ -81,7 +79,6 @@ export default function MFAEnroll() {
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={qrCode} alt="TOTP QR code" className="mx-auto w-40 rounded bg-white p-2" />
       <p className="break-all text-center text-xs text-muted">{secret}</p>
       <input

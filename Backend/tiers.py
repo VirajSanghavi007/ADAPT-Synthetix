@@ -1,9 +1,3 @@
-"""Subscription-tier model catalog, access control, and rate limiting.
-
-Free/Pro get lighter models; Max and Enterprise get the best available. Enterprise is
-free (hospitals etc.) but gets Max-equivalent model access — it's billing-free, not
-capability-free.
-"""
 import time
 
 from fastapi import HTTPException
@@ -11,10 +5,6 @@ from fastapi import HTTPException
 from Backend.db import get_session
 from Backend.redis_client import get_redis
 
-# ADAPT-Synthetix's own model names — one brand per tier (see MODELVERSION.md for the
-# versioning rules: 1.x while these are stock pre-trained weights we didn't train
-# ourselves; a tier's first fine-tune bumps it to 2.0, each one after increments
-# the minor version, e.g. 2.3 -> 2.4).
 ASR_CATALOG = {
     "distil-whisper/distil-large-v3": {"engine": "hf_asr_pipeline", "label": "Echo 1.1"},
     "openai/whisper-large-v3-turbo": {"engine": "hf_asr_pipeline", "label": "Apollo 1.2"},
@@ -27,19 +17,18 @@ TTS_CATALOG = {
     "FunAudioLLM/CosyVoice2-0.5B": {"engine": "cosyvoice2", "label": "Thoth 1.3"},
 }
 
-# Tier -> allowed model ids. Enterprise mirrors max (best models, free billing).
 TIER_MODELS = {
     "free": {
         "asr": ["distil-whisper/distil-large-v3"],
         "tts": ["kokoro"],
     },
     "pro": {
-        "asr": ["distil-whisper/distil-large-v3", "openai/whisper-large-v3-turbo"],
-        "tts": ["kokoro", "suno/bark"],
+        "asr": ["distil-whisper/distil-large-v3"],
+        "tts": ["kokoro"],
     },
     "max": {
-        "asr": ["distil-whisper/distil-large-v3", "openai/whisper-large-v3-turbo", "nvidia/parakeet-tdt-0.6b-v2"],
-        "tts": ["kokoro", "suno/bark", "FunAudioLLM/CosyVoice2-0.5B"],
+        "asr": ["distil-whisper/distil-large-v3"],
+        "tts": ["kokoro"],
     },
     "enterprise": {
         "asr": ["distil-whisper/distil-large-v3", "openai/whisper-large-v3-turbo", "nvidia/parakeet-tdt-0.6b-v2"],
@@ -49,12 +38,11 @@ TIER_MODELS = {
 
 DEFAULT_MODEL = {
     "free": {"asr": "distil-whisper/distil-large-v3", "tts": "kokoro"},
-    "pro": {"asr": "openai/whisper-large-v3-turbo", "tts": "suno/bark"},
-    "max": {"asr": "nvidia/parakeet-tdt-0.6b-v2", "tts": "FunAudioLLM/CosyVoice2-0.5B"},
+    "pro": {"asr": "distil-whisper/distil-large-v3", "tts": "kokoro"},
+    "max": {"asr": "distil-whisper/distil-large-v3", "tts": "kokoro"},
     "enterprise": {"asr": "nvidia/parakeet-tdt-0.6b-v2", "tts": "FunAudioLLM/CosyVoice2-0.5B"},
 }
 
-# Requests/hour, separate from the API-key tiers in api_keys.py (interactive UI usage).
 TIER_RATE_LIMITS = {
     "free": 30,
     "pro": 300,
@@ -74,12 +62,8 @@ def get_user_tier(user_id: str) -> str:
         ).first()
         return row[0] if row and row[0] else "free"
     except OperationalError:
-        # DB unreachable (network outage, pooler down) — degrade to free rather
-        # than taking down transcribe/TTS entirely.
         return "free"
     except ProgrammingError:
-        # profiles.tier missing (migrations/005_tiers_and_profile.sql not applied
-        # yet) — same degrade-to-free stopgap until the migration is run.
         db.rollback()
         return "free"
     finally:
@@ -87,8 +71,6 @@ def get_user_tier(user_id: str) -> str:
 
 
 def resolve_model(tier: str, kind: str, requested: str | None) -> str:
-    """Validate a requested model_id against the tier's allowed list, or return the
-    tier's default. kind is 'asr' or 'tts'."""
     allowed = TIER_MODELS.get(tier, TIER_MODELS["free"])[kind]
     if requested is None:
         return DEFAULT_MODEL.get(tier, DEFAULT_MODEL["free"])[kind]
@@ -102,7 +84,6 @@ def resolve_model(tier: str, kind: str, requested: str | None) -> str:
 
 
 def check_tier_rate_limit(user_id: str, tier: str) -> None:
-    """Fixed-window per-hour counter in Redis, keyed per user. Fail-open if Redis is down."""
     r = get_redis()
     if r is None:
         return
@@ -118,12 +99,9 @@ def check_tier_rate_limit(user_id: str, tier: str) -> None:
 
 
 def _notify_rate_limit_once(r, user_id: str, tier: str, limit: int, window: int) -> None:
-    """Fire the rate-limit email at most once per user per hourly window — the
-    counter above increments on every request once past the limit, so without this
-    guard every subsequent blocked request in the same hour would re-send it."""
     notify_key = f"tier_rl_notified:{user_id}:{window}"
     if not r.set(notify_key, "1", nx=True, ex=3600):
-        return  # already notified this window
+        return
 
     from sqlalchemy import text
 

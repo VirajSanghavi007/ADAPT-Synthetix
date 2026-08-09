@@ -1,11 +1,3 @@
-"""Router to the 3 HF Space model servers (see spaces/space-{free,pro,max}/), one per
-tier. The main backend no longer loads any ML model itself — every transcribe/synthesize
-call is proxied over HTTP to whichever Space owns that model_id.
-
-Function signatures are unchanged from the old local-loading version on purpose —
-Backend/main.py, Backend/ingest.py, and Backend/mcp_server.py call these exactly as
-before and don't need to change.
-"""
 import io
 import os
 
@@ -15,13 +7,11 @@ import soundfile as sf
 
 from Backend.tiers import ASR_CATALOG, TTS_CATALOG
 
-# soundfile handles wav/flac/ogg directly; mp3/mp4/aac/3gpp/webm/amr fall back to
-# ffmpeg via pydub in decode_audio(). Anything else is rejected with a 415.
 ALLOWED_AUDIO_TYPES = {
     "audio/webm",
     "audio/wav",
     "audio/x-wav",
-    "audio/mpeg",       # mp3
+    "audio/mpeg",
     "audio/mp3",
     "audio/ogg",
     "audio/flac",
@@ -31,7 +21,7 @@ ALLOWED_AUDIO_TYPES = {
     "audio/aac",
     "audio/3gpp",
     "audio/amr",
-    "video/mp4",        # some recorders (iOS Safari) wrap audio-only capture in an mp4 container
+    "video/mp4",
 }
 
 SPACE_SECRET = os.environ.get("SPACE_SECRET", "")
@@ -41,12 +31,6 @@ SPACE_URLS = {
     "max": os.environ.get("SPACE_MAX_URL", ""),
 }
 
-# Process-local "have we sent a request for this model yet" tracker, used only to
-# tag latency records as cold/warm for the admin dashboard (see Backend.mlops).
-# Now that each Space warms its own models on container startup (spaces/*/app.py),
-# this should read as cold only on the very first request after this app process
-# itself restarts and briefly races the Space's own warm-up — not on genuine
-# per-model cold loads, which is the whole point of P0.1.
 _seen_models: set[str] = set()
 
 
@@ -85,8 +69,6 @@ def _space_url_for(model_id: str) -> str:
 
 
 def decode_audio(raw: bytes) -> tuple[np.ndarray, int]:
-    """Only used locally for duration calculation before forwarding — the Space does
-    its own decode independently."""
     try:
         audio, sr = sf.read(io.BytesIO(raw), dtype="float32", always_2d=False)
     except Exception:
@@ -106,9 +88,6 @@ def decode_audio(raw: bytes) -> tuple[np.ndarray, int]:
 
 
 def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | None = None) -> str:
-    """Synchronous — call via run_in_threadpool from async routes. `engine` is accepted
-    for signature compatibility with the old local-loading version (e.g. the eval
-    harness) but ignored here — routing is purely by model_id -> Space."""
     url = _space_url_for(model_id)
     wav_buf = io.BytesIO()
     sf.write(wav_buf, audio, sr, format="WAV")
@@ -119,10 +98,6 @@ def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | No
         headers={"X-Internal-Secret": SPACE_SECRET},
         files={"file": ("audio.wav", wav_buf, "audio/wav")},
         data={"model_id": model_id},
-        # Each Space now warms its own models on container startup (spaces/*/app.py)
-        # so a real request should never pay the 100-500s cold-load cost observed
-        # pre-P0.1 — this generous timeout is now a safety net for a Space that's
-        # still warming after a restart, not the expected path.
         timeout=600.0,
     )
     resp.raise_for_status()
@@ -130,14 +105,6 @@ def transcribe_audio(audio: np.ndarray, sr: int, model_id: str, engine: str | No
 
 
 def transcribe_audio_with_confidence(audio: np.ndarray, sr: int, model_id: str) -> tuple[str, float | None]:
-    """Same call as transcribe_audio(), but for Spaces that return a confidence value
-    alongside text (currently: free tier only — see spaces/space-free/app.py). Kept as
-    a separate function rather than changing transcribe_audio()'s return type, since
-    that function has other callers (mcp_server.py, ingest.py, eval_harness.py) that
-    expect a plain string and shouldn't need to change for this.
-
-    Falls back to (text, None) for any Space that doesn't return a confidence field,
-    so this can be pointed at pro/max later without them needing a matching change."""
     url = _space_url_for(model_id)
     wav_buf = io.BytesIO()
     sf.write(wav_buf, audio, sr, format="WAV")
@@ -156,13 +123,12 @@ def transcribe_audio_with_confidence(audio: np.ndarray, sr: int, model_id: str) 
 
 
 def synthesize_speech(text: str, voice: str, model_id: str) -> bytes | None:
-    """Synchronous — call via run_in_threadpool from async routes. Returns MP3 bytes."""
     url = _space_url_for(model_id)
     resp = httpx.post(
         f"{url}/synthesize",
         headers={"X-Internal-Secret": SPACE_SECRET},
         data={"text": text, "voice": voice or "", "model_id": model_id},
-        timeout=600.0,  # see transcribe_audio's comment above
+        timeout=600.0,
     )
     if resp.status_code == 500:
         return None

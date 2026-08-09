@@ -54,7 +54,6 @@ export default function HistoryPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token, kind, offset]);
 
   useEffect(() => {

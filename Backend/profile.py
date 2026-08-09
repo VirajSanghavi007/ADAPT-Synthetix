@@ -11,8 +11,6 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
 
-# ~200KB image as base64 — enough for a small profile photo without letting the
-# DB row balloon. No object storage bucket is provisioned yet (see migration 014).
 MAX_AVATAR_URL_LEN = 300_000
 ALLOWED_AVATAR_MIME_PREFIXES = ("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")
 

@@ -1,4 +1,3 @@
-// 10 built-in avatar choices (no external image fetch — plain gradient + initial glyphs).
 export const AVATARS: { id: number; gradient: string; glyph: string }[] = [
   { id: 1, gradient: "from-cyan-500 to-emerald-500", glyph: "M" },
   { id: 2, gradient: "from-violet-500 to-fuchsia-500", glyph: "A" },

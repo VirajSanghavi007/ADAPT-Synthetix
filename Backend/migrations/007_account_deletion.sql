@@ -7,5 +7,5 @@ create table if not exists public.account_deletion_requests (
 );
 
 alter table public.account_deletion_requests enable row level security;
--- No policies granted to authenticated/anon: this table is only ever touched via the
--- backend's service-role-adjacent connection, never directly through PostgREST.
+
+

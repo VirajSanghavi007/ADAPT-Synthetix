@@ -73,7 +73,6 @@ const PLANS: Plan[] = [
   },
 ];
 
-// Mirrors Backend/tiers.py TIER_RATE_LIMITS — requests/hour per tier.
 const RATE_LIMITS: Record<string, number> = { free: 30, pro: 300, max: 5000, enterprise: 5000 };
 
 type Usage = { total_word_count: number; audio_hours: number; transcription_count: number; synthesis_count: number };
@@ -185,8 +184,6 @@ function CheckoutDialog({ plan }: { plan: Plan }) {
 
   function handlePay(e: React.FormEvent) {
     e.preventDefault();
-    // No payment gateway is wired up yet — this is a UI-only mock, nothing is charged
-    // or transmitted anywhere.
     setStep("success");
   }
 

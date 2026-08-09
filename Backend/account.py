@@ -20,7 +20,6 @@ CRON_SECRET = os.environ.get("CRON_SECRET")
 
 @router.get("/usage")
 def get_usage(user: dict = Depends(require_user)):
-    """Lifetime usage: words transcribed/synthesized, hours of audio processed."""
     db = get_session()
     try:
         asr_rows = db.query(ASRLog.transcript, ASRLog.duration_sec).filter(ASRLog.user_id == user["id"]).all()
@@ -74,15 +73,12 @@ def request_deletion(user: dict = Depends(require_user)):
 
     response = {"status": "verification_sent" if sent else "smtp_not_configured"}
     if not sent:
-        # Dev-only fallback so the flow is testable without SMTP set up — never do this in production.
         response["dev_confirm_link"] = confirm_link
     return response
 
 
 @router.post("/delete/confirm")
 def confirm_deletion(token: str):
-    """Schedules deletion — does NOT delete immediately. Execution happens
-    DELETION_DELAY_HOURS later via /delete/execute-pending (cron-triggered)."""
     db = get_session()
     try:
         req = (
@@ -104,8 +100,6 @@ def confirm_deletion(token: str):
 
 @router.post("/delete/execute-pending")
 def execute_pending_deletions(x_cron_secret: str | None = Header(None)):
-    """Cron/n8n-triggered: permanently deletes accounts whose confirmed deletion window
-    has elapsed. Not user-facing — protected by a shared secret, not a user session."""
     if not CRON_SECRET or x_cron_secret != CRON_SECRET:
         raise HTTPException(403, "invalid or missing cron secret")
 
@@ -147,7 +141,6 @@ def execute_pending_deletions(x_cron_secret: str | None = Header(None)):
             purge_db.close()
 
         try:
-            # Deleting the auth.users row cascades to profiles (FK on delete cascade, migration 001).
             get_admin_client().auth.admin.delete_user(user_id)
             deleted.append(user_id)
         except Exception as e:

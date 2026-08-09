@@ -2,11 +2,6 @@
 
 import { useEffect } from "react";
 
-/**
- * Blocks right-click, text selection, and common devtools/view-source shortcuts.
- * Cosmetic only — anything shipped to the browser remains readable via devtools
- * regardless. Does not run for inputs/textareas so form fields stay usable.
- */
 export default function ContentGuard() {
   useEffect(() => {
     const isFormField = (target: EventTarget | null) =>

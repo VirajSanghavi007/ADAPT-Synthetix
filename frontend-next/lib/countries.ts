@@ -1,5 +1,3 @@
-// ISO 3166-1 alpha-2 codes + E.164 calling codes. Flag rendered from the ISO code via
-// regional indicator symbols (no image assets needed).
 export type Country = { iso: string; name: string; dial: string };
 
 export const COUNTRIES: Country[] = [
@@ -70,4 +68,4 @@ export function flagEmoji(iso: string): string {
     .replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
 }
 
-export const DEFAULT_COUNTRY = COUNTRIES[0]; // India
+export const DEFAULT_COUNTRY = COUNTRIES[0]; 

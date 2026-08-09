@@ -56,8 +56,6 @@ export default function AccountSection() {
     if (!currentPassword || !newPassword) return;
     setBusy(true);
     setStatus(null);
-    // Supabase's updateUser doesn't take the current password — re-authenticate first
-    // so a stolen/left-open session can't silently change it.
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
     if (reauthError) {
       setStatus("Current password is incorrect.");

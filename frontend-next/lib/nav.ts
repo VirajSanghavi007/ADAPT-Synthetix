@@ -17,9 +17,6 @@ export type NavItem = {
   hideForEnterprise?: boolean;
 };
 
-// Profile and Account live inside Settings (collapsible sections) instead of
-// their own sidebar entries — their routes (/profile, /account) still work
-// standalone for deep links/bookmarks, just not linked from the sidebar.
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Live Recording", href: "/live-recording", icon: Radio },

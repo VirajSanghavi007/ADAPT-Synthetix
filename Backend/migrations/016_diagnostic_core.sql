@@ -1,6 +1,6 @@
--- Free-tier diagnostic core: priority queue, closed-loop TTS remediation, and
--- phoneme-level drift detection — ported from ADAPT-Synthetix v1's design (see
--- TODO.md P1.8, P4.2, P4.7, P4.8). Scoped to the free tier only for this pass.
+
+
+
 
 create table if not exists public.priority_queue (
   id bigint generated always as identity primary key,

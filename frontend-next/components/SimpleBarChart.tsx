@@ -1,7 +1,5 @@
 "use client";
 
-// Small dependency-free horizontal bar chart — no charting library is installed,
-// and this dataset (a handful of category/count pairs) doesn't need one.
 export default function SimpleBarChart({
   data,
   colorClassName = "bg-accent",

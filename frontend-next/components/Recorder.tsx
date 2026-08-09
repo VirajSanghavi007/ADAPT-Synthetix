@@ -27,9 +27,6 @@ export default function Recorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  // Live ticking timer while a request is in flight — some models cold-load in
-  // the 100-600s range on first use, so "Transcribing..." with no feedback reads
-  // as hung. Updates every 100ms; freezes at the real elapsed time on completion.
   useEffect(() => {
     if (!busy) return;
     const start = performance.now();
@@ -38,7 +35,6 @@ export default function Recorder() {
     return () => clearInterval(id);
   }, [busy]);
 
-  // Restore last transcript + model choice so returning users don't lose their place.
   useEffect(() => {
     setTranscript(localStorage.getItem(TRANSCRIPT_CACHE_KEY) || "");
     setModelId(localStorage.getItem(ASR_MODEL_KEY) || "");
@@ -113,8 +109,6 @@ export default function Recorder() {
       const text = data.text || "(no speech detected)";
       setTranscript(text);
       localStorage.setItem(TRANSCRIPT_CACHE_KEY, text);
-      // Diagnostics fields are only present on the free tier for now (see
-      // Backend/main.py) — data.confidence being present at all is the signal.
       setDiagnostics(
         "confidence" in data
           ? {

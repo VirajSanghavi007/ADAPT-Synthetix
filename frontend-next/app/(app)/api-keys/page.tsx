@@ -65,7 +65,6 @@ export default function ApiKeysPage() {
 
   useEffect(() => {
     if (session?.access_token) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token]);
 
   async function createKey(e: React.FormEvent) {

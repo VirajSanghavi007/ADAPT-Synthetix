@@ -45,38 +45,31 @@ class TTSLog(Base):
 
 
 class PhonemeError(Base):
-    """One reference/hypothesis phoneme mismatch from an aligned transcription.
-    Populated when /api/transcribe is called with a reference_text; powers the
-    Error Analysis dashboard's confusion-matrix view."""
     __tablename__ = "phoneme_errors"
 
     id = Column(Integer, primary_key=True)
     transcription_id = Column(Integer, nullable=True, index=True)
-    operation = Column(String(16), nullable=False)  # substitution | deletion | insertion
+    operation = Column(String(16), nullable=False)
     reference_phoneme = Column(String(16), nullable=True)
     hypothesis_phoneme = Column(String(16), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class ApiKey(Base):
-    """Third-party API keys for the transcribe/TTS API, tiered for rate limiting."""
     __tablename__ = "api_keys"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(String(36), nullable=False, index=True)
     name = Column(String(100), nullable=False)
-    key_prefix = Column(String(12), nullable=False, index=True)  # first chars, shown in UI
-    key_hash = Column(String(64), nullable=False, unique=True)  # sha256 hex digest
-    tier = Column(String(16), nullable=False, default="free")  # free | pro | max
-    revoked = Column(Integer, nullable=False, default=0)  # 0/1 (sqlite-friendly bool)
+    key_prefix = Column(String(12), nullable=False, index=True)
+    key_hash = Column(String(64), nullable=False, unique=True)
+    tier = Column(String(16), nullable=False, default="free")
+    revoked = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class AccountDeletionRequest(Base):
-    """Email-verified account deletion. Confirming the emailed link schedules deletion
-    24h out (not immediate) — a last window to notice a mistake before it's executed
-    and becomes irreversible. See Backend/scripts/execute_pending_deletions.py."""
     __tablename__ = "account_deletion_requests"
 
     id = Column(Integer, primary_key=True)
@@ -89,8 +82,6 @@ class AccountDeletionRequest(Base):
 
 
 class EvalMetric(Base):
-    """WER/CER for one transcription against its reference_text — the basis for the
-    per-model accuracy trend in the MLOps dashboard."""
     __tablename__ = "eval_metrics"
 
     id = Column(Integer, primary_key=True)
@@ -102,30 +93,23 @@ class EvalMetric(Base):
 
 
 class ModelRegistry(Base):
-    """Which checkpoint is 'live' per tier/kind. All entries currently point at base
-    HF Hub model ids (no fine-tuned checkpoints exist yet) — this table is the seam
-    fine-tuning promotion will write to later."""
     __tablename__ = "model_registry"
 
     id = Column(Integer, primary_key=True)
-    kind = Column(String(8), nullable=False)   # "asr" | "tts"
-    tier = Column(String(16), nullable=False)  # "free" | "pro" | "max" | "enterprise"
+    kind = Column(String(8), nullable=False)
+    tier = Column(String(16), nullable=False)
     model_id = Column(String(120), nullable=False)
-    version_tag = Column(String(40), nullable=False, default="base")  # "base" until a fine-tune is promoted
+    version_tag = Column(String(40), nullable=False, default="base")
     is_live = Column(Integer, nullable=False, default=1)
     notes = Column(Text, nullable=True)
     promoted_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class RequestLatency(Base):
-    """Per-request inference latency, per model — the other half of "is this model
-    good" alongside WER/CER (eval_metrics). Powers p50/p95 latency trend and lets you
-    catch a model silently getting slower (e.g. a Space under memory pressure) even
-    when accuracy hasn't moved."""
     __tablename__ = "request_latency"
 
     id = Column(Integer, primary_key=True)
-    kind = Column(String(8), nullable=False)   # "asr" | "tts"
+    kind = Column(String(8), nullable=False)
     model_id = Column(String(120), nullable=False, index=True)
     tier = Column(String(16), nullable=False)
     latency_ms = Column(Float, nullable=False)
@@ -135,8 +119,6 @@ class RequestLatency(Base):
 
 
 class TrainingMarker(Base):
-    """Key/value timestamps the n8n retrain-check workflow reads and updates
-    (e.g. 'last_trained_at', 'last_notified_at')."""
     __tablename__ = "training_marker"
 
     key = Column(String(64), primary_key=True)
@@ -144,8 +126,6 @@ class TrainingMarker(Base):
 
 
 class PriorityQueueEntry(Base):
-    """Domain-critical remediation queue, ported from ADAPT-Synthetix v1's validated
-    priority formula. See Backend/priority_queue.py."""
     __tablename__ = "priority_queue"
 
     id = Column(Integer, primary_key=True)
@@ -153,21 +133,14 @@ class PriorityQueueEntry(Base):
     priority_score = Column(Float, nullable=False, index=True)
     domain_match_count = Column(Integer, nullable=False, default=0)
     error_type = Column(String(32), nullable=False)
-    status = Column(String(16), nullable=False, default="pending")  # pending | in_progress | resolved
+    status = Column(String(16), nullable=False, default="pending")
     created_at = Column(DateTime(timezone=True), default=utcnow)
-    # Human-review label capture — the priority *formula* stays rule-based for now
-    # (see Backend/priority_queue.py docstring on why), but every entry a human
-    # actually reviews gets its true importance recorded here. Once enough labelled
-    # entries exist, this becomes the training set for a learned weighting; until
-    # then it's pure data collection with no effect on the running formula.
-    human_importance = Column(Integer, nullable=True)  # 1 (low) - 5 (critical), reviewer-assigned
+    human_importance = Column(Integer, nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
-    reviewed_by = Column(String(36), nullable=True)  # user id of the reviewer
+    reviewed_by = Column(String(36), nullable=True)
 
 
 class RemedialAudio(Base):
-    """Phoneme-pair targeted corrective TTS output, ported from ADAPT-Synthetix v1's
-    closed-loop remediation design. See Backend/tts_remediation.py."""
     __tablename__ = "remedial_audio"
 
     id = Column(Integer, primary_key=True)
@@ -181,9 +154,6 @@ class RemedialAudio(Base):
 
 
 class PhonemeDriftEvent(Base):
-    """One misrecognition event for one phoneme on one day — the raw signal
-    drift_detector.py aggregates into a rolling per-phoneme trend. See TODO.md P4.2
-    for why this tracks error-rate rather than true per-phoneme confidence."""
     __tablename__ = "phoneme_drift_events"
 
     id = Column(Integer, primary_key=True)
@@ -194,21 +164,16 @@ class PhonemeDriftEvent(Base):
 
 
 class DriftTriggerEvent(Base):
-    """A recorded 'this model should be retrained' signal from drift_detector.py.
-    Does not itself trigger a LoRA run — see that module's docstring."""
     __tablename__ = "drift_trigger_events"
 
     id = Column(Integer, primary_key=True)
     model_id = Column(String(120), nullable=False, index=True)
-    drifting_phonemes = Column(Text, nullable=False)  # comma-separated phoneme codes
+    drifting_phonemes = Column(Text, nullable=False)
     reason = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class NoiseFeatureSample(Base):
-    """One request's 8 raw acoustic features, persisted so noise_fingerprint.py can
-    fit an unsupervised clustering model on real data instead of hand-set thresholds.
-    See that module's docstring for the learned-vs-heuristic fallback design."""
     __tablename__ = "noise_feature_samples"
 
     id = Column(Integer, primary_key=True)
@@ -220,21 +185,18 @@ class NoiseFeatureSample(Base):
     mfcc_variance = Column(Float, nullable=False)
     tempo = Column(Float, nullable=False)
     harmonic_ratio = Column(Float, nullable=False)
-    heuristic_label = Column(String(16), nullable=False)  # the bootstrap/pseudo-label at capture time
+    heuristic_label = Column(String(16), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class ErrorDiagnosisSample(Base):
-    """One request's (confidence, noise_category, cer) -> error_type outcome,
-    persisted so error_diagnosis.py can bootstrap-train a learned classifier from
-    the rule-based labels and refine over time. See that module's docstring."""
     __tablename__ = "error_diagnosis_samples"
 
     id = Column(Integer, primary_key=True)
     confidence = Column(Float, nullable=True)
     cer = Column(Float, nullable=True)
     noise_category = Column(String(16), nullable=False)
-    error_type = Column(String(32), nullable=False)  # the label (pseudo or confirmed) at capture time
+    error_type = Column(String(32), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 

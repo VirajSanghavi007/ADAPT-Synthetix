@@ -1,5 +1,3 @@
-// Mirrors VERSION.md (gitignored) — bump CURRENT_VERSION and add an entry here whenever
-// VERSION.md gets a new version. Shown once per version via WhatsNewModal.
 export const CURRENT_VERSION = "5.5.0";
 
 export type ChangelogEntry = {

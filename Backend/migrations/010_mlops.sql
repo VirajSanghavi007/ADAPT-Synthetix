@@ -19,8 +19,8 @@ create table if not exists public.model_registry (
   promoted_at timestamptz not null default now()
 );
 
--- Seed the registry with the current base models (Backend/tiers.py DEFAULT_MODEL) so the
--- MLOps dashboard has something to show from day one, not an empty table.
+
+
 insert into public.model_registry (kind, tier, model_id, version_tag) values
   ('asr', 'free', 'distil-whisper/distil-large-v3', 'base'),
   ('asr', 'pro', 'openai/whisper-large-v3-turbo', 'base'),

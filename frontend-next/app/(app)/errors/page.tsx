@@ -70,7 +70,6 @@ export default function ErrorAnalysisPage() {
 
   useEffect(() => {
     if (session?.access_token) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token]);
 
   return (

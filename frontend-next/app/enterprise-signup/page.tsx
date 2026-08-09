@@ -9,6 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Logo from "@/components/Logo";
 
+const DOMAINS = [
+  { value: "medical", label: "Medical" },
+  { value: "children", label: "Children" },
+  { value: "elderly", label: "Elderly" },
+];
+
 export default function EnterpriseSignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,6 +22,7 @@ export default function EnterpriseSignupPage() {
   const [companyName, setCompanyName] = useState("");
   const [role, setRole] = useState("");
   const [employeeId, setEmployeeId] = useState("");
+  const [domain, setDomain] = useState("medical");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -42,7 +49,7 @@ export default function EnterpriseSignupPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${data.session.access_token}`,
         },
-        body: JSON.stringify({ company_name: companyName, role, employee_id: employeeId }),
+        body: JSON.stringify({ company_name: companyName, role, employee_id: employeeId, domain }),
       });
       if (!res.ok) throw new Error((await res.json()).detail || "enterprise registration failed");
 
@@ -94,6 +101,20 @@ export default function EnterpriseSignupPage() {
           <Label htmlFor="employee-id">Employee ID</Label>
           <Input id="employee-id" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required />
           <p className="text-xs text-muted">You'll enter this again each time you sign in.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="domain">Service</Label>
+          <select
+            id="domain"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-border bg-transparent px-3 text-sm"
+            required
+          >
+            {DOMAINS.map((d) => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
         </div>
 
         <Button type="submit" disabled={busy} variant="accent" size="lg" className="w-full cursor-pointer">

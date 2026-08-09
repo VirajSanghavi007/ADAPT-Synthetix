@@ -1,6 +1,3 @@
-// Minimal word-level Levenshtein WER — good enough for a rough "does this look
-// garbled" signal, not meant to match jiwer's precision (no normalization beyond
-// lowercase + strip punctuation).
 export function wordErrorRate(reference: string, hypothesis: string): number {
   const norm = (s: string) =>
     s

@@ -19,6 +19,7 @@ from Backend.admin import router as admin_router
 from Backend.api_keys import require_user_or_api_key
 from Backend.credits import check_and_deduct_credit, get_credit_status, get_enterprise_usage
 from Backend.enterprise import router as enterprise_router
+from Backend.enterprise_domains import domain_terms, get_enterprise_status
 from Backend.api_keys import router as api_keys_router
 from Backend.history import router as history_router
 from Backend.asr_pipeline import (
@@ -53,9 +54,6 @@ from Backend.tiers import (
     resolve_model,
 )
 
-# FastAPI's own auto-docs default to /docs and /redoc, colliding with the frontend's
-# own /docs page (which won since it's a route match, silently serving Swagger UI
-# instead of our docs page). API docs live at /api-reference instead.
 app = FastAPI(title="ADAPT-Synthetix 2.0", docs_url=None, redoc_url=None)
 
 app.state.limiter = limiter
@@ -98,7 +96,6 @@ def health():
 
 @app.get("/api/models")
 def list_models(user_id: str = Depends(_require_user_id)):
-    """Models available to the current user's tier, for the frontend model picker."""
     tier = get_user_tier(user_id)
     allowed = TIER_MODELS.get(tier, TIER_MODELS["free"])
     return {
@@ -110,8 +107,6 @@ def list_models(user_id: str = Depends(_require_user_id)):
 
 @app.get("/api/credits")
 def credits_status(user_id: str = Depends(_require_user_id)):
-    """Current usage-credit balance (free/pro/max) or pay-per-use usage (enterprise),
-    for the Subscription/Settings page."""
     tier = get_user_tier(user_id)
     if tier == "enterprise":
         return get_enterprise_usage(user_id)
@@ -147,11 +142,13 @@ async def transcribe(
         raise HTTPException(400, "could not decode audio file")
 
     cold = was_cold(resolved_model)
-    is_free_tier = tier == "free"  # diagnostic core (objectives 2-7) is free-tier only for now
+    is_free_tier = tier == "free"
+    is_enterprise, enterprise_domain = get_enterprise_status(user_id)
+    run_diagnostics = is_free_tier or is_enterprise
 
     start = time.monotonic()
     try:
-        if is_free_tier:
+        if run_diagnostics:
             text, confidence = await run_in_threadpool(
                 transcribe_audio_with_confidence, audio, sr, resolved_model
             )
@@ -163,20 +160,15 @@ async def transcribe(
         raise
     record_latency("asr", resolved_model, tier, (time.monotonic() - start) * 1000, success=True, cold=cold)
 
-    # Noise fingerprint + error-type diagnosis (objectives 3-4) — free tier only,
-    # best-effort: a feature-extraction hiccup must not break transcription itself.
     noise_category = None
     error_type = None
-    if is_free_tier:
+    if run_diagnostics:
         try:
             noise_category = (await run_in_threadpool(noise_fingerprint, audio, sr))["noise_category"]
         except Exception:
             noise_category = "clean"
         error_type = classify_error_type(confidence, None, noise_category)
 
-    # Logging (ASRLog, phoneme errors, eval metrics) is best-effort — the transcript
-    # is already computed, so a DB hiccup here must not turn a successful transcribe
-    # into a 500. log_id stays None if the insert itself fails.
     duration_sec = len(audio) / sr if sr else None
     db = get_session()
     log_id = None
@@ -208,14 +200,12 @@ async def transcribe(
     if log_id is not None and reference_text and reference_text.strip():
         record_eval_metric(log_id, resolved_model, reference_text, text)
 
-    # Objectives 5-7, free tier only, all best-effort — reusing the same phoneme
-    # alignment already computed above when a reference_text was supplied, so this
-    # costs nothing extra unless there's something to act on.
     priority_queued = False
     remediation = None
-    if is_free_tier and error_type is not None:
+    if run_diagnostics and error_type is not None:
         if error_type != "clean":
-            priority_queued = enqueue_priority(log_id, text, confidence, error_type) is not None
+            term_set = domain_terms(enterprise_domain) if is_enterprise else None
+            priority_queued = enqueue_priority(log_id, text, confidence, error_type, term_set) is not None
 
         if alignment is not None:
             try:
@@ -235,7 +225,7 @@ async def transcribe(
                         remediation = None
 
     response = {"text": text}
-    if is_free_tier:
+    if run_diagnostics:
         response.update(
             {
                 "confidence": confidence,
@@ -245,15 +235,14 @@ async def transcribe(
                 "remediation": remediation,
             }
         )
+        if is_enterprise:
+            response["enterprise_domain"] = enterprise_domain
     return response
 
 
 @app.get("/api/errors/report")
 @limiter.limit("30/minute")
 def errors_report(request: Request, user_id: str = Depends(_require_user_id)):
-    """Confusion-matrix view over the *current user's* logged phoneme errors —
-    scoped via the ASRLog each PhonemeError links back to, so one user's Error
-    Analysis dashboard never shows another user's transcription mistakes."""
     db = get_session()
     try:
         rows = (
@@ -286,9 +275,6 @@ def errors_report(request: Request, user_id: str = Depends(_require_user_id)):
 
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
-    # Empty by default so each Space applies its own valid default voice
-    # (Kokoro's af_heart, CosyVoice2's "default" spk_id) instead of a bogus
-    # cross-model placeholder name that 404s against the wrong model's voice pack.
     voice: str = ""
     model_id: str | None = None
 
@@ -305,10 +291,6 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
     check_and_deduct_credit(user_id, tier)
     resolved_model = resolve_model(tier, "tts", req.model_id)
 
-    # CosyVoice2 SFT inference — spk_id must match one of pipeline.list_available_spks().
-    # space-max's own startup warm-up (spaces/space-max/app.py) now exercises this
-    # exact "default" spk_id at boot and fails /health if it's wrong, so a bad id
-    # surfaces before any real user hits it instead of via this TODO.
     cold = was_cold(resolved_model)
     start = time.monotonic()
     try:
@@ -323,8 +305,6 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
     if mp3_bytes is None:
         raise HTTPException(500, "no audio generated")
 
-    # Best-effort, same reasoning as the transcribe logging block above — the audio
-    # is already generated, a logging failure must not discard it.
     db = get_session()
     try:
         db.add(TTSLog(user_id=user_id, input_text=text, voice=req.voice, model_id=resolved_model))

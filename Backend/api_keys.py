@@ -1,9 +1,3 @@
-"""Third-party API key issuance, auth, and tiered rate limiting.
-
-Free/Pro/Max tiers mirror the Subscription page. Keys authenticate requests to the
-public transcribe/TTS API (and the MCP server, which is just another API consumer)
-as an alternative to a Supabase user session.
-"""
 import hashlib
 import secrets
 import time
@@ -18,7 +12,7 @@ from Backend.redis_client import get_redis
 router = APIRouter(prefix="/api/keys", tags=["api-keys"])
 
 TIER_LIMITS = {
-    "free": 60,     # requests / hour — unreachable via API (free tier can't create keys), kept as a safe fallback
+    "free": 60,
     "pro": 1000,
     "max": 10000,
     "enterprise": 10000,
@@ -30,7 +24,6 @@ def _hash_key(raw: str) -> str:
 
 
 def _generate_key() -> tuple[str, str, str]:
-    """Returns (raw_key, prefix, hash)."""
     raw = f"mk_live_{secrets.token_urlsafe(32)}"
     return raw, raw[:12], _hash_key(raw)
 
@@ -56,7 +49,6 @@ def create_key(req: CreateKeyRequest, user: dict = Depends(require_user)):
         db.refresh(record)
     finally:
         db.close()
-    # Full key is shown exactly once — only the hash is stored.
     return {"id": record.id, "name": record.name, "key": raw, "prefix": prefix, "tier": record.tier}
 
 
@@ -100,7 +92,6 @@ def revoke_key(key_id: int, user: dict = Depends(require_user)):
 
 
 def _check_rate_limit(key_id: int, tier: str, user_id: str) -> None:
-    """Fixed-window per-hour counter in Redis. No Redis => no rate limiting (fail open)."""
     r = get_redis()
     if r is None:
         return
@@ -117,7 +108,6 @@ def _check_rate_limit(key_id: int, tier: str, user_id: str) -> None:
 
 
 def require_api_key(request: Request) -> dict:
-    """Auth dependency for third-party API consumers (X-API-Key header)."""
     raw = request.headers.get("X-API-Key")
     if not raw:
         raise HTTPException(401, "missing X-API-Key header")
@@ -140,7 +130,6 @@ def require_api_key(request: Request) -> dict:
 
 
 def require_user_or_api_key(request: Request) -> dict:
-    """Accepts either a Supabase session bearer token or an X-API-Key header."""
     if request.headers.get("X-API-Key"):
         return require_api_key(request)
     return require_user(request)

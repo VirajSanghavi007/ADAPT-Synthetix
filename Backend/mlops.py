@@ -1,10 +1,3 @@
-"""MLOps: WER/CER tracking, model version registry, and a crude drift signal.
-
-Fine-tuning itself is deferred — this module is the seam it plugs into: eval_metrics
-records accuracy over time per model, model_registry tracks which checkpoint is "live"
-per tier (all "base" until a fine-tune is promoted), and the drift signal reuses the
-same Postgres counts n8n's retrain_trigger.json already polls.
-"""
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,17 +15,6 @@ router = APIRouter(prefix="/api/mlops", tags=["mlops"])
 def record_latency(
     kind: str, model_id: str, tier: str, latency_ms: float, success: bool = True, cold: bool = False
 ) -> None:
-    """Called from /api/transcribe and /api/tts around the inference call, regardless
-    of whether a reference_text was given — unlike eval_metrics, this doesn't need one.
-
-    `cold` marks the first request this process has sent to this (kind, model_id)
-    pair — see `Backend.asr_pipeline.was_cold()`. With Space-side warm-up (see
-    spaces/*/app.py `/health`) this should now be rare outside of Space restarts;
-    a persistently high cold rate means warm-up is failing or the Space is
-    restarting under load, which the p50/p95 split below is meant to surface.
-
-    Best-effort: a DB hiccup here must never turn an already-successful inference
-    into a 500 for the caller, so failures are swallowed rather than raised."""
     db = get_session()
     try:
         db.add(
@@ -49,8 +31,6 @@ def record_latency(
 
 
 def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypothesis_text: str) -> None:
-    """Called from /api/transcribe alongside phoneme-error logging, whenever a
-    reference_text is supplied. Best-effort, same reasoning as record_latency."""
     if not reference_text.strip() or not hypothesis_text.strip():
         return
     db = get_session()
@@ -72,7 +52,6 @@ def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypo
 
 @router.get("/metrics")
 def get_metrics(admin: dict = Depends(require_admin)):
-    """WER/CER trend per model — daily averages, for the accuracy-over-time chart."""
     db = get_session()
     try:
         rows = db.execute(
@@ -133,9 +112,6 @@ class PromoteRequest(BaseModel):
 
 @router.post("/registry/promote")
 def promote_model(req: PromoteRequest, admin: dict = Depends(require_admin)):
-    """Marks a new checkpoint live for a kind/tier, retiring the previous one. This is
-    the manual promotion step an eval harness run should gate — don't call this unless
-    the candidate has already beaten the current live model on a held-out set."""
     db = get_session()
     try:
         db.query(ModelRegistry).filter(
@@ -159,10 +135,6 @@ def promote_model(req: PromoteRequest, admin: dict = Depends(require_admin)):
 
 @router.get("/drift-signal")
 def get_drift_signal(admin: dict = Depends(require_admin)):
-    """Crude drift proxy: new-sample counts since the last training marker — the same
-    query n8n's retrain_trigger.json polls. NOT real confidence-drift monitoring
-    (v2's CUSUM approach isn't ported yet — this just tells you volume, not accuracy
-    degradation)."""
     db = get_session()
     try:
         marker = db.execute(
@@ -195,8 +167,6 @@ def get_drift_signal(admin: dict = Depends(require_admin)):
 
 @router.get("/latency")
 def get_latency(admin: dict = Depends(require_admin)):
-    """p50/p95 latency per model, plus error rate — catches a model quietly getting
-    slower or flakier without needing a reference_text (unlike WER/CER)."""
     db = get_session()
     try:
         rows = db.execute(
@@ -240,9 +210,6 @@ def get_latency(admin: dict = Depends(require_admin)):
     ]
 
 
-# --- Learned diagnostics: model refit triggers + priority-queue human review ---
-# See Backend/noise_fingerprint.py and Backend/error_diagnosis.py docstrings for the
-# heuristic-to-learned bootstrap design these endpoints operate on.
 
 @router.post("/noise-model/fit")
 def fit_noise_model(admin: dict = Depends(require_admin)):
@@ -258,9 +225,6 @@ def fit_error_model(admin: dict = Depends(require_admin)):
 
 @router.get("/priority-queue")
 def list_priority_queue(admin: dict = Depends(require_admin)):
-    """Pending entries ordered by priority score — what a human reviewer works
-    through, and the source of the human_importance labels compute_priority()'s
-    docstring describes as the eventual training set."""
     db = get_session()
     try:
         rows = (

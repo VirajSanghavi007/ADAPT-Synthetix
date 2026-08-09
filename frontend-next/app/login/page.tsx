@@ -9,12 +9,6 @@ import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import { usePageTitle } from "@/lib/usePageTitle";
 
-// "choice" is the real landing state — Google or email, nothing assumed. Passkey is
-// only offered once someone has picked email, and only as "I already have one" — a
-// first-time visitor was previously dropped straight into a passkey prompt with no
-// account and no passkey to use, which just failed confusingly. Passkey *creation*
-// still only happens post-signin (see registerPasskey below) since WebAuthn needs an
-// existing account to attach a credential to — there's no way to create one before that.
 type Mode = "choice" | "password" | "passkey" | "forgot";
 
 export default function LoginPage() {

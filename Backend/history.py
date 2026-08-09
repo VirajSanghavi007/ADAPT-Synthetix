@@ -1,6 +1,3 @@
-"""Transcript/TTS history — the Dashboard shows lifetime counts but there was no way
-to actually browse past results. Paginated, searchable by transcript text, filterable
-by model, and exportable as CSV."""
 import csv
 import io
 

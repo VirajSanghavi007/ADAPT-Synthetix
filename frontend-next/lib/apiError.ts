@@ -1,6 +1,3 @@
-// Turns raw API error responses into messages a user can actually act on — 429/403
-// used to just dump raw JSON/text ("rate limit exceeded for free tier (30/hour)")
-// with no next step. Now points at Subscription when that's the actual fix.
 export async function friendlyApiError(res: Response): Promise<string> {
   let detail = "";
   try {

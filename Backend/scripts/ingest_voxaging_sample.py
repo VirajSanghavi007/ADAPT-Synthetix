@@ -1,12 +1,3 @@
-"""One-off script: run N real VoxAging clips through the actual free-tier pipeline
-(transcription + confidence, noise fingerprint, error diagnosis) so
-noise_feature_samples / error_diagnosis_samples cross the 30-sample threshold and
-the learned models (KMeans, ElasticNet) can be fit for the first time on real data
-instead of staying permanently in heuristic fallback.
-
-Not part of the running app — a data-bootstrapping utility, run manually:
-    python -m Backend.scripts.ingest_voxaging_sample /tmp/voxaging.parquet 35
-"""
 import sys
 
 import numpy as np
@@ -30,7 +21,7 @@ def main(parquet_path: str, n: int):
             if processed >= n:
                 break
             duration = table["duration"][i]
-            if duration is None or duration > 15:  # keep clips fast for this pass
+            if duration is None or duration > 15:
                 continue
 
             audio_struct = table["audio"][i]

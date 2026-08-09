@@ -1,20 +1,3 @@
-"""8-feature acoustic noise fingerprinting — free tier only.
-
-This module now has two classification paths:
-  - classify() — the original threshold heuristic (see its docstring). Kept as the
-    bootstrap/cold-start fallback, never removed, because a learned model needs data
-    to exist before it can run at all.
-  - classify_learned() — unsupervised clustering (KMeans) fit on real accumulated
-    feature vectors (Backend.db.NoiseFeatureSample). Cluster *boundaries* are learned
-    from data, not hand-set numbers — the only hand-set thing left is which cluster
-    gets which human-readable name, done by majority vote of the heuristic labels
-    among that cluster's members at fit time (self-labelling, a standard way to make
-    unsupervised clusters interpretable without manual annotation).
-
-fingerprint() always tries the learned model first and falls back to the heuristic
-when no model has been fit yet (too little data) — the response's "source" field
-says honestly which path produced the label.
-"""
 from __future__ import annotations
 
 import os
@@ -79,9 +62,6 @@ def extract_features(audio: np.ndarray, sr: int) -> dict[str, float]:
 
 
 def classify(features: dict[str, float]) -> str:
-    """Threshold heuristic — the cold-start fallback. See module docstring.
-    Most-conservative-first ordering: a clip only earns a "noisy" label when a
-    feature clearly indicates it, defaulting to "clean" otherwise."""
     zcr = features["zero_crossing_rate"]
     rms = features["rms_energy"]
     bandwidth = features["spectral_bandwidth"]
@@ -106,8 +86,6 @@ def _feature_vector(features: dict[str, float]) -> list[float]:
 
 
 def persist_sample(features: dict[str, float], heuristic_label: str) -> None:
-    """Best-effort — every real request's features become future training data,
-    but a logging failure must never break the transcribe response."""
     db = get_session()
     try:
         row = NoiseFeatureSample(
@@ -130,10 +108,6 @@ def persist_sample(features: dict[str, float], heuristic_label: str) -> None:
 
 
 def fit_clusters(k: int = DEFAULT_K, min_samples: int = MIN_SAMPLES_TO_FIT) -> dict:
-    """Fit KMeans on all accumulated real feature samples and save the model.
-    Intended to be called periodically (admin-triggered for now, see mlops.py) as
-    data accumulates — not on every request, which would be wasteful and would
-    make the "learned" label a moving target mid-session."""
     from sklearn.cluster import KMeans
     from sklearn.preprocessing import StandardScaler
 
@@ -152,13 +126,10 @@ def fit_clusters(k: int = DEFAULT_K, min_samples: int = MIN_SAMPLES_TO_FIT) -> d
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    k = min(k, len(rows))  # can't ask for more clusters than samples
+    k = min(k, len(rows))
     kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
     cluster_ids = kmeans.fit_predict(X_scaled)
 
-    # Self-label each cluster by majority vote of its members' heuristic labels —
-    # the cluster boundaries are learned from data; only the human-readable name
-    # attached to each cluster comes from the heuristic, and only at fit time.
     cluster_labels: dict[int, str] = {}
     for cluster_id in range(k):
         members = [heuristic_labels[i] for i in range(len(rows)) if cluster_ids[i] == cluster_id]
@@ -175,8 +146,6 @@ def fit_clusters(k: int = DEFAULT_K, min_samples: int = MIN_SAMPLES_TO_FIT) -> d
 
 
 def classify_learned(features: dict[str, float]) -> str | None:
-    """Returns None if no model has been fit yet — callers must fall back to
-    classify() in that case, same bootstrap pattern as error_diagnosis.py."""
     if not os.path.exists(MODEL_PATH):
         return None
     try:
@@ -191,8 +160,6 @@ def classify_learned(features: dict[str, float]) -> str | None:
 
 
 def fingerprint(audio: np.ndarray, sr: int) -> dict:
-    """Full pipeline: extract, persist for future training, classify (learned if
-    available, heuristic otherwise)."""
     features = extract_features(audio, sr)
     heuristic_label = classify(features)
     persist_sample(features, heuristic_label)

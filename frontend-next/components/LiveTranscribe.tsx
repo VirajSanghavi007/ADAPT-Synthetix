@@ -10,12 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type Segment = { time: string; text: string };
 
-// Not true streaming ASR — there's no WebSocket/streaming backend for that yet
-// (see TODO.md). This approximates "live" by recording in short segments and
-// transcribing each one as it completes, so a segment lands every ~6s instead of
-// waiting for the whole recording. Each MediaRecorder segment needs its own
-// start()/stop() cycle to produce a valid standalone webm file — a single
-// start(timeslice) only gives valid headers on the first chunk.
 const SEGMENT_MS = 6000;
 
 function formatClock(startedAt: number) {
@@ -55,7 +49,7 @@ export default function LiveTranscribe() {
   }
 
   async function transcribeSegment(blob: Blob, time: string) {
-    if (blob.size < 1000) return; // too short to bother sending
+    if (blob.size < 1000) return; 
     const form = new FormData();
     form.append("file", blob, "segment.webm");
     if (modelId) form.append("model_id", modelId);

@@ -10,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 
 type PhoneInputProps = {
-  value: string; // local number, no dial code
+  value: string; 
   onValueChange: (value: string) => void;
   country: Country;
   onCountryChange: (country: Country) => void;

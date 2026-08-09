@@ -18,3 +18,10 @@ merging happened): `Test` → `testing`, `Stage` → `development`, `main` → `
   from earlier approvals. The one-time exception (consolidating all pending work into
   the branch now called `production`) happened on 2026-07-30 and does not renew.
 - Promotion `development` → `production` is a human decision, done by Viraj, not by Claude.
+
+## Code comments policy (binding — set 2026-08-09)
+
+Never write comments in code — no `#`, `//`, `/* */`, docstrings, or JSDoc, in any
+language, in this repo. Applies to new code and edits alike. Identifiers and
+structure should carry meaning on their own; if something needs an explanation that
+identifiers can't carry, put it in a commit message or in `docs/`, not inline.

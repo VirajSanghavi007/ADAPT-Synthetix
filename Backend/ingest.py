@@ -1,8 +1,3 @@
-"""Bulk audio ingestion for transcription: multi-file computer upload and Google Drive import.
-
-Both paths feed the same transcribe pipeline as /api/transcribe and log to ASRLog,
-so results show up in the Dashboard/Error Analysis like any other transcription.
-"""
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -51,7 +46,6 @@ async def upload_batch(
     model_id: str | None = None,
     user_id: str = Depends(_require_user_id),
 ):
-    """Bulk upload from the user's computer — each file is transcribed and logged."""
     if len(files) > MAX_BATCH_SIZE:
         raise HTTPException(413, f"too many files (max {MAX_BATCH_SIZE} per batch)")
 
@@ -87,8 +81,6 @@ async def import_from_drive(
     req: DriveImportRequest,
     user_id: str = Depends(_require_user_id),
 ):
-    """Import audio files from Google Drive by file ID. The access token is used once
-    to download the files and is never persisted."""
     tier = get_user_tier(user_id)
     resolved_model = resolve_model(tier, "asr", req.model_id)
 
