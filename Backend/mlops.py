@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, text
 
 from Backend.admin import require_admin
-from Backend.db import ASRLog, EvalMetric, ModelRegistry, RequestLatency, TTSLog, get_session
+from Backend.db import ASRLog, EvalMetric, ModelRegistry, PriorityQueueEntry, RequestLatency, TTSLog, get_session
 
 router = APIRouter(prefix="/api/mlops", tags=["mlops"])
 
@@ -238,3 +238,64 @@ def get_latency(admin: dict = Depends(require_admin)):
         }
         for r in rows
     ]
+
+
+# --- Learned diagnostics: model refit triggers + priority-queue human review ---
+# See Backend/noise_fingerprint.py and Backend/error_diagnosis.py docstrings for the
+# heuristic-to-learned bootstrap design these endpoints operate on.
+
+@router.post("/noise-model/fit")
+def fit_noise_model(admin: dict = Depends(require_admin)):
+    from Backend.noise_fingerprint import fit_clusters
+    return fit_clusters()
+
+
+@router.post("/error-model/fit")
+def fit_error_model(admin: dict = Depends(require_admin)):
+    from Backend.error_diagnosis import fit_classifier
+    return fit_classifier()
+
+
+@router.get("/priority-queue")
+def list_priority_queue(admin: dict = Depends(require_admin)):
+    """Pending entries ordered by priority score — what a human reviewer works
+    through, and the source of the human_importance labels compute_priority()'s
+    docstring describes as the eventual training set."""
+    db = get_session()
+    try:
+        rows = (
+            db.query(PriorityQueueEntry)
+            .order_by(PriorityQueueEntry.priority_score.desc())
+            .limit(200)
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "asr_log_id": r.asr_log_id,
+                "priority_score": r.priority_score,
+                "domain_match_count": r.domain_match_count,
+                "error_type": r.error_type,
+                "status": r.status,
+                "human_importance": r.human_importance,
+                "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+class PriorityReviewRequest(BaseModel):
+    importance: int = Field(..., ge=1, le=5)
+
+
+@router.post("/priority-queue/{entry_id}/review")
+def review_priority_entry(entry_id: int, req: PriorityReviewRequest, admin: dict = Depends(require_admin)):
+    from Backend.priority_queue import record_human_review
+
+    ok = record_human_review(entry_id, req.importance, admin["id"])
+    if not ok:
+        raise HTTPException(404, f"priority queue entry {entry_id} not found")
+    return {"id": entry_id, "human_importance": req.importance}

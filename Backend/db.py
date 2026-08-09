@@ -155,6 +155,14 @@ class PriorityQueueEntry(Base):
     error_type = Column(String(32), nullable=False)
     status = Column(String(16), nullable=False, default="pending")  # pending | in_progress | resolved
     created_at = Column(DateTime(timezone=True), default=utcnow)
+    # Human-review label capture — the priority *formula* stays rule-based for now
+    # (see Backend/priority_queue.py docstring on why), but every entry a human
+    # actually reviews gets its true importance recorded here. Once enough labelled
+    # entries exist, this becomes the training set for a learned weighting; until
+    # then it's pure data collection with no effect on the running formula.
+    human_importance = Column(Integer, nullable=True)  # 1 (low) - 5 (critical), reviewer-assigned
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_by = Column(String(36), nullable=True)  # user id of the reviewer
 
 
 class RemedialAudio(Base):
@@ -194,6 +202,39 @@ class DriftTriggerEvent(Base):
     model_id = Column(String(120), nullable=False, index=True)
     drifting_phonemes = Column(Text, nullable=False)  # comma-separated phoneme codes
     reason = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class NoiseFeatureSample(Base):
+    """One request's 8 raw acoustic features, persisted so noise_fingerprint.py can
+    fit an unsupervised clustering model on real data instead of hand-set thresholds.
+    See that module's docstring for the learned-vs-heuristic fallback design."""
+    __tablename__ = "noise_feature_samples"
+
+    id = Column(Integer, primary_key=True)
+    spectral_centroid = Column(Float, nullable=False)
+    spectral_bandwidth = Column(Float, nullable=False)
+    spectral_rolloff = Column(Float, nullable=False)
+    zero_crossing_rate = Column(Float, nullable=False)
+    rms_energy = Column(Float, nullable=False)
+    mfcc_variance = Column(Float, nullable=False)
+    tempo = Column(Float, nullable=False)
+    harmonic_ratio = Column(Float, nullable=False)
+    heuristic_label = Column(String(16), nullable=False)  # the bootstrap/pseudo-label at capture time
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ErrorDiagnosisSample(Base):
+    """One request's (confidence, noise_category, cer) -> error_type outcome,
+    persisted so error_diagnosis.py can bootstrap-train a learned classifier from
+    the rule-based labels and refine over time. See that module's docstring."""
+    __tablename__ = "error_diagnosis_samples"
+
+    id = Column(Integer, primary_key=True)
+    confidence = Column(Float, nullable=True)
+    cer = Column(Float, nullable=True)
+    noise_category = Column(String(16), nullable=False)
+    error_type = Column(String(32), nullable=False)  # the label (pseudo or confirmed) at capture time
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 

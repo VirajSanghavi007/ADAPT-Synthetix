@@ -17,11 +17,17 @@ pipeline (data assembly from consented recordings, a training loop, checkpoint
 promotion with rollback) that doesn't exist yet in this codebase. Treat the trigger
 record as a to-do marker an operator or a future training pipeline consumes, not as
 "and then the model got better."
+
+Trend test: uses the Mann-Kendall test (a standard nonparametric test for a
+monotonic trend in a time series) instead of a fixed "slope > 0" rule — the trend
+itself is now judged by statistical significance (p < 0.05), not an arbitrary
+threshold on a raw slope value. The recent-volume floor is kept as a genuine
+practical guard (a "significant" trend on 1-2 occurrences a day is still noise),
+not a leftover rule.
 """
 from __future__ import annotations
 
 import statistics
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text as sql_text
@@ -30,8 +36,9 @@ from Backend.db import DriftTriggerEvent, PhonemeDriftEvent, get_session
 
 ROLLING_WINDOW_DAYS = 5  # "session" here = one calendar day bucket, see module docstring
 MIN_DAYS_PRESENT = 3  # v1's "appeared in at least 3 of the last 5 sessions" rule
-DRIFT_ERROR_RATE_THRESHOLD = 0.5  # v1's confidence-below-0.5 threshold, read as error-rate-above instead
+DRIFT_ERROR_RATE_THRESHOLD = 0.5  # volume floor — a p<0.05 trend on near-zero counts is still noise
 MIN_PHONEMES_FOR_MODEL_FLAG = 3  # v1's "3+ simultaneously drifting phonemes" rule
+MANN_KENDALL_ALPHA = 0.05  # standard significance level for the trend test
 
 
 def record_phoneme_events(model_id: str, alignment_errors: list[dict]) -> None:
@@ -75,15 +82,42 @@ def _daily_error_rates(db, model_id: str, phoneme: str, since_day) -> list[tuple
     return [(r[0], r[1]) for r in rows]
 
 
-def _linear_slope(values: list[float]) -> float:
+def _mann_kendall(values: list[float]) -> dict:
+    """Standard Mann-Kendall trend test with a normal-approximation p-value
+    (the conventional approach once n is not tiny; here n = ROLLING_WINDOW_DAYS,
+    small enough that this is an approximation, not exact — flagged honestly rather
+    than presented as a precise p-value). Returns S (the raw statistic, sign shows
+    trend direction), z, and a one-tailed p-value for "significantly increasing"."""
+    from scipy.stats import norm
+
     n = len(values)
-    if n < 2:
-        return 0.0
-    xs = list(range(n))
-    x_mean, y_mean = statistics.mean(xs), statistics.mean(values)
-    num = sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, values))
-    den = sum((x - x_mean) ** 2 for x in xs)
-    return num / den if den else 0.0
+    if n < 3:
+        return {"s": 0, "z": 0.0, "p_increasing": 1.0}
+
+    s = 0
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            s += 1 if values[j] > values[i] else (-1 if values[j] < values[i] else 0)
+
+    # Tie correction: group equal values, subtract each group's contribution to variance.
+    unique_vals, counts = {}, []
+    for v in values:
+        unique_vals[v] = unique_vals.get(v, 0) + 1
+    tie_term = sum(t * (t - 1) * (2 * t + 5) for t in unique_vals.values())
+    var_s = (n * (n - 1) * (2 * n + 5) - tie_term) / 18.0
+
+    if var_s <= 0:
+        return {"s": s, "z": 0.0, "p_increasing": 1.0}
+
+    if s > 0:
+        z = (s - 1) / (var_s ** 0.5)
+    elif s < 0:
+        z = (s + 1) / (var_s ** 0.5)
+    else:
+        z = 0.0
+
+    p_increasing = 1 - norm.cdf(z) if z > 0 else 1.0
+    return {"s": s, "z": round(z, 3), "p_increasing": round(float(p_increasing), 4)}
 
 
 def check_drift(model_id: str) -> dict:
@@ -109,13 +143,18 @@ def check_drift(model_id: str) -> dict:
             if len(daily) < MIN_DAYS_PRESENT:
                 continue
             counts = [n for _, n in daily]
-            slope = _linear_slope(counts)
+            trend = _mann_kendall(counts)
             recent_mean = statistics.mean(counts[-3:]) if len(counts) >= 3 else statistics.mean(counts)
-            # counts are raw daily occurrence counts, not a normalised rate — a rising
-            # slope on a low-volume phoneme is noise, so also require a non-trivial
-            # recent volume before calling it drift, not just "line goes up".
-            if slope > 0 and recent_mean >= DRIFT_ERROR_RATE_THRESHOLD:
-                drifting.append({"phoneme": phoneme, "slope": round(slope, 3), "recent_mean": round(recent_mean, 3)})
+            # Significant increasing trend (not just "slope > 0") AND a non-trivial
+            # recent volume — a statistically significant trend on 1 occurrence/day
+            # is still not worth flagging.
+            if trend["p_increasing"] < MANN_KENDALL_ALPHA and recent_mean >= DRIFT_ERROR_RATE_THRESHOLD:
+                drifting.append({
+                    "phoneme": phoneme,
+                    "mann_kendall_s": trend["s"],
+                    "p_value": trend["p_increasing"],
+                    "recent_mean": round(recent_mean, 3),
+                })
 
         model_flagged = len(drifting) >= MIN_PHONEMES_FOR_MODEL_FLAG
         if model_flagged:

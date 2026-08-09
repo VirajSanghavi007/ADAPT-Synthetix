@@ -1,32 +1,46 @@
-"""8-feature acoustic noise fingerprinting, ported from ADAPT-Synthetix v1's design
-(TODO.md P1.8.a) — free tier only.
+"""8-feature acoustic noise fingerprinting — free tier only.
 
-Honest scoping note: v1 trained a Random Forest on ~500 hand-labelled clips (88%
-measured accuracy). No such labelled corpus exists in this codebase yet, so this is a
-threshold-based heuristic classifier over the same 8 features, not a trained model.
-It's an intentionally conservative first pass — accurate enough to distinguish "clean"
-from "not clean" (which is what error_diagnosis.py actually needs), weaker at telling
-the noisy categories apart from each other. Swap in a trained classifier once a labelled
-corpus exists (see TODO.md P1.8.b) without changing the calling contract below.
+This module now has two classification paths:
+  - classify() — the original threshold heuristic (see its docstring). Kept as the
+    bootstrap/cold-start fallback, never removed, because a learned model needs data
+    to exist before it can run at all.
+  - classify_learned() — unsupervised clustering (KMeans) fit on real accumulated
+    feature vectors (Backend.db.NoiseFeatureSample). Cluster *boundaries* are learned
+    from data, not hand-set numbers — the only hand-set thing left is which cluster
+    gets which human-readable name, done by majority vote of the heuristic labels
+    among that cluster's members at fit time (self-labelling, a standard way to make
+    unsupervised clusters interpretable without manual annotation).
+
+fingerprint() always tries the learned model first and falls back to the heuristic
+when no model has been fit yet (too little data) — the response's "source" field
+says honestly which path produced the label.
 """
 from __future__ import annotations
 
+import os
+import pickle
+
 import numpy as np
+
+from Backend.db import NoiseFeatureSample, get_session
 
 NOISE_CATEGORIES = ("clean", "traffic", "crowd", "machinery", "indoor")
 
+MODEL_PATH = "Backend/data/models/noise_clusters.pkl"
+MIN_SAMPLES_TO_FIT = 30
+DEFAULT_K = 5
+
+_FEATURE_ORDER = (
+    "spectral_centroid", "spectral_bandwidth", "spectral_rolloff", "zero_crossing_rate",
+    "rms_energy", "mfcc_variance", "tempo", "harmonic_ratio",
+)
+
 
 def extract_features(audio: np.ndarray, sr: int) -> dict[str, float]:
-    """The 8 features from ADAPT v1's design. Returns raw (unnormalised) values —
-    normalisation against corpus statistics only matters once there's a corpus to
-    normalise against; the heuristic classifier below uses raw thresholds instead."""
     import librosa
 
     if audio.size == 0:
-        return {k: 0.0 for k in (
-            "spectral_centroid", "spectral_bandwidth", "spectral_rolloff",
-            "zero_crossing_rate", "rms_energy", "mfcc_variance", "tempo", "harmonic_ratio",
-        )}
+        return {k: 0.0 for k in _FEATURE_ORDER}
 
     y = audio.astype(np.float32)
 
@@ -45,7 +59,7 @@ def extract_features(audio: np.ndarray, sr: int) -> dict[str, float]:
         tempo = 0.0
 
     try:
-        harmonic, percussive = librosa.effects.hpss(y)
+        harmonic, _percussive = librosa.effects.hpss(y)
         harmonic_energy = float(np.sum(harmonic ** 2))
         total_energy = float(np.sum(y ** 2)) or 1.0
         harmonic_ratio = harmonic_energy / total_energy
@@ -65,11 +79,9 @@ def extract_features(audio: np.ndarray, sr: int) -> dict[str, float]:
 
 
 def classify(features: dict[str, float]) -> str:
-    """Heuristic threshold classifier — see module docstring. Order matters: checks
-    are most-conservative-first, so a clip only earns a "noisy" label when a feature
-    clearly indicates it, defaulting to "clean" otherwise (a false "clean" is a safer
-    failure mode for error_diagnosis.py than a false "noisy" one, since the latter can
-    mask a real accent/pronunciation error as noise-induced)."""
+    """Threshold heuristic — the cold-start fallback. See module docstring.
+    Most-conservative-first ordering: a clip only earns a "noisy" label when a
+    feature clearly indicates it, defaulting to "clean" otherwise."""
     zcr = features["zero_crossing_rate"]
     rms = features["rms_energy"]
     bandwidth = features["spectral_bandwidth"]
@@ -77,25 +89,118 @@ def classify(features: dict[str, float]) -> str:
     mfcc_var = features["mfcc_variance"]
 
     if rms < 0.01:
-        return "clean"  # near-silence carries no reliable noise signal either way
-
+        return "clean"
     if harmonic_ratio < 0.35 and bandwidth > 2000:
-        # low harmonic content + wide spectral spread: broadband, non-tonal energy
         return "machinery"
     if zcr > 0.15 and mfcc_var > 80:
-        # high zero-crossing rate + unstable spectral envelope: overlapping voices
         return "crowd"
     if bandwidth > 1500 and rms > 0.05 and harmonic_ratio >= 0.35:
-        # persistent broadband low-harmonic energy without the crowd's ZCR signature
         return "traffic"
     if 0.3 <= harmonic_ratio < 0.6 and bandwidth < 1500:
-        # moderate reverberant coloration, not clearly tonal or broadband
         return "indoor"
     return "clean"
 
 
+def _feature_vector(features: dict[str, float]) -> list[float]:
+    return [features[k] for k in _FEATURE_ORDER]
+
+
+def persist_sample(features: dict[str, float], heuristic_label: str) -> None:
+    """Best-effort — every real request's features become future training data,
+    but a logging failure must never break the transcribe response."""
+    db = get_session()
+    try:
+        row = NoiseFeatureSample(
+            spectral_centroid=features["spectral_centroid"],
+            spectral_bandwidth=features["spectral_bandwidth"],
+            spectral_rolloff=features["spectral_rolloff"],
+            zero_crossing_rate=features["zero_crossing_rate"],
+            rms_energy=features["rms_energy"],
+            mfcc_variance=features["mfcc_variance"],
+            tempo=features["tempo"],
+            harmonic_ratio=features["harmonic_ratio"],
+            heuristic_label=heuristic_label,
+        )
+        db.add(row)
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
+def fit_clusters(k: int = DEFAULT_K, min_samples: int = MIN_SAMPLES_TO_FIT) -> dict:
+    """Fit KMeans on all accumulated real feature samples and save the model.
+    Intended to be called periodically (admin-triggered for now, see mlops.py) as
+    data accumulates — not on every request, which would be wasteful and would
+    make the "learned" label a moving target mid-session."""
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler
+
+    db = get_session()
+    try:
+        rows = db.query(NoiseFeatureSample).all()
+    finally:
+        db.close()
+
+    if len(rows) < min_samples:
+        return {"fit": False, "reason": f"only {len(rows)} samples, need {min_samples}"}
+
+    X = np.array([[getattr(r, f) for f in _FEATURE_ORDER] for r in rows])
+    heuristic_labels = [r.heuristic_label for r in rows]
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    k = min(k, len(rows))  # can't ask for more clusters than samples
+    kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
+    cluster_ids = kmeans.fit_predict(X_scaled)
+
+    # Self-label each cluster by majority vote of its members' heuristic labels —
+    # the cluster boundaries are learned from data; only the human-readable name
+    # attached to each cluster comes from the heuristic, and only at fit time.
+    cluster_labels: dict[int, str] = {}
+    for cluster_id in range(k):
+        members = [heuristic_labels[i] for i in range(len(rows)) if cluster_ids[i] == cluster_id]
+        if members:
+            cluster_labels[cluster_id] = max(set(members), key=members.count)
+        else:
+            cluster_labels[cluster_id] = "clean"
+
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    with open(MODEL_PATH, "wb") as f:
+        pickle.dump({"scaler": scaler, "kmeans": kmeans, "cluster_labels": cluster_labels}, f)
+
+    return {"fit": True, "n_samples": len(rows), "k": k, "cluster_labels": cluster_labels}
+
+
+def classify_learned(features: dict[str, float]) -> str | None:
+    """Returns None if no model has been fit yet — callers must fall back to
+    classify() in that case, same bootstrap pattern as error_diagnosis.py."""
+    if not os.path.exists(MODEL_PATH):
+        return None
+    try:
+        with open(MODEL_PATH, "rb") as f:
+            model = pickle.load(f)
+        X = np.array([_feature_vector(features)])
+        X_scaled = model["scaler"].transform(X)
+        cluster_id = int(model["kmeans"].predict(X_scaled)[0])
+        return model["cluster_labels"].get(cluster_id, "clean")
+    except Exception:
+        return None
+
+
 def fingerprint(audio: np.ndarray, sr: int) -> dict:
-    """Full pipeline: extract + classify. Single entry point for callers."""
+    """Full pipeline: extract, persist for future training, classify (learned if
+    available, heuristic otherwise)."""
     features = extract_features(audio, sr)
-    category = classify(features)
-    return {"noise_category": category, "features": features}
+    heuristic_label = classify(features)
+    persist_sample(features, heuristic_label)
+
+    learned_label = classify_learned(features)
+    category = learned_label if learned_label is not None else heuristic_label
+    return {
+        "noise_category": category,
+        "features": features,
+        "source": "learned" if learned_label is not None else "heuristic",
+    }

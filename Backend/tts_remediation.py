@@ -12,6 +12,8 @@ from __future__ import annotations
 import os
 import uuid
 
+from sqlalchemy import text as sql_text
+
 from Backend.asr_pipeline import synthesize_speech
 from Backend.db import RemedialAudio, get_session
 
@@ -92,12 +94,49 @@ def generate_remediation(
 
 
 def worst_phoneme_pair(alignment_errors: list[dict]) -> tuple[str, str] | None:
-    """Pick the substitution error to target for remediation — first substitution
-    found, since align_phoneme_errors() already returns them in sequence order and
-    this module runs per-call rather than aggregating across a corpus (that
-    aggregation is build_error_report()'s systematic-confusion job, upstream of
-    this)."""
-    for err in alignment_errors:
-        if err["operation"] == "substitution" and err["reference"] and err["hypothesis"]:
-            return err["reference"], err["hypothesis"]
-    return None
+    """Pick the substitution to target for remediation. Ranks every substitution
+    present in *this* alignment against the historical confusion rate for that exact
+    (reference, hypothesis) pair across all logged PhonemeError rows — the pair that
+    is most systematically confused historically wins, not just whichever appears
+    first in this one utterance. Reuses the same PhonemeError table
+    phoneme_diagnostics.py's build_error_report() already aggregates, rather than
+    introducing a parallel history table.
+
+    Cold start (little/no history yet): rates come back equal (mostly 0), so this
+    degrades gracefully to "first substitution found" — same bootstrap pattern as
+    the rest of this session's changes, not a hidden failure mode."""
+    substitutions = [
+        (e["reference"], e["hypothesis"])
+        for e in alignment_errors
+        if e["operation"] == "substitution" and e["reference"] and e["hypothesis"]
+    ]
+    if not substitutions:
+        return None
+    if len(substitutions) == 1:
+        return substitutions[0]
+
+    db = get_session()
+    try:
+        rows = db.execute(
+            sql_text(
+                "select reference_phoneme, hypothesis_phoneme, count(*) as n "
+                "from phoneme_errors where operation = 'substitution' "
+                "group by reference_phoneme, hypothesis_phoneme"
+            )
+        ).all()
+        ref_totals: dict[str, int] = {}
+        pair_counts: dict[tuple[str, str], int] = {}
+        for ref, hyp, n in rows:
+            ref_totals[ref] = ref_totals.get(ref, 0) + n
+            pair_counts[(ref, hyp)] = n
+
+        scored = [
+            (pair, pair_counts.get(pair, 0) / ref_totals[pair[0]] if ref_totals.get(pair[0]) else 0.0)
+            for pair in substitutions
+        ]
+        scored.sort(key=lambda item: -item[1])
+        return scored[0][0]
+    except Exception:
+        return substitutions[0]
+    finally:
+        db.close()

@@ -10,6 +10,7 @@ they're short enough that a separate data file would just add an extra place to 
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from Backend.db import PriorityQueueEntry, get_session
 
@@ -52,7 +53,15 @@ def compute_priority(confidence: float | None, match_count: int) -> float:
     formula (measured 1.8-2.7x separation between domain-matched and non-domain
     utterances at equal confidence). confidence=None (engine gave no signal) is
     treated as 0.5 (neutral) rather than 0 or 1, to avoid the formula silently
-    maxing or zeroing out priority when we simply don't know the confidence."""
+    maxing or zeroing out priority when we simply don't know the confidence.
+
+    Deliberately kept as a fixed formula, not a learned model, for now: making the
+    weights learned needs real human-reviewed importance labels as ground truth, not
+    just the formula's own output as a pseudo-label (that would just be training a
+    model to imitate itself). record_human_review() below is the label-collection
+    mechanism — once enough reviewed entries exist, fit weights against that and
+    freeze them for production, rather than leave the formula perpetually retraining
+    on its own guesses."""
     conf = confidence if confidence is not None else 0.5
     return round((1 - conf) * (1 + 0.5 * match_count), 4)
 
@@ -87,5 +96,29 @@ def enqueue(
     except Exception:
         db.rollback()
         return None
+    finally:
+        db.close()
+
+
+def record_human_review(entry_id: int, importance: int, reviewer_user_id: str) -> bool:
+    """Records a human reviewer's true-importance judgment (1-5) on a priority-queue
+    entry — the training-label collection mechanism referenced in compute_priority()'s
+    docstring. Has no effect on the running formula; it only accumulates ground truth
+    for a future fit. Returns False if the entry doesn't exist or the save failed."""
+    if not 1 <= importance <= 5:
+        raise ValueError("importance must be 1-5")
+    db = get_session()
+    try:
+        entry = db.get(PriorityQueueEntry, entry_id)
+        if entry is None:
+            return False
+        entry.human_importance = importance
+        entry.reviewed_at = datetime.now(timezone.utc)
+        entry.reviewed_by = reviewer_user_id
+        db.commit()
+        return True
+    except Exception:
+        db.rollback()
+        return False
     finally:
         db.close()
