@@ -9,6 +9,7 @@ import { uploadToDrive } from "@/lib/googleDrive";
 import { friendlyApiError } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import DiagnosticsPanel, { type TranscribeDiagnostics } from "@/components/DiagnosticsPanel";
 
 const TRANSCRIPT_CACHE_KEY = "adapt-synthetix-last-transcript";
 const ASR_MODEL_KEY = "adapt-synthetix-asr-model";
@@ -22,6 +23,7 @@ export default function Recorder() {
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [modelId, setModelId] = useState<string>("");
+  const [diagnostics, setDiagnostics] = useState<TranscribeDiagnostics | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -81,6 +83,7 @@ export default function Recorder() {
         setRecording(true);
         setStatus("Listening...");
         setTranscript("");
+        setDiagnostics(null);
       } catch (err) {
         setStatus("Microphone access denied: " + (err as Error).message);
       }
@@ -110,6 +113,19 @@ export default function Recorder() {
       const text = data.text || "(no speech detected)";
       setTranscript(text);
       localStorage.setItem(TRANSCRIPT_CACHE_KEY, text);
+      // Diagnostics fields are only present on the free tier for now (see
+      // Backend/main.py) — data.confidence being present at all is the signal.
+      setDiagnostics(
+        "confidence" in data
+          ? {
+              confidence: data.confidence ?? null,
+              noise_category: data.noise_category ?? null,
+              error_type: data.error_type ?? null,
+              priority_queued: !!data.priority_queued,
+              remediation: data.remediation ?? null,
+            }
+          : null
+      );
       setStatus("Done.");
     } catch (err) {
       setStatus("Error: " + (err as Error).message);
@@ -171,6 +187,7 @@ export default function Recorder() {
       <div className="selectable min-h-10 whitespace-pre-wrap rounded-lg border border-border bg-background/40 p-3 text-foreground">
         {transcript || <span className="text-muted">Your transcript will appear here.</span>}
       </div>
+      {diagnostics && <DiagnosticsPanel diagnostics={diagnostics} />}
       {transcript && (
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={downloadTranscript} className="cursor-pointer gap-1.5">
