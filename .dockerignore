@@ -9,6 +9,6 @@ __pycache__
 *.pyc
 .claude
 node_modules
-frontend-next/node_modules
-frontend-next/.next
-frontend-next/out
+Frontend/node_modules
+Frontend/.next
+Frontend/out

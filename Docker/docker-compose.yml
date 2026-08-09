@@ -33,10 +33,6 @@ services:
       start_period: 60s
       retries: 5
 
-  # Heaviest models (Parakeet + CosyVoice2) — real RAM/CPU headroom needed. Included
-  # in `docker compose up` now so one command builds+starts everything, but the main
-  # app only soft-depends on it (service_started, not service_healthy) so a slow or
-  # failed space-max doesn't block the rest of the stack from coming up.
   space-max:
     build: ./spaces/space-max
     restart: unless-stopped
@@ -67,10 +63,12 @@ services:
       retries: 10
 
   app:
-    build: .
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile
     restart: unless-stopped
     env_file:
-      - .env
+      - ../Secret Files/.env
     environment:
       REDIS_URL: redis://redis:6379/0
       SPACE_FREE_URL: http://space-free:7860

@@ -317,4 +317,4 @@ async def tts(request: Request, req: TTSRequest, user_id: str = Depends(_require
     return Response(content=mp3_bytes, media_type="audio/mpeg")
 
 
-app.mount("/", StaticFiles(directory="frontend-next/out", html=True), name="frontend")
+app.mount("/", StaticFiles(directory="Frontend/out", html=True), name="frontend")

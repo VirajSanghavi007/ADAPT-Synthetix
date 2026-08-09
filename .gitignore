@@ -8,8 +8,5 @@ Dataset/
 .pytest_cache/
 *.log
 node_modules/
-VERSION.md
-# Internal documentation — repo is public, keep dev-process notes/history out of it.
-# CLAUDE.md stays tracked (Claude Code auto-loads project instructions from that exact
-# root path) — everything else that's pure documentation lives here instead.
-/docs/
+/Documentation/
+/Secret Files/

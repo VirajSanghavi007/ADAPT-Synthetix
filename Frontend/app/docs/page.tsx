@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Sparkles,
   Wrench,
+  Gauge,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,12 @@ const SECTIONS = [
   {
     icon: Mic,
     title: "Transcribe & speak",
-    body: "Record speech to get a transcript, or type text to hear it spoken. Each tool has a model picker — which models you can choose depends on your subscription tier (Free/Pro/Max/Enterprise). Supported audio formats: WAV, MP3, MP4/AAC, FLAC, OGG, WebM, AMR, 3GPP — anything else is rejected with a clear error.",
+    body: "Record speech to get a transcript, or type text to hear it spoken. Free, Pro, and Max currently all run the same single model — Pro/Max don't unlock extra models yet, that's paused for now. Enterprise accounts get the full model catalog. Supported audio formats: WAV, MP3, MP4/AAC, FLAC, OGG, WebM, AMR, 3GPP — anything else is rejected with a clear error.",
+  },
+  {
+    icon: Gauge,
+    title: "Diagnostics",
+    body: "Free and Enterprise transcriptions come back with a diagnostics panel: per-utterance confidence, background noise classification, an error-type read (accent/pronunciation/noise-related), automatic flagging of domain-critical transcripts for review, and — when a systematic error is detected — a generated corrective audio clip. Pro/Max don't run this yet.",
   },
   {
     icon: FolderUp,
@@ -49,7 +55,7 @@ const SECTIONS = [
   {
     icon: CreditCard,
     title: "Subscription",
-    body: "Free, Pro, and Max tiers unlock progressively better models and higher rate limits. Payment processing isn't wired up yet — the checkout flow is a preview only.",
+    body: "Free, Pro, and Max tiers unlock progressively higher rate limits. Model access is currently the same across all three — the differentiated model catalog is paused. Payment processing isn't wired up yet — the checkout flow is a preview only. Enterprise accounts don't have a Subscription tab at all.",
   },
   {
     icon: ShieldCheck,
@@ -108,7 +114,8 @@ export default function DocsHomePage() {
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <p className="text-sm text-muted">
-            Enterprise accounts get free Max-tier access and a different login flow.
+            One-time setup, full model catalog, and a domain pipeline — Medical, Children, or
+            Elderly — chosen at signup. Different login flow too.
           </p>
           <Link
             href="/docs/enterprise"

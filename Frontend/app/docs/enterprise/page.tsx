@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, KeyRound, ShieldOff, Users } from "lucide-react";
+import { Building2, KeyRound, ShieldOff, Users, Stethoscope, PlayCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 
@@ -28,9 +28,51 @@ export default function EnterpriseDocsPage() {
             <Link href="/enterprise-signup" className="underline underline-offset-2 hover:text-foreground">
               the enterprise signup page
             </Link>{" "}
-            with your work email, company/organization name, your role, and an employee ID.
-            Enterprise accounts are free and get Max-tier model access immediately — there's no
-            Subscription tab, and nothing to cancel or pay for.
+            with your work email, company/organization name, your role, an employee ID, and the
+            service your organization needs. Enterprise is a one-time setup, not a subscription —
+            full model catalog access from the start, no Subscription tab, nothing to cancel or
+            pay for.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Stethoscope className="h-4 w-4 text-accent" /> Choosing a service: Medical, Children, or Elderly
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted">
+          <p>
+            Every enterprise account is routed to one of three domain pipelines, picked at signup:
+          </p>
+          <ul className="space-y-1 pl-4">
+            <li><strong className="text-foreground">Medical</strong> — flags medical and emergency terminology for review.</li>
+            <li><strong className="text-foreground">Children</strong> — flags distress and safety terminology for review.</li>
+            <li><strong className="text-foreground">Elderly</strong> — flags fall, confusion, and medication terminology for review.</li>
+          </ul>
+          <p>
+            Each pipeline runs the same diagnostic core (confidence scoring, noise classification,
+            error-type diagnosis, remediation) as the free tier, but checks flagged transcripts
+            against its own domain's term list instead of the general one.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PlayCircle className="h-4 w-4 text-accent" /> Try it first
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted">
+          <p>
+            The{" "}
+            <Link href="/" className="underline underline-offset-2 hover:text-foreground">
+              sign-in screen
+            </Link>{" "}
+            has a demo for each domain — sample output only, not a live transcription, so you can
+            see what a pipeline flags before creating an account.
           </p>
         </CardContent>
       </Card>

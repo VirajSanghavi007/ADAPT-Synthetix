@@ -14,33 +14,34 @@ None of the 6 models are fine-tuned yet — pretrained inference only, fine-tuni
 ## Local setup
 
 ```bash
-cp .env.example .env         # fill in Supabase URL/keys, DB password — never commit real values
-cd frontend-next && cp .env.local.example .env.local  # if present, else see .env.local
-docker compose up -d          # starts Redis (DB is Supabase, not local)
-run.bat                       # creates venv, installs deps, starts backend, opens browser
+cp "Secret Files/.env.example" "Secret Files/.env"   # fill in Supabase URL/keys, DB password — never commit real values
+cd Frontend && cp .env.local.example .env.local       # if present, else see .env.local
+docker compose -f Docker/docker-compose.yml up -d     # starts Redis (DB is Supabase, not local)
+run.bat                                                # creates venv, installs deps, starts backend, opens browser
 ```
 
-Frontend dev server: `cd frontend-next && npm install && npm run dev`.
+Frontend dev server: `cd Frontend && npm install && npm run dev`.
 
 Database migrations live in `Backend/migrations/*.sql` — applied by hand via the
 Supabase SQL editor, no runner script yet. Apply in numeric order.
 
 ## Deploying
 
-Docker-based (`Dockerfile` + `render.yaml`), currently targeting **Render**. See
-`render.yaml` for the service config — set real secrets in Render's dashboard, not in
-the yaml. `Backend/scripts/prefetch_models.py` can bake all 6 models' weights into the
-image at build time (`PREFETCH_MODELS=true` build arg) to avoid runtime cold-start
-downloads.
+Docker-based (`Docker/Dockerfile`, `Docker/docker-compose.yml`) — build context is the
+repo root, not `Docker/` itself, since the Dockerfile pulls in `Backend/`, `Frontend/`,
+and `requirements.txt` from there. `Backend/scripts/prefetch_models.py` can bake all
+model weights into the image at build time (`PREFETCH_MODELS=true` build arg) to avoid
+runtime cold-start downloads. Pro/Max currently serve the same model as Free — the
+differentiated catalog is paused, not fine-tuned yet.
 
 ## Project structure
 
 - `Backend/` — FastAPI app, model catalog + tier gating (`tiers.py`), ASR/TTS engines
   (`asr_pipeline.py`), MCP server, API keys, enterprise/account/profile endpoints
-- `frontend-next/` — Next.js 16 app (dashboard, error analysis, account/profile,
-  subscription, settings, onboarding, docs)
-- `mobile/` — Expo/React Native scaffold (record/transcribe, TTS)
-- `n8n/` — workflow JSON for retrain-threshold notification and account-deletion cron
-- `design-system/adapt-synthetix/MASTER.md` — the frontend's design tokens/style guide
+- `Frontend/` — Next.js 16 app (dashboard, error analysis, account/profile,
+  subscription, settings, onboarding, docs, enterprise demo)
+- `Docker/` — `Dockerfile`, `docker-compose.yml`, and the ASR/TTS model `spaces/`
+- `Documentation/` — internal dev-process docs, gitignored (repo is public)
+- `Secret Files/` — env files, gitignored
 
-See `MEMORY.md` for the full version history and architecture narrative.
+See `Documentation/MEMORY.md` for the full version history and architecture narrative.
