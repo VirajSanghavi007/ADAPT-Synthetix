@@ -182,7 +182,7 @@ export default function ArchitecturePage() {
             <Box x={280} y={130} w={200} h={54} label="FastAPI (Backend)" sub="tiers · transcribe · tts · enterprise" tone="engine" rx={8} />
 
             <Box x={560} y={30} w={190} h={40} label="tiers.py" sub="model catalog + rate limit" />
-            <Box x={560} y={90} w={190} h={40} label="enterprise_domains.py" sub="medical / children / elderly" />
+            <Box x={560} y={90} w={190} h={40} label="enterprise_domains.py" sub="non_normative / children /" />
             <Box x={560} y={150} w={190} h={40} label="noise_fingerprint.py" sub="heuristic → learned (KMeans)" />
             <Box x={560} y={210} w={190} h={40} label="error_diagnosis.py" sub="heuristic → learned (ElasticNet)" />
             <Box x={560} y={270} w={190} h={40} label="priority_queue.py" sub="domain-term flagging" />
@@ -269,7 +269,7 @@ export default function ArchitecturePage() {
             <Box x={210} y={190} w={150} h={44} label="Demo" sub="pick a domain, no account" />
 
             <Box x={410} y={70} w={160} h={44} label="Dashboard" tone="engine" />
-            <Box x={410} y={150} w={160} h={44} label="Domain pipeline" sub="medical / children / elderly" tone="engine" />
+            <Box x={410} y={150} w={160} h={44} label="Domain pipeline" sub="non_normative / children /" tone="engine" />
 
             <Box x={620} y={70} w={170} h={44} label="Record / transcribe" />
             <Box x={620} y={150} w={170} h={44} label="Diagnostics panel" sub="confidence, noise, error-type" />

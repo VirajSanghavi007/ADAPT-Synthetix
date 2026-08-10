@@ -30,6 +30,7 @@ class ASRLog(Base):
     transcript = Column(Text, nullable=False)
     duration_sec = Column(Float, nullable=True)
     model_id = Column(String(80), nullable=True)
+    wpr = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
@@ -89,6 +90,7 @@ class EvalMetric(Base):
     model_id = Column(String(80), nullable=False, index=True)
     wer = Column(Float, nullable=False)
     cer = Column(Float, nullable=False)
+    her = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
@@ -195,6 +197,8 @@ class ErrorDiagnosisSample(Base):
     id = Column(Integer, primary_key=True)
     confidence = Column(Float, nullable=True)
     cer = Column(Float, nullable=True)
+    her = Column(Float, nullable=True)
+    wpr = Column(Float, nullable=True)
     noise_category = Column(String(16), nullable=False)
     error_type = Column(String(32), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)

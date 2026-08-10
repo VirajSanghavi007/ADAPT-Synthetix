@@ -39,17 +39,16 @@ export default function EnterpriseDocsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Stethoscope className="h-4 w-4 text-accent" /> Choosing a service: Medical, Children, or Elderly
+            <Stethoscope className="h-4 w-4 text-accent" /> Choosing a service: Non-Normative Speech or Children
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted">
           <p>
-            Every enterprise account is routed to one of three domain pipelines, picked at signup:
+            Every enterprise account is routed to one of two domain pipelines, picked at signup:
           </p>
           <ul className="space-y-1 pl-4">
-            <li><strong className="text-foreground">Medical</strong> — flags medical and emergency terminology for review.</li>
+            <li><strong className="text-foreground">Non-Normative Speech</strong> — for dysarthric, atypical, and other clinically non-normative speech patterns; flags medical and emergency terminology for review.</li>
             <li><strong className="text-foreground">Children</strong> — flags distress and safety terminology for review.</li>
-            <li><strong className="text-foreground">Elderly</strong> — flags fall, confusion, and medication terminology for review.</li>
           </ul>
           <p>
             Each pipeline runs the same diagnostic core (confidence scoring, noise classification,

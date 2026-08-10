@@ -8,13 +8,13 @@ const DEMO_CONTENT: Record<
   string,
   { label: string; transcript: string; diagnostics: TranscribeDiagnostics }
 > = {
-  medical: {
-    label: "Medical",
-    transcript: "Patient reports chest pain and shortness of breath, requesting immediate assistance.",
+  non_normative: {
+    label: "Non-Normative Speech",
+    transcript: "My speech got harder to understand after the stroke, I need help with my medication.",
     diagnostics: {
-      confidence: 0.62,
+      confidence: 0.54,
       noise_category: "indoor",
-      error_type: "accent-related",
+      error_type: "pronunciation-based",
       priority_queued: true,
       remediation: {
         id: null,
@@ -37,22 +37,6 @@ const DEMO_CONTENT: Record<
         carrier_text: "Sam saw the sun set slowly.",
         reference_phoneme: "S",
         hypothesis_phoneme: "TH",
-      },
-    },
-  },
-  elderly: {
-    label: "Elderly",
-    transcript: "I fell down and I can't get up, I feel dizzy.",
-    diagnostics: {
-      confidence: 0.58,
-      noise_category: "clean",
-      error_type: "noise-induced",
-      priority_queued: true,
-      remediation: {
-        id: null,
-        carrier_text: "This is the way things are done.",
-        reference_phoneme: "DH",
-        hypothesis_phoneme: "D",
       },
     },
   },

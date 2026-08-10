@@ -33,6 +33,7 @@ from Backend.asr_pipeline import (
 from Backend.db import ASRLog, PhonemeError, TTSLog, get_session, init_db
 from Backend.drift_detector import check_drift, record_phoneme_events
 from Backend.error_diagnosis import classify as classify_error_type
+from Backend.error_scores import compute_her, compute_wpr
 from Backend.ingest import router as ingest_router
 from Backend.limiter import limiter
 from Backend.mcp_server import mcp
@@ -162,26 +163,31 @@ async def transcribe(
 
     noise_category = None
     error_type = None
+    wpr = None
+    her = None
+    alignment = None
     if run_diagnostics:
         try:
             noise_category = (await run_in_threadpool(noise_fingerprint, audio, sr))["noise_category"]
         except Exception:
             noise_category = "clean"
-        error_type = classify_error_type(confidence, None, noise_category)
+        wpr = compute_wpr(text)
+        if reference_text and reference_text.strip():
+            alignment = align_phoneme_errors(reference_text, text)
+            her = compute_her(alignment)
+        error_type = classify_error_type(confidence, None, noise_category, her, wpr)
 
     duration_sec = len(audio) / sr if sr else None
     db = get_session()
     log_id = None
-    alignment = None
     try:
-        log = ASRLog(user_id=user_id, transcript=text, duration_sec=duration_sec, model_id=resolved_model)
+        log = ASRLog(user_id=user_id, transcript=text, duration_sec=duration_sec, model_id=resolved_model, wpr=wpr)
         db.add(log)
         db.commit()
         db.refresh(log)
         log_id = log.id
 
-        if reference_text and reference_text.strip():
-            alignment = align_phoneme_errors(reference_text, text)
+        if alignment is not None:
             db.add_all(
                 PhonemeError(
                     transcription_id=log.id,
@@ -198,7 +204,7 @@ async def transcribe(
         db.close()
 
     if log_id is not None and reference_text and reference_text.strip():
-        record_eval_metric(log_id, resolved_model, reference_text, text)
+        record_eval_metric(log_id, resolved_model, reference_text, text, her)
 
     priority_queued = False
     remediation = None
@@ -231,6 +237,8 @@ async def transcribe(
                 "confidence": confidence,
                 "noise_category": noise_category,
                 "error_type": error_type,
+                "wpr": wpr,
+                "her": her,
                 "priority_queued": priority_queued,
                 "remediation": remediation,
             }

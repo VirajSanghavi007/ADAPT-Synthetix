@@ -10,9 +10,8 @@ import { Label } from "@/components/ui/label";
 import Logo from "@/components/Logo";
 
 const DOMAINS = [
-  { value: "medical", label: "Medical" },
+  { value: "non_normative", label: "Non-Normative Speech" },
   { value: "children", label: "Children" },
-  { value: "elderly", label: "Elderly" },
 ];
 
 export default function EnterpriseSignupPage() {
@@ -22,7 +21,7 @@ export default function EnterpriseSignupPage() {
   const [companyName, setCompanyName] = useState("");
   const [role, setRole] = useState("");
   const [employeeId, setEmployeeId] = useState("");
-  const [domain, setDomain] = useState("medical");
+  const [domain, setDomain] = useState("non_normative");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

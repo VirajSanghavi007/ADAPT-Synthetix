@@ -18,7 +18,7 @@ class RegisterRequest(BaseModel):
     company_name: str = Field(..., min_length=1, max_length=200)
     role: str = Field(..., min_length=1, max_length=100)
     employee_id: str = Field(..., min_length=3, max_length=100)
-    domain: str = Field(..., pattern="^(medical|children|elderly)$")
+    domain: str = Field(..., pattern="^(non_normative|children)$")
 
 
 @router.post("/register")

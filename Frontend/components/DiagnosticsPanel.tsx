@@ -6,6 +6,8 @@ export type TranscribeDiagnostics = {
   confidence: number | null;
   noise_category: string | null;
   error_type: string | null;
+  wpr?: number | null;
+  her?: number | null;
   priority_queued: boolean;
   remediation: {
     id: number | null;
@@ -20,6 +22,8 @@ const ERROR_TYPE_LABEL: Record<string, string> = {
   "noise-induced": "Noise-induced",
   "accent-related": "Accent-related",
   "pronunciation-based": "Pronunciation-based",
+  hallucinated: "Hallucinated (HER)",
+  "language-violation": "Language violation (WPR)",
 };
 
 const ERROR_TYPE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -27,6 +31,8 @@ const ERROR_TYPE_VARIANT: Record<string, "default" | "secondary" | "destructive"
   "noise-induced": "outline",
   "accent-related": "outline",
   "pronunciation-based": "destructive",
+  hallucinated: "destructive",
+  "language-violation": "destructive",
 };
 
 function confidenceColor(confidence: number | null): string {
@@ -37,7 +43,7 @@ function confidenceColor(confidence: number | null): string {
 }
 
 export default function DiagnosticsPanel({ diagnostics }: { diagnostics: TranscribeDiagnostics }) {
-  const { confidence, noise_category, error_type, priority_queued, remediation } = diagnostics;
+  const { confidence, noise_category, error_type, wpr, her, priority_queued, remediation } = diagnostics;
   const pct = confidence !== null ? Math.round(confidence * 100) : null;
 
   return (
@@ -71,6 +77,8 @@ export default function DiagnosticsPanel({ diagnostics }: { diagnostics: Transcr
         )}
 
         {priority_queued && <Badge variant="destructive">Flagged for review</Badge>}
+        {typeof her === "number" && her > 0 && <Badge variant="outline">HER {Math.round(her * 100)}%</Badge>}
+        {typeof wpr === "number" && wpr > 0 && <Badge variant="outline">WPR {Math.round(wpr * 100)}%</Badge>}
       </div>
 
       {remediation && (

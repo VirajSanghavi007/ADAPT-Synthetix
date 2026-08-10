@@ -115,6 +115,8 @@ export default function Recorder() {
               confidence: data.confidence ?? null,
               noise_category: data.noise_category ?? null,
               error_type: data.error_type ?? null,
+              wpr: data.wpr ?? null,
+              her: data.her ?? null,
               priority_queued: !!data.priority_queued,
               remediation: data.remediation ?? null,
             }

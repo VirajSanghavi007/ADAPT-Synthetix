@@ -30,7 +30,9 @@ def record_latency(
         db.close()
 
 
-def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypothesis_text: str) -> None:
+def record_eval_metric(
+    asr_log_id: int, model_id: str, reference_text: str, hypothesis_text: str, her: float | None = None
+) -> None:
     if not reference_text.strip() or not hypothesis_text.strip():
         return
     db = get_session()
@@ -41,6 +43,7 @@ def record_eval_metric(asr_log_id: int, model_id: str, reference_text: str, hypo
                 model_id=model_id,
                 wer=compute_wer(reference_text, hypothesis_text),
                 cer=compute_cer(reference_text, hypothesis_text),
+                her=her,
             )
         )
         db.commit()
@@ -58,7 +61,7 @@ def get_metrics(admin: dict = Depends(require_admin)):
             text(
                 """
                 select model_id, date_trunc('day', created_at) as day,
-                       avg(wer) as avg_wer, avg(cer) as avg_cer, count(*) as n
+                       avg(wer) as avg_wer, avg(cer) as avg_cer, avg(her) as avg_her, count(*) as n
                 from eval_metrics
                 group by model_id, day
                 order by model_id, day
@@ -74,7 +77,8 @@ def get_metrics(admin: dict = Depends(require_admin)):
             "day": r[1].isoformat() if r[1] else None,
             "avg_wer": round(r[2], 4),
             "avg_cer": round(r[3], 4),
-            "n": r[4],
+            "avg_her": round(r[4], 4) if r[4] is not None else None,
+            "n": r[5],
         }
         for r in rows
     ]

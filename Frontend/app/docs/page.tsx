@@ -36,7 +36,7 @@ const SECTIONS = [
   {
     icon: Gauge,
     title: "Diagnostics",
-    body: "Free and Enterprise transcriptions come back with a diagnostics panel: per-utterance confidence, background noise classification, an error-type read (accent/pronunciation/noise-related), automatic flagging of domain-critical transcripts for review, and — when a systematic error is detected — a generated corrective audio clip. Pro/Max don't run this yet.",
+    body: "Free and Enterprise transcriptions come back with a diagnostics panel: per-utterance confidence, background noise classification, an error-type read (accent/pronunciation/noise-related/hallucinated/language-violation), a Hallucination Error Rate (HER) and Word/Phone language violation Rate (WPR) alongside WER/CER, automatic flagging of domain-critical transcripts for review, and — when a systematic error is detected — a generated corrective audio clip. Pro/Max don't run this yet.",
   },
   {
     icon: FolderUp,
@@ -121,8 +121,8 @@ export default function DocsHomePage() {
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <p className="text-sm text-muted">
-            One-time setup, full model catalog, and a domain pipeline — Medical, Children, or
-            Elderly — chosen at signup. Different login flow too.
+            One-time setup, full model catalog, and a domain pipeline — Non-Normative Speech or
+            Children — chosen at signup. Different login flow too.
           </p>
           <Link
             href="/docs/enterprise"

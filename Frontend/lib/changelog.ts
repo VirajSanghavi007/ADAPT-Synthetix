@@ -12,7 +12,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "5.6.0",
     date: "2026-08-09",
     whatsNew: [
-      "Enterprise mode now splits into three domain pipelines — Medical, Children, Elderly — chosen at signup, each with its own priority-terms and diagnostic routing",
+      "Enterprise mode now splits into domain pipelines — Non-Normative Speech, Children — chosen at signup, each with its own priority-terms and diagnostic routing",
       "New landing screen: regular sign-in, enterprise sign-in, or a sample demo per enterprise domain (no account needed)",
       "Architecture docs — ER diagram, tech stack, system architecture, deployment topology, and the user journey, all in one page",
       "Repo-wide reorganization (Frontend/, Docker/, Documentation/, Secret Files/) and a no-comments policy for all new code",

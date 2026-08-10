@@ -9,9 +9,8 @@ import Logo from "@/components/Logo";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 const DEMO_DOMAINS = [
-  { value: "medical", label: "Medical" },
+  { value: "non_normative", label: "Non-Normative Speech" },
   { value: "children", label: "Children" },
-  { value: "elderly", label: "Elderly" },
 ];
 
 export default function Home() {

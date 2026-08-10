@@ -3,7 +3,7 @@ from __future__ import annotations
 from Backend.db import get_session
 from Backend.priority_queue import EMERGENCY_TERMS, MEDICAL_TERMS
 
-DOMAINS = ("medical", "children", "elderly")
+DOMAINS = ("non_normative", "children")
 
 CHILDREN_TERMS = {
     "hurt", "hurts", "scared", "help me", "lost", "stranger", "bathroom",
@@ -12,17 +12,9 @@ CHILDREN_TERMS = {
     "stomach hurts", "fire drill", "locked out",
 }
 
-ELDERLY_TERMS = {
-    "fell", "fell down", "can't get up", "dizzy", "dizziness", "confused",
-    "disoriented", "chest pain", "medication", "pills", "missed my dose",
-    "shortness of breath", "weak", "numbness", "can't move", "alone",
-    "help me", "pain", "memory", "forgot", "lost", "heart", "stroke",
-}
-
 DOMAIN_TERMS: dict[str, set[str]] = {
-    "medical": MEDICAL_TERMS | EMERGENCY_TERMS,
+    "non_normative": MEDICAL_TERMS | EMERGENCY_TERMS,
     "children": CHILDREN_TERMS,
-    "elderly": ELDERLY_TERMS | EMERGENCY_TERMS,
 }
 
 
