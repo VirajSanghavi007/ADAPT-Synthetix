@@ -48,7 +48,7 @@ export default function Waveform() {
       rect.setAttribute('x', i * BAR_WIDTH + BAR_WIDTH * 0.2)
       rect.setAttribute('width', BAR_WIDTH * 0.6)
       rect.setAttribute('rx', BAR_WIDTH * 0.3)
-      rect.setAttribute('fill', 'var(--color-noise)')
+      rect.setAttribute('fill', '#3b4b6b')
       svg.appendChild(rect)
       bars.push(rect)
     }
@@ -105,7 +105,7 @@ export default function Waveform() {
   }, [])
 
   return (
-    <div className="mb-10 flex h-[140px] items-center justify-center">
+    <div className="mb-2 flex h-[140px] items-center justify-center">
       <svg
         ref={svgRef}
         className="overflow-visible"
