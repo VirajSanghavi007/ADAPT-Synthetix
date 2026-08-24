@@ -4,8 +4,9 @@
 
 .flow-track {
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius);
   background: var(--surface2);
+  box-shadow: var(--shadow-sm);
 }
 
 .track-label {
@@ -29,6 +30,12 @@
   min-width: 210px;
   padding: 28px 24px;
   position: relative;
+  transition: background 0.25s var(--ease);
+  border-radius: 10px;
+}
+
+.flow-step:hover {
+  background: var(--surface);
 }
 
 .flow-step:not(:last-child)::after {
