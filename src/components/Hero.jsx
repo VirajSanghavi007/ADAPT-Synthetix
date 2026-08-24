@@ -3,6 +3,10 @@ import Waveform from './Waveform.jsx'
 export default function Hero() {
   return (
     <section className="wrap relative py-16 pb-24 text-center">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-signal/10 blur-[120px]"
+      />
       <Waveform />
       <div className="mb-5 font-mono text-xs uppercase tracking-[0.14em] text-signal">
         Speech recognition, retrained for real voices
