@@ -1,18 +1,25 @@
-:root {
-  --bg: #0e1826;
-  --surface: #152238;
-  --surface2: #16263b;
-  --signal: #e8a33d;
-  --signal-soft: #e8a33d33;
-  --noise: #4a5c72;
-  --text: #eef1f5;
-  --text-muted: #93a2b5;
-  --line: #26374f;
-  --radius: 14px;
-  --ring: #e8a33d80;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
-  --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0e1826;
+  --color-surface: #152238;
+  --color-surface2: #16263b;
+  --color-signal: #e8a33d;
+  --color-signal-soft: #e8a33d33;
+  --color-noise: #4a5c72;
+  --color-text: #eef1f5;
+  --color-text-muted: #93a2b5;
+  --color-line: #26374f;
+
+  --font-serif: 'Newsreader', ui-serif, serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+
+  --radius-card: 14px;
+
+  --shadow-card: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -26,9 +33,9 @@ html {
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Newsreader', serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-serif);
   line-height: 1.5;
   overflow-x: hidden;
 }
@@ -46,42 +53,40 @@ a {
 }
 
 ::selection {
-  background: var(--signal-soft);
-  color: var(--text);
+  background: var(--color-signal-soft);
+  color: var(--color-text);
 }
 
-.wrap {
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 3px;
+}
+
+@utility wrap {
   max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 32px;
+  margin-inline: auto;
+  padding-inline: 32px;
+
+  @media (max-width: 720px) {
+    padding-inline: 20px;
+  }
 }
 
-.section-label {
-  font-family: 'Space Mono', monospace;
+@utility section-label {
+  font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 40px;
-}
 
-.section-label::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
-
-:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 3px;
-}
-
-@media (max-width: 720px) {
-  .wrap {
-    padding: 0 20px;
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-line);
   }
 }

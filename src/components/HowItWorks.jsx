@@ -1,5 +1,3 @@
-import './HowItWorks.css'
-
 const STEPS = [
   {
     num: 'IN',
@@ -24,22 +22,42 @@ const STEPS = [
   {
     num: 'OUT',
     title: 'Model improves',
-    body: 'Confirmed feedback \u2014 not raw model output \u2014 retrains the system.',
+    body: 'Confirmed feedback — not raw model output — retrains the system.',
   },
 ]
 
 export default function HowItWorks() {
   return (
-    <section className="how wrap">
+    <section className="wrap py-10 pb-[100px]">
       <div className="section-label">How it works</div>
-      <div className="flow-track">
-        <div className="track-label">Signal path</div>
-        <div className="flow">
-          {STEPS.map((step) => (
-            <div className="flow-step" key={step.num}>
-              <div className="flow-num">{step.num}</div>
-              <h4>{step.title}</h4>
-              <p>{step.body}</p>
+      <div className="rounded-card border border-line bg-surface2 shadow-card">
+        <div className="px-6 pt-4 font-mono text-[11px] tracking-wider text-signal">
+          Signal path
+        </div>
+        <div className="flex items-stretch gap-0 overflow-x-auto pb-2 max-md:flex-col">
+          {STEPS.map((step, i) => (
+            <div
+              className="relative min-w-[210px] flex-1 rounded-[10px] p-7 px-6 transition-colors duration-250 ease-out-quart hover:bg-surface"
+              key={step.num}
+            >
+              <div className="mb-3.5 font-mono text-[11px] tracking-wider text-text-muted">
+                {step.num}
+              </div>
+              <h4 className="mb-2 font-display text-base font-semibold text-text">
+                {step.title}
+              </h4>
+              <p className="text-[13.5px] leading-relaxed text-text-muted">
+                {step.body}
+              </p>
+              {i < STEPS.length - 1 && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute right-[-4px] top-1/2 z-10 -translate-y-1/2 text-lg text-noise max-md:bottom-[-14px] max-md:right-6 max-md:top-auto max-md:translate-y-0"
+                >
+                  <span className="max-md:hidden">&#8594;</span>
+                  <span className="hidden max-md:inline">&#8595;</span>
+                </span>
+              )}
             </div>
           ))}
         </div>
