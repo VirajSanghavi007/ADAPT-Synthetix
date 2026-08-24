@@ -1,5 +1,3 @@
-import './WhyItMatters.css'
-
 const REASONS = [
   {
     title: 'Built for the speech others ignore',
@@ -7,7 +5,7 @@ const REASONS = [
   },
   {
     title: 'Nothing hidden in the correction',
-    body: 'You can see why the model changed a word \u2014 confidence, error type, and alternatives are all visible, not buried in a black box.',
+    body: 'You can see why the model changed a word — confidence, error type, and alternatives are all visible, not buried in a black box.',
   },
   {
     title: 'Grounded in real human judgment',
@@ -21,26 +19,35 @@ const REASONS = [
 
 export default function WhyItMatters() {
   return (
-    <section className="why wrap">
-      <div className="section-label">Why it matters</div>
-      <div className="why-grid">
-        <div className="why-lead">
-          <p>
-            Every day, voice assistants, call centers, and dictation tools
-            mishear millions of people simply because their speech doesn't
-            match what these systems were trained on. That isn't a small bug
-            &mdash; it's a wall between real people and the technology
-            everyone else takes for granted.
-          </p>
+    <section className="bg-paper py-20">
+      <div className="wrap">
+        <div className="eyebrow mb-3 text-signal-ink">Why it matters</div>
+        <div className="grid grid-cols-1 gap-10 border-t border-line pt-10 md:grid-cols-[0.85fr_1.15fr] md:gap-14">
+          <div>
+            <p className="font-serif text-[21px] font-normal leading-[1.45] text-ink md:text-[26px]">
+              Every day, voice assistants, call centers, and dictation tools
+              mishear millions of people simply because their speech doesn't
+              match what these systems were trained on. That isn't a small
+              bug — it's a wall between real people and the technology
+              everyone else takes for granted.
+            </p>
+          </div>
+          <ul className="flex list-none flex-col gap-7">
+            {REASONS.map((reason) => (
+              <li
+                className="border-l-2 border-line pl-5 transition-colors duration-250 ease-out-quart hover:border-signal"
+                key={reason.title}
+              >
+                <h4 className="mb-1.5 font-display text-[17px] font-semibold text-ink">
+                  {reason.title}
+                </h4>
+                <p className="text-[14.5px] leading-relaxed text-ink-muted">
+                  {reason.body}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="why-list">
-          {REASONS.map((reason) => (
-            <li key={reason.title}>
-              <h4>{reason.title}</h4>
-              <p>{reason.body}</p>
-            </li>
-          ))}
-        </ul>
       </div>
     </section>
   )
